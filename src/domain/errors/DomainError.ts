@@ -50,3 +50,12 @@ export class PolicyViolationError extends DomainError {
 export class InvariantViolationError extends DomainError {
   readonly code = "INVARIANT_VIOLATION";
 }
+
+/** La versión o la huella que presenta el pagador no coincide con el plan vigente (HTTP 409). */
+export class ConsentMismatchError extends DomainError {
+  readonly code = "VERSION_CONFLICT";
+
+  constructor(message = "La versión o la huella no coinciden con el plan vigente") {
+    super(message);
+  }
+}
