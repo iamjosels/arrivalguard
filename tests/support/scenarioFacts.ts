@@ -3,6 +3,7 @@ import type { TuitionRoutingFacts } from "@/domain/policy/PolicyEngine";
 import type { RouteQuote } from "@/domain/policy/RouteQuote";
 import { VirtualInstant } from "@/domain/time/Instant";
 import { getScenario } from "@/infrastructure/scenarios/definitions";
+import { tuitionQuotes as scenarioTuitionQuotes } from "@/infrastructure/scenarios/scenarioQuotes";
 import type { ScenarioDefinition, ScenarioId } from "@/infrastructure/scenarios/types";
 
 // Arma hechos de dominio a partir de la configuración de escenarios, para que las pruebas usen los mismos números.
@@ -18,18 +19,7 @@ export function startOf(scenario: ScenarioDefinition): VirtualInstant {
 }
 
 export function tuitionQuotes(scenario: ScenarioDefinition, now: VirtualInstant): RouteQuote[] {
-  return scenario.tuitionRoutes.map((route) => ({
-    quoteId: `q-${route.routeId}`,
-    routeId: route.routeId,
-    channel: route.channel,
-    receiverId: route.receiver === "UNIVERSITY" ? UNIVERSITY_RECIPIENT : OTHER_RECIPIENT,
-    debit: usd(route.debitUsd),
-    net: cny(route.netCny),
-    arrivalMinutes: route.arrivalHours * 60,
-    quotedAt: now,
-    expiresAt: now.plusMinutes(scenario.quoteValidityMinutes),
-    providerMessage: null,
-  }));
+  return scenarioTuitionQuotes(scenario, { university: UNIVERSITY_RECIPIENT, unverifiedAgent: OTHER_RECIPIENT }, now);
 }
 
 export interface TuitionFactsOptions {

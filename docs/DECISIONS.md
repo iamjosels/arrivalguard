@@ -75,3 +75,20 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Fecha:** domingo 18 de octubre, 17:53 (Lima). **Fuente:** `pnpm ai:check` y `docs/evidence/phase0-ai-check.json`.
 - **Resultado:** con la configuración 13.1 y una herramienta `strict`, la primera llamada devolvió `tool_use` (`get_case_overview`). La segunda, con el contenido del asistente reenviado literal y el `tool_result`, devolvió `end_turn`. Uso: 487 + 591 tokens de entrada y 38 + 160 de salida.
 - **Observación para la Fase 5:** el modelo citó "2,000,000 minor units" porque el resultado de la herramienta traía `minor`. Las herramientas del agente devuelven montos como decimales con código de moneda (`CNY 20,000.00`), nunca unidades menores.
+
+## DEC-012. Decisiones de dominio de la Fase 1
+
+- **Fecha:** domingo 18 de octubre, 18:25 (Lima). **Fuente:** BUILD_PROMPT 6, 8 y enmiendas A1 a A3. Cada punto tiene pruebas en `tests/unit/domain`.
+- **Canales aceptados:** la universidad acepta los cinco canales de matrícula siempre que el dinero llegue a su cuenta registrada. Así la ruta E se descarta solo por `RECEIVER_NOT_ALLOWED`, como dice la tabla 6.2. `CHANNEL_NOT_ALLOWED` existe y está probado con una lista de canales más corta.
+- **Reserva frente a fondos:** `INSUFFICIENT_FUNDS` cuando el débito supera lo que puede salir de la cuenta (saldo menos retenciones activas). `BREAKS_RESERVE` cuando el débito tocaría dinero apartado (`availableForTuition`) o dejaría el saldo bajo la reserva mínima del pagador.
+- **Máximo efectivo:** al ejecutar o recotizar se usa el menor entre el máximo aprobado y el vigente del pagador, y la mayor de las dos reservas. Un pagador que baja su máximo después de aprobar siempre gana.
+- **Llegada:** se calcula desde la hora virtual actual más el plazo de la ruta. El objetivo de la estudiante no puede ser posterior al vencimiento (`TARGET_LATER_THAN_DUE_DATE`).
+- **Recotización (A3):** B se recotiza a USD 2,865.00 por defecto y a USD 2,905.00 con `REQUOTE_ABOVE_MAX` (spec). Para las otras rutas el spec no fija valor; se usa el débito original más USD 5.00 (A 2,825.00, C 2,845.00, D 2,885.00, E 2,835.00).
+- **Versiones del plan:** un plan tiene un id fijo y versiones numeradas; cada versión es una fila. Las aprobaciones se ligan a (id, versión, huella). Re-planificar sin cambio material (por ejemplo, otro objetivo que mantiene la misma ruta) conserva la versión. Con cambio material se crea una versión nueva y la aprobación anterior queda `INVALIDATED` con los campos que cambiaron.
+- **Vigencia en la huella:** `approvalExpiresAt` se fija al pedir la aprobación: mínimo entre la hora virtual de la solicitud más 24 h y el vencimiento de la obligación. Así la huella que ve el pagador es la misma que verifica el servidor.
+- **Mandato:** sin mandato vigente (revocado, vencido o para otro destinatario) no hay ejecución autónoma; la remesa pide una aprobación puntual del pagador con la razón (`MANDATE_REVOKED`, `MANDATE_EXPIRED` o `MANDATE_MISSING`). Período móvil: ventana (ahora menos N días, ahora].
+- **Destinatario de remesas:** una cuenta que todavía no abre no se puede verificar, así que solo se informa `RECIPIENT_ACCOUNT_NOT_OPEN` (N18). Una cuenta abierta sin verificar da `RECIPIENT_NOT_VERIFIED` (S15).
+- **Canales de remesa:** el spec no los nombra; se usan `LOCAL_TRANSFER_STANDARD` (R1), `LOCAL_TRANSFER_INSTANT` (R2) y `FX_BROKER_FAST` (R3).
+- **Hora virtual inicial:** `2026-10-20T09:00:00Z`, que se muestra como "Tue 20 Oct, 09:00 virtual time". La hora virtual se muestra en UTC con el rótulo *virtual time*.
+- **Escenario `overpayment_refund`:** el spec no fija el saldo; se usa USD 2,140.00 (como si la matrícula ya se hubiera pagado). La devolución de USD 70.00 se abona a la cuenta de origen.
+- **Formato:** `formatMoney` vive en `src/interfaces/format/money.ts`, porque lo usan la interfaz y los resultados de herramientas del agente. Nunca usa punto flotante (UI_UX 6.3).
