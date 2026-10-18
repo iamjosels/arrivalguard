@@ -44,3 +44,34 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 
 - **Fecha:** domingo 18 de octubre, 17:40 (Lima). **Fuente:** aviso de `pg` 8.23 durante la verificación previa.
 - **Decisión:** se usan las cadenas tal como las entrega Neon (`sslmode=require`). `pg` 8.x trata hoy `require` como `verify-full`, que es lo más estricto, y avisa que en `pg` 9 pasará a la semántica de libpq, que es más débil. En la Fase 0 se fija `pg` 8.x en el lockfile. Si se migra a `pg` 9, se cambia a `sslmode=verify-full` para no perder la verificación del certificado.
+
+## DEC-007. Versiones de la base técnica (Fase 0)
+
+- **Fecha:** domingo 18 de octubre, 17:50 (Lima). **Fuente:** `npm view` y dependencias pares de cada paquete.
+- **Decisión:** versiones exactas en `package.json` y en el lockfile. Next.js 16.4.2 (App Router, Turbopack), React 19.3.1, Tailwind CSS 4.3.3, Drizzle ORM 0.45.4 con drizzle-kit 0.31.11, `pg` 8.23.1, Zod 4.6.7, `@anthropic-ai/sdk` 0.135.0, Vitest 5.0.5 con Vite 8.3.4 y tsx 4.23.15.
+- **TypeScript 6.0.3, no 7.0.2:** typescript-eslint 8.71.2 exige `typescript <6.1.0`, y la 7 es el compilador nativo nuevo, que todavía no admite. En TS 6 `types` vale `[]` por defecto, así que `tsconfig.json` declara `"types": ["node"]`.
+- **ESLint 9.39.5, no 10:** eslint-config-next admite ESLint 9 y 10, pero la 9 es la que comparte todo el ecosistema de complementos.
+- **pnpm 12 y cadena de suministro:** pnpm 12 aplica una antigüedad mínima de publicación y bloquea scripts de instalación. Se eligieron `postcss@8.5.30` y `shadcn@4.21.5` (de hace 6 y 4 días) en lugar de las publicadas hoy, para no agregar excepciones. `pnpm-workspace.yaml` permite solo los scripts de `esbuild` y `unrs-resolver` (binarios nativos).
+- **Instalación en Vercel:** `vercel.json` fija `installCommand` en `npm install -g pnpm@12.14.0 && pnpm install --frozen-lockfile`, para que Vercel use la misma versión de pnpm que el lockfile. No depende de variables de entorno nuevas.
+
+## DEC-008. Precios oficiales de Claude Sonnet 5.5 (reemplaza la nota de precios de DEC-005)
+
+- **Fecha:** domingo 18 de octubre, 17:54 (Lima). **Fuente:** https://platform.claude.com/docs/en/about-claude/pricing, leída hoy.
+- **Valores por defecto** en `src/infrastructure/config/env.ts` (una variable de entorno los reemplaza): entrada USD 2.00, salida USD 10.00, lectura de caché USD 0.10 (0.05 veces la entrada para Sonnet 5.5) y escritura de caché a 5 minutos USD 2.50, todo por millón de tokens. La caché de 1 hora (USD 4.00) no se usa.
+- La referencia en caché de DEC-005 decía USD 0.20 para la lectura de caché. Se corrigió con la página oficial.
+
+## DEC-009. `sslmode` normalizado a `verify-full` en el código (ajusta DEC-006)
+
+- **Fecha:** domingo 18 de octubre, 17:52 (Lima).
+- **Decisión:** en lugar de fijar `pg` 8 y convivir con el aviso, `normalizeSslMode()` (`src/infrastructure/db/connection.ts`) reescribe `sslmode=require|prefer|verify-ca` como `verify-full` al crear el pool, el cliente de migraciones y la configuración de drizzle-kit. Es el comportamiento actual de `pg` 8, se mantiene con `pg` 9 y no requiere cambiar las cadenas cargadas por los humanos. Tiene pruebas unitarias.
+
+## DEC-010. Alcance de `smoke` en la Fase 0
+
+- **Fecha:** domingo 18 de octubre, 17:55 (Lima). **Fuente:** BUILD_PROMPT 17 y AUTONOMIA 4.
+- **Decisión:** en la Fase 0 todavía no existen T1 ni el modo estructurado. `pnpm smoke --base-url <url>` comprueba `GET /api/health` (servicio y base de datos en `ok`) y que la página principal muestre la banda de simulación. Cuando exista T1 en modo estructurado (Fases 2 y 3), `smoke` crea un espacio de evaluación, corre T1 y exige `CREDITED`. El cierre final (objetivo, punto 3) usa esa versión completa.
+
+## DEC-011. Prueba real de Claude de la Fase 0
+
+- **Fecha:** domingo 18 de octubre, 17:53 (Lima). **Fuente:** `pnpm ai:check` y `docs/evidence/phase0-ai-check.json`.
+- **Resultado:** con la configuración 13.1 y una herramienta `strict`, la primera llamada devolvió `tool_use` (`get_case_overview`). La segunda, con el contenido del asistente reenviado literal y el `tool_result`, devolvió `end_turn`. Uso: 487 + 591 tokens de entrada y 38 + 160 de salida.
+- **Observación para la Fase 5:** el modelo citó "2,000,000 minor units" porque el resultado de la herramienta traía `minor`. Las herramientas del agente devuelven montos como decimales con código de moneda (`CNY 20,000.00`), nunca unidades menores.

@@ -22,3 +22,6 @@ playwright-report/
 
 # Documentos personales de la inscripción: no van en esta carpeta
 inscripcion/
+
+# Generado por Next.js (next typegen / next build)
+next-env.d.ts
