@@ -19,7 +19,9 @@ const hasher = new NodeHasher();
 const start = VirtualInstant.fromISO("2026-10-20T09:00:00.000Z");
 const due = start.plusHours(48);
 
-function payload(overrides: Partial<Parameters<typeof buildTuitionApprovalPayload>[0]> = {}): TuitionApprovalPayload {
+type PayloadInput = Parameters<typeof buildTuitionApprovalPayload>[0];
+
+function payload(overrides: Partial<PayloadInput> = {}): TuitionApprovalPayload {
   return buildTuitionApprovalPayload({
     workspaceId: "ws-1",
     obligationId: "obl-1",
@@ -41,21 +43,14 @@ function payload(overrides: Partial<Parameters<typeof buildTuitionApprovalPayloa
   });
 }
 
-function grant(p: TuitionApprovalPayload = payload(), presented = fingerprintOf(p, hasher)) {
+function grant(p: TuitionApprovalPayload = payload(), presented = fingerprintOf(p, hasher), now = start) {
   return Approval.grant({
     id: "apr-1",
-    workspaceId: "ws-1",
-    subjectType: "TUITION_PLAN",
-    subjectId: p.planId,
-    subjectVersion: p.planVersion,
     payerActorId: "act-payer",
-    payload: p,
+    signed: { subjectType: "TUITION_PLAN", payload: p },
     presentedFingerprint: presented,
     hasher,
-    now: start,
-    maxDebit: usd("2900.00"),
-    reserve: usd("1800.00"),
-    expiresAt: VirtualInstant.fromISO(p.approvalExpiresAt),
+    now,
   });
 }
 
@@ -75,6 +70,14 @@ describe("JSON canónico (BUILD_PROMPT 8.4)", () => {
 });
 
 describe("Huella de consentimiento (VC3)", () => {
+  it("NodeHasher es SHA-256: vector conocido de 'abc'", () => {
+    expect(hasher.sha256Hex("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  });
+
+  it("huella dorada del payload base: cambiar el algoritmo o la forma canónica rompe esta prueba", () => {
+    expect(fingerprintOf(payload(), hasher)).toBe("23f20aca3178593b737301ab70a5ae85d2c24ccd3a2b5da20a9a95001a19dd88");
+  });
+
   it("el payload tiene exactamente los 16 campos de la sección 8.4, con dinero como {currency, minor}", () => {
     const p = payload();
     expect(Object.keys(p).sort()).toEqual([...TUITION_APPROVAL_FIELDS].sort());
@@ -83,18 +86,16 @@ describe("Huella de consentimiento (VC3)", () => {
     expect(p.approvalExpiresAt).toBe("2026-10-21T09:00:00.000Z");
   });
 
-  it("es SHA-256 hexadecimal y estable para el mismo payload canónico", () => {
+  it("es estable para el mismo payload canónico", () => {
     const a = fingerprintOf(payload(), hasher);
-    const b = fingerprintOf(payload(), hasher);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
-    expect(a).toBe(b);
-    expect(a).toBe(hasher.sha256Hex(canonicalJson(payload())));
-    expect(fingerprintPrefix(a)).toBe(a.slice(0, 8));
+    expect(a).toBe(fingerprintOf(payload(), hasher));
+    expect(fingerprintPrefix(a)).toBe("23f20aca");
   });
 
   it("cambia ante cualquier cambio material de cualquiera de los 16 campos", () => {
     const original = fingerprintOf(payload(), hasher);
-    const changes: Partial<Parameters<typeof buildTuitionApprovalPayload>[0]>[] = [
+    const changes: Partial<PayloadInput>[] = [
       { workspaceId: "ws-2" },
       { obligationId: "obl-2" },
       { obligationVersion: 2 },
@@ -123,7 +124,7 @@ describe("Huella de consentimiento (VC3)", () => {
   });
 
   it("la misma cifra en otra moneda da otra huella", () => {
-    expect(fingerprintOf(payload({ proposedDebit: Money2("CNY", "2860.00") }), hasher)).not.toBe(fingerprintOf(payload(), hasher));
+    expect(fingerprintOf(payload({ proposedDebit: cny("2860.00") }), hasher)).not.toBe(fingerprintOf(payload(), hasher));
   });
 });
 
@@ -132,6 +133,26 @@ describe("Aprobación ligada a plan, versión y huella (VC3)", () => {
     expect(grant().status).toBe("ACTIVE");
     expect(() => grant(payload(), "0".repeat(64))).toThrow(ConsentMismatchError);
     expect(() => grant(payload(), fingerprintOf(payload({ planVersion: 2 }), hasher))).toThrow(ConsentMismatchError);
+  });
+
+  it("sujeto, versión, espacio, vencimiento, máximo y reserva salen del payload firmado (VC3-1)", () => {
+    const signed = payload({ planId: "plan-7", planVersion: 3, approvalExpiresAt: start.plusHours(10), maxDebit: usd("2950.00"), reserve: usd("1700.00") });
+    const approval = grant(signed);
+    expect(approval.subjectId).toBe("plan-7");
+    expect(approval.subjectVersion).toBe(3);
+    expect(approval.workspaceId).toBe("ws-1");
+    expect(approval.expiresAt.toISOString()).toBe(start.plusHours(10).toISOString());
+    expect(approval.maxDebit.toDecimalString()).toBe("2950.00");
+    expect(approval.reserve.toDecimalString()).toBe("1700.00");
+    expect(approval.signedTuitionPayload(hasher)).toEqual(signed);
+  });
+
+  it("detecta un payload guardado alterado: la huella ya no coincide", () => {
+    const approval = grant();
+    const tampered = Approval.rehydrate({ ...approval.toProps(), canonicalPayload: { ...payload(), maxDebit: { currency: "USD", minor: "300000" } } });
+    expect(tampered.signedTuitionPayload(hasher)).toBeNull();
+    const mismatchedSubject = Approval.rehydrate({ ...approval.toProps(), subjectVersion: 9 });
+    expect(mismatchedSubject.signedTuitionPayload(hasher)).toBeNull();
   });
 
   it("vale solo para su planId, su planVersion y su huella", () => {
@@ -185,22 +206,22 @@ describe("Aprobación ligada a plan, versión y huella (VC3)", () => {
 });
 
 describe("Alcance A3: recotizar la misma ruta dentro de la aprobación (VC3)", () => {
-  const approved = payload();
   const facts = tuitionFacts("base");
   const b = facts.quotes.find((q) => q.routeId === "B")!;
   const now = start.plusMinutes(20);
   const requote = (debit: string, extra: Partial<typeof b> = {}) => ({ ...b, quoteId: "q-B-2", debit: usd(debit), quotedAt: now, expiresAt: now.plusMinutes(15), ...extra });
-  const base = {
-    approved,
+  const base = () => ({
+    approval: grant(),
+    hasher,
     funds: facts.funds,
     currentPolicy: facts.policy,
     committedToObligation: usd("0.00"),
     now,
     targetArrivalAt: start.plusHours(48),
-  };
+  });
 
   it("con USD 2,865.00 ejecuta sin nueva aprobación y registra débito anterior y nuevo", () => {
-    const result = checkRequoteWithinApproval({ ...base, newQuote: requote("2865.00") });
+    const result = checkRequoteWithinApproval({ ...base(), newQuote: requote("2865.00") });
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.previousDebit.toDecimalString()).toBe("2860.00");
@@ -209,42 +230,76 @@ describe("Alcance A3: recotizar la misma ruta dentro de la aprobación (VC3)", (
   });
 
   it("con USD 2,905.00 (REQUOTE_ABOVE_MAX) bloquea con EXCEEDS_PAYER_MAX", () => {
-    const result = checkRequoteWithinApproval({ ...base, newQuote: requote("2905.00") });
-    expect(result).toEqual({ allowed: false, reasons: ["EXCEEDS_PAYER_MAX"] });
+    expect(checkRequoteWithinApproval({ ...base(), newQuote: requote("2905.00") })).toEqual({ allowed: false, reasons: ["EXCEEDS_PAYER_MAX"] });
   });
 
   it("bloquea con BREAKS_RESERVE si el nuevo débito rompe la reserva", () => {
-    const result = checkRequoteWithinApproval({ ...base, funds: { ...base.funds, balance: usd("4660.00") }, newQuote: requote("2865.00") });
-    expect(result).toEqual({ allowed: false, reasons: ["BREAKS_RESERVE"] });
+    const input = base();
+    expect(checkRequoteWithinApproval({ ...input, funds: { ...input.funds, balance: usd("4660.00") }, newQuote: requote("2865.00") })).toEqual({
+      allowed: false,
+      reasons: ["BREAKS_RESERVE"],
+    });
   });
 
-  it("usa el menor entre el máximo aprobado y el máximo vigente del pagador", () => {
-    const result = checkRequoteWithinApproval({
-      ...base,
-      currentPolicy: { ...base.currentPolicy, maxTuitionDebit: usd("2862.00") },
-      newQuote: requote("2865.00"),
-    });
+  it("si el pagador bajó su máximo, gana el vigente (más estricto)", () => {
+    const input = base();
+    const result = checkRequoteWithinApproval({ ...input, currentPolicy: { ...input.currentPolicy, maxTuitionDebit: usd("2862.00") }, newQuote: requote("2865.00") });
     expect(result).toEqual({ allowed: false, reasons: ["EXCEEDS_PAYER_MAX"] });
+  });
+
+  it("si el pagador subió su máximo después de aprobar, sigue mandando el máximo aprobado (VC3-4)", () => {
+    const input = base();
+    const result = checkRequoteWithinApproval({ ...input, currentPolicy: { ...input.currentPolicy, maxTuitionDebit: usd("3500.00") }, newQuote: requote("2950.00") });
+    expect(result).toEqual({ allowed: false, reasons: ["EXCEEDS_PAYER_MAX"] });
+  });
+
+  it("la reserva efectiva es la mayor entre la aprobada y la vigente (VC3-4)", () => {
+    // Saldo 5,000 sin dinero apartado. Débito 2,865 deja 2,135.
+    const funds = { balance: usd("5000.00"), earmarkedRemaining: usd("0.00"), activeHolds: usd("0.00") };
+    const higherCurrent = checkRequoteWithinApproval({ ...base(), funds, currentPolicy: { maxTuitionDebit: usd("2900.00"), reserve: usd("2200.00") }, newQuote: requote("2865.00") });
+    expect(higherCurrent).toEqual({ allowed: false, reasons: ["BREAKS_RESERVE"] });
+    const approvedHigher = grant(payload({ reserve: usd("2200.00") }));
+    const higherApproved = checkRequoteWithinApproval({ ...base(), approval: approvedHigher, funds, currentPolicy: { maxTuitionDebit: usd("2900.00"), reserve: usd("1800.00") }, newQuote: requote("2865.00") });
+    expect(higherApproved).toEqual({ allowed: false, reasons: ["BREAKS_RESERVE"] });
   });
 
   it("no cubre otra ruta, otro canal, otro receptor ni otro neto", () => {
     for (const change of [{ routeId: "D" }, { channel: "EXPRESS_EDU" }, { receiverId: "rcp-other" }, { net: cny("19999.00") }]) {
-      const result = checkRequoteWithinApproval({ ...base, newQuote: requote("2860.00", change) });
+      const result = checkRequoteWithinApproval({ ...base(), newQuote: requote("2860.00", change) });
       expect(result, JSON.stringify(change)).toEqual({ allowed: false, reasons: ["APPROVAL_INVALID"] });
     }
+  });
+
+  it("no recotiza bajo una aprobación vencida o revocada, ni con una cotización nueva vencida (VC3-3)", () => {
+    const late = start.plusHours(30);
+    expect(checkRequoteWithinApproval({ ...base(), now: late, targetArrivalAt: late.plusHours(18), newQuote: requote("2865.00", { quotedAt: late, expiresAt: late.plusMinutes(15) }) })).toEqual({
+      allowed: false,
+      reasons: ["APPROVAL_EXPIRED"],
+    });
+    const revoked = grant();
+    revoked.revoke();
+    expect(checkRequoteWithinApproval({ ...base(), approval: revoked, newQuote: requote("2865.00") })).toEqual({ allowed: false, reasons: ["APPROVAL_REVOKED"] });
+    expect(checkRequoteWithinApproval({ ...base(), newQuote: requote("2865.00", { expiresAt: now }) })).toEqual({ allowed: false, reasons: ["QUOTE_EXPIRED"] });
+  });
+
+  it("no acepta una aprobación cuyo payload guardado fue alterado", () => {
+    const tampered = Approval.rehydrate({ ...grant().toProps(), canonicalPayload: { ...payload(), maxDebit: { currency: "USD", minor: "300000" } } });
+    expect(checkRequoteWithinApproval({ ...base(), approval: tampered, newQuote: requote("2950.00") })).toEqual({ allowed: false, reasons: ["APPROVAL_INVALID"] });
   });
 });
 
 describe("Cambios materiales (BUILD_PROMPT 8.4)", () => {
-  it("cambiar solo el objetivo sin cambiar de ruta no es un cambio material", () => {
-    expect(materialChanges(payload(), payload({ planVersion: 1 }))).toEqual([]);
+  it("los campos que no son materiales (cotización, débito propuesto, límites, vigencia) no cuentan", () => {
+    expect(materialChanges(payload(), payload({ quoteId: "q-B-2", proposedDebit: usd("2865.00"), maxDebit: usd("3000.00"), approvalExpiresAt: start.plusHours(20) }))).toEqual([]);
   });
 
-  it("cambiar de ruta, receptor, neto, cuenta u obligación sí lo es", () => {
+  it("cambiar de ruta, receptor, neto, cuenta, obligación o referencia sí lo es", () => {
     expect(materialChanges(payload(), payload({ routeId: "D", channel: "EXPRESS_EDU" }))).toEqual(["routeId", "channel"]);
     expect(materialChanges(payload(), payload({ netAmount: cny("19800.00") }))).toEqual(["netAmount"]);
+    expect(materialChanges(payload(), payload({ netAmount: usd("20000.00") }))).toEqual(["netAmount"]);
     expect(materialChanges(payload(), payload({ obligationVersion: 2 }))).toEqual(["obligationVersion"]);
     expect(materialChanges(payload(), payload({ sourceAccountId: "acc-2", receiverId: "rcp-2" }))).toEqual(["receiverId", "sourceAccountId"]);
+    expect(materialChanges(payload(), payload({ reference: "AG-STUDENT-02" }))).toEqual(["reference"]);
   });
 
   it("un cambio de política que el plan ya no cumple invalida (N11); uno que sí cumple, no", () => {
@@ -254,7 +309,3 @@ describe("Cambios materiales (BUILD_PROMPT 8.4)", () => {
     expect(policyChangeReasons(payload(), { maxTuitionDebit: usd("2900.00"), reserve: usd("2200.00") }, facts.funds, usd("0.00"))).toEqual(["BREAKS_RESERVE"]);
   });
 });
-
-function Money2(currency: "USD" | "CNY", text: string) {
-  return currency === "USD" ? usd(text) : cny(text);
-}

@@ -1,10 +1,10 @@
 import { tuitionDebitReasons, type FundsSnapshot } from "../cash/CashInvariants";
 import type { Approval } from "../consent/Approval";
-import type { TuitionApprovalPayload } from "../consent/ApprovalPayload";
 import { Money } from "../money/Money";
 import type { ObligationFacts } from "../policy/PolicyEngine";
 import { sortReasons, type ReasonCode } from "../policy/ReasonCode";
 import { isQuoteExpired, type RouteQuote } from "../policy/RouteQuote";
+import type { HasherPort } from "../ports/HasherPort";
 import type { VirtualInstant } from "../time/Instant";
 import { newAttemptBlockers, type AttemptStatus } from "./PaymentAttempt";
 import type { PaymentPlan } from "./PaymentPlan";
@@ -14,45 +14,59 @@ export interface TuitionExecutionFacts {
   readonly obligation: ObligationFacts;
   readonly plan: PaymentPlan;
   readonly approval: Approval | null;
-  /** Payload aprobado (el que firmó el pagador). */
-  readonly approvedPayload: TuitionApprovalPayload | null;
-  /** Huella recalculada AHORA desde el estado del servidor para esta versión del plan. */
-  readonly expectedFingerprint: string;
-  /** Cotización con la que se enviaría (la original o una recotización de la misma ruta). */
+  /** Verifica la integridad del payload firmado de la aprobación. */
+  readonly hasher: HasherPort;
+  /** Cuenta de la que saldría el dinero (estado actual del servidor). */
+  readonly sourceAccountId: string;
+  /** Cotización con la que se enviaría: la original o una recotización de la misma ruta (A3). */
   readonly quote: RouteQuote;
   readonly funds: FundsSnapshot;
   readonly policy: { readonly maxTuitionDebit: Money; readonly reserve: Money };
   readonly committedToObligation: Money;
   readonly acceptedChannels: readonly string[];
+  /** Intentos de la OBLIGACIÓN (no solo de esta versión del plan). */
   readonly existingAttemptStatuses: readonly AttemptStatus[];
 }
 
 /**
- * Comprobaciones antes de ejecutar un pago de matrícula (BUILD_PROMPT 8.3 y página 17 del plan):
- * obligación pendiente, versiones coincidentes, aprobación vigente para esta versión y esta huella,
- * cotización vigente dentro del alcance aprobado, canal y receptor admitidos, límite acumulado,
- * reserva preservada y sin otro intento activo. Se evalúa dentro de la transacción del ejecutor.
- * Vacío significa que se puede ejecutar.
+ * Comprobaciones antes de ejecutar un pago de matrícula (BUILD_PROMPT 8.3 y página 17 del plan): sin otro intento
+ * activo, obligación pendiente, aprobación vigente cuyo payload firmado (íntegro) corresponde a ESTA versión del
+ * plan, a esta obligación y versión, a esta cuenta y a este espacio; cotización vigente dentro del alcance firmado;
+ * canal y receptor admitidos; límite acumulado y reserva preservada. Se evalúa dentro de la transacción del
+ * ejecutor. Vacío significa que se puede ejecutar.
  */
 export function checkTuitionExecution(facts: TuitionExecutionFacts): ReasonCode[] {
   const attemptBlockers = newAttemptBlockers(facts.existingAttemptStatuses);
   if (attemptBlockers.length > 0) return attemptBlockers;
   if (facts.obligation.status !== "PENDING") return ["OBLIGATION_NOT_PENDING"];
-  if (facts.plan.status !== "APPROVED" || !facts.approval || !facts.approvedPayload) return ["APPROVAL_MISSING"];
+  if (facts.plan.status !== "APPROVED" || !facts.approval) return ["APPROVAL_MISSING"];
 
-  const reasons: ReasonCode[] = [];
-  reasons.push(
+  const approved = facts.approval.signedTuitionPayload(facts.hasher);
+  if (!approved) return ["APPROVAL_INVALID"];
+
+  const reasons: ReasonCode[] = [
     ...facts.approval.usableFor({
       subjectType: "TUITION_PLAN",
       subjectId: facts.plan.id,
       subjectVersion: facts.plan.version,
-      fingerprint: facts.expectedFingerprint,
+      fingerprint: facts.approval.fingerprint,
       now: facts.now,
     }),
-  );
-  if (facts.plan.obligationVersion !== facts.obligation.version) reasons.push("APPROVAL_INVALID");
+  ];
 
-  const approved = facts.approvedPayload;
+  const plan = facts.plan.toProps();
+  const bound =
+    approved.workspaceId === plan.workspaceId &&
+    approved.planId === plan.id &&
+    approved.planVersion === plan.version &&
+    approved.obligationId === facts.obligation.id &&
+    approved.obligationVersion === facts.obligation.version &&
+    plan.obligationId === facts.obligation.id &&
+    plan.obligationVersion === facts.obligation.version &&
+    approved.sourceAccountId === facts.sourceAccountId &&
+    approved.reference === facts.obligation.reference;
+  if (!bound) reasons.push("APPROVAL_INVALID");
+
   const inScope =
     facts.quote.routeId === approved.routeId &&
     facts.quote.channel === approved.channel &&

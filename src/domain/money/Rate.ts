@@ -45,6 +45,12 @@ export interface FxQuote {
 }
 
 export function convertWithQuote(amount: Money, quote: FxQuote): Money {
+  // El tipo no protege datos que llegan de la base o de JSON: se valida en tiempo de ejecución.
+  if (!quote || typeof quote.id !== "string" || quote.id.trim() === "") throw new DomainValidationError("La cotización FX necesita un id");
+  if (quote.synthetic !== true) throw new DomainValidationError("La cotización FX debe estar rotulada como sintética");
+  if (quote.from === quote.to) throw new DomainValidationError("La cotización FX debe convertir entre monedas distintas");
+  if (!(quote.rate instanceof Rate) || quote.rate.rateMicros <= 0n) throw new DomainValidationError("Tasa FX inválida");
+  if (!quote.asOf || quote.asOf.kind !== "virtual") throw new DomainValidationError("La cotización FX necesita una fecha virtual");
   if (amount.currency !== quote.from) throw new CurrencyMismatchError(amount.currency, quote.from);
   return Money.of(quote.to, divideHalfEven(amount.minor * quote.rate.rateMicros, MICROS));
 }

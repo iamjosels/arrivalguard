@@ -92,3 +92,72 @@ export function fingerprintOf(payload: object, hasher: HasherPort): string {
 export function fingerprintPrefix(fingerprint: string): string {
   return fingerprint.slice(0, 8);
 }
+
+/** Campos de la huella de una aprobación puntual de remesa (por encima del mandato, A1). */
+export const REMITTANCE_APPROVAL_FIELDS = [
+  "workspaceId",
+  "remittanceId",
+  "remittanceVersion",
+  "routeId",
+  "channel",
+  "recipientId",
+  "purpose",
+  "sourceAccountId",
+  "proposedDebit",
+  "netAmount",
+  "maxDebit",
+  "reserve",
+  "quoteId",
+  "approvalExpiresAt",
+] as const;
+
+export interface RemittanceApprovalPayload {
+  readonly workspaceId: string;
+  readonly remittanceId: string;
+  readonly remittanceVersion: number;
+  readonly routeId: string;
+  readonly channel: string;
+  readonly recipientId: string;
+  readonly purpose: string;
+  readonly sourceAccountId: string;
+  readonly proposedDebit: MoneyJSON;
+  readonly netAmount: MoneyJSON;
+  readonly maxDebit: MoneyJSON;
+  readonly reserve: MoneyJSON;
+  readonly quoteId: string;
+  readonly approvalExpiresAt: string;
+}
+
+export function buildRemittanceApprovalPayload(input: {
+  readonly workspaceId: string;
+  readonly remittanceId: string;
+  readonly remittanceVersion: number;
+  readonly routeId: string;
+  readonly channel: string;
+  readonly recipientId: string;
+  readonly purpose: string;
+  readonly sourceAccountId: string;
+  readonly proposedDebit: Money;
+  readonly netAmount: Money;
+  readonly maxDebit: Money;
+  readonly reserve: Money;
+  readonly quoteId: string;
+  readonly approvalExpiresAt: VirtualInstant;
+}): RemittanceApprovalPayload {
+  return {
+    workspaceId: input.workspaceId,
+    remittanceId: input.remittanceId,
+    remittanceVersion: input.remittanceVersion,
+    routeId: input.routeId,
+    channel: input.channel,
+    recipientId: input.recipientId,
+    purpose: input.purpose,
+    sourceAccountId: input.sourceAccountId,
+    proposedDebit: input.proposedDebit.toJSON(),
+    netAmount: input.netAmount.toJSON(),
+    maxDebit: input.maxDebit.toJSON(),
+    reserve: input.reserve.toJSON(),
+    quoteId: input.quoteId,
+    approvalExpiresAt: input.approvalExpiresAt.toISOString(),
+  };
+}

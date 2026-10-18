@@ -105,6 +105,19 @@ describe("Rate y conversión con cotización explícita (8.1)", () => {
     expect(() => convertWithQuote(usd("500.00"), quote)).toThrow(CurrencyMismatchError);
   });
 
+  it("valida la cotización en tiempo de ejecución: id, rótulo sintético, monedas distintas, tasa y fecha virtual (VC1-2)", () => {
+    const good: FxQuote = { id: "fx-1", from: "CNY", to: "USD", rate: Rate.fromString("0.14"), asOf, synthetic: true };
+    for (const bad of [
+      { ...good, id: "" },
+      { ...good, synthetic: false },
+      { ...good, to: "CNY" },
+      { ...good, rate: { rateMicros: 140000n } },
+      { ...good, asOf: { epochMs: 0 } },
+    ]) {
+      expect(() => convertWithQuote(cny("500.00"), bad as unknown as FxQuote), JSON.stringify(Object.keys(bad))).toThrow(DomainValidationError);
+    }
+  });
+
   it("redondea la conversión con mitad al par", () => {
     const quote: FxQuote = { id: "fx-2", from: "USD", to: "CNY", rate: Rate.fromString("0.125"), asOf, synthetic: true };
     // 12 x 0.125 = 1.5 -> 2; 4 x 0.125 = 0.5 -> 0; 20 x 0.125 = 2.5 -> 2 (unidades menores)

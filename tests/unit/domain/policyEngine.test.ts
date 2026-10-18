@@ -128,6 +128,12 @@ describe("PolicyEngine: límites del pagador, reserva y fondos", () => {
     expect(reasonsOf(result, "B")).toEqual(["BREAKS_RESERVE"]);
   });
 
+  it("tocar dinero apartado bloquea aunque la reserva mínima sea menor (VC2-1)", () => {
+    // Apartado 1,800, reserva mínima 1,000 y saldo 4,500: disponible 2,700 < 2,860.
+    const result = evaluateTuitionRoutes(tuitionFacts("base", { balanceUsd: "4500.00", reserveUsd: "1000.00" }));
+    expect(reasonsOf(result, "B")).toEqual(["BREAKS_RESERVE"]);
+  });
+
   it("descuenta las retenciones activas del dinero disponible", () => {
     const result = evaluateTuitionRoutes(tuitionFacts("base", { activeHoldsUsd: "500.00" }));
     expect(reasonsOf(result, "B")).toEqual(["BREAKS_RESERVE"]);
@@ -146,6 +152,18 @@ describe("PolicyEngine: cotización, canal, obligación y objetivo", () => {
     const result = evaluateTuitionRoutes({ ...base, now: later, targetArrivalAt: later.plusHours(48), obligation: { ...base.obligation, dueAt: later.plusHours(48) } });
     expect(reasonsOf(result, "B")).toEqual(["QUOTE_EXPIRED"]);
     expect(result.selected).toBeNull();
+  });
+
+  it("bordes: llegar justo en el objetivo es a tiempo; una cotización justo en su vencimiento ya venció (VC2-2)", () => {
+    const exact = evaluateTuitionRoutes(tuitionFacts("base", { targetHours: 24 }));
+    expect(exact.selected?.routeId).toBe("B");
+    const base = tuitionFacts("base");
+    const atExpiry = base.now.plusMinutes(15);
+    const expired = evaluateTuitionRoutes({ ...base, now: atExpiry, targetArrivalAt: atExpiry.plusHours(48), obligation: { ...base.obligation, dueAt: atExpiry.plusHours(48) } });
+    expect(reasonsOf(expired, "B")).toEqual(["QUOTE_EXPIRED"]);
+    const justBefore = base.now.plusMinutes(14);
+    const valid = evaluateTuitionRoutes({ ...base, now: justBefore, targetArrivalAt: justBefore.plusHours(48), obligation: { ...base.obligation, dueAt: justBefore.plusHours(48) } });
+    expect(valid.selected?.routeId).toBe("B");
   });
 
   it("un canal que la universidad no acepta se descarta", () => {

@@ -2,23 +2,22 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 18:02.
-- **Fase:** 1 Dominio (en curso). Inicio 18:02. Fase 0 cerrada a las 18:01.
-- **Subtarea en curso:** 1.1 Money, Rate, instantes y errores de dominio (prueba primero).
-- **Siguiente paso exacto:** escribir tests/unit para Money y después src/domain/money; seguir la lista de la Fase 1.
-- **Último `pnpm verify`:** 17:57, exit 0 (typecheck, lint, test 7/7, db:seed-check, build).
-- **URL de producción:** https://arrivalguard.vercel.app (commit cf4e5a1, smoke OK 18:00).
+- **Hora (Lima):** domingo 18 de octubre, 18:20.
+- **Fase:** 2 Persistencia y ejecución (en curso). Inicio 18:20. Fase 1 terminada a las 18:18; su revisión VC1 a VC3 está en curso.
+- **Subtarea en curso:** 2.1 esquema Drizzle y primera migración (VC5).
+- **Siguiente paso exacto:** escribir src/infrastructure/db/schema.ts, generar la migración, aplicarla en Neon dev y probarla en un esquema vacío.
+- **Último `pnpm verify`:** 18:37, exit 0 (380 pruebas; cierre de la Fase 1).
+- **URL de producción:** https://arrivalguard.vercel.app (commit cf4e5a1). El cierre de la Fase 1 se lleva a `main` al terminar su revisión.
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
-- **Pendiente de comprobar:** que el próximo push a `dev` cree un Preview y no un despliegue de producción (ver Fase 0, nota de Vercel).
 
 ## Fases y puertas
 
 | Fase | Estado | Objetivo (AUTONOMIA 8) | Cierre real | `verify` | Verificación crítica |
 |---|---|---|---|---|---|
 | 0 Arranque | cerrada | dom 18:00 | dom 18:01 | 17:57 exit 0 | sin VC |
-| 1 Dominio | pendiente | dom 20:00 | | | VC1, VC2, VC3 |
-| 2 Persistencia y ejecución (G1) | pendiente | dom 23:00 | | | VC4, VC5 |
+| 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
+| 2 Persistencia y ejecución (G1) | en curso | dom 23:00 | | | VC4, VC5 |
 | 3 API, sesiones y acceso | pendiente | lun 00:30 | | | VC6 |
 | 4 Interfaz | pendiente | lun 03:00 | | | VC7 |
 | 5 Agente (G2) | pendiente | lun 05:00 | | | VC8 |
@@ -57,17 +56,38 @@ Nota de Vercel: el primer push a `dev` generó un despliegue con destino *produc
 Inicio: domingo 18, 18:02. Secciones: BUILD_PROMPT 4.2, 6, 7, 8; enmiendas A1, A2, A3.
 
 Subtareas (dinero, políticas y consentimiento: prueba primero):
-- [ ] 1.1 Money, Rate y cotización FX explícita, VirtualInstant y RealInstant, errores de dominio (VC1).
-- [ ] 1.2 ReasonCode, cotizaciones y PolicyEngine de matrícula con orden de selección (VC2).
-- [ ] 1.3 Invariantes de caja y proyección por moneda (T4, N07 y N08).
-- [ ] 1.4 Consentimiento: JSON canónico, huella, Approval, alcance A3 y cambios materiales (VC3).
-- [ ] 1.5 Mandato permanente con período móvil y política de remesas (A1, N05 y N17).
-- [ ] 1.6 Máquinas de estado: PaymentPlan, PaymentAttempt (matrícula y remesa) y RefundClaim; estado visible.
-- [ ] 1.7 Cuenta: retenciones que se capturan o liberan una sola vez y reserva consumida primero.
-- [ ] 1.8 Devoluciones: exceso verificado y destino fijo (A2).
-- [ ] 1.9 Escenarios como configuración tipada (sección 6) y `db:seed-check` real.
-- [ ] 1.10 Prueba de arquitectura (VC1).
-- [ ] 1.11 `pnpm verify`, revisión VC1 a VC3, merge a `main` y `smoke`.
+- [x] 1.1 Money, Rate y cotización FX explícita, VirtualInstant y RealInstant, errores de dominio (VC1).
+- [x] 1.2 ReasonCode, cotizaciones y PolicyEngine de matrícula con orden de selección (VC2).
+- [x] 1.3 Invariantes de caja y proyección por moneda (T4, N07 y N08).
+- [x] 1.4 Consentimiento: JSON canónico, huella, Approval, alcance A3 y cambios materiales (VC3).
+- [x] 1.5 Mandato permanente con período móvil y política de remesas (A1, N05 y N17).
+- [x] 1.6 Máquinas de estado: PaymentPlan, PaymentAttempt (matrícula y remesa) y RefundClaim; estado visible.
+- [x] 1.7 Cuenta: retenciones que se capturan o liberan una sola vez y reserva consumida primero.
+- [x] 1.8 Devoluciones: exceso verificado y destino fijo (A2).
+- [x] 1.9 Escenarios como configuración tipada (sección 6) y `db:seed-check` real.
+- [x] 1.10 Prueba de arquitectura (VC1).
+- [x] 1.11 `pnpm verify`, revisión VC1 a VC3, correcciones, merge a `main` y `smoke`.
+
+Revisión (18:35, subagente `revisor`, docs/reviews/VC1.md, VC2.md y VC3.md): VC1 y VC2 aprobados con observaciones (solo hallazgos bajos). VC3 requería correcciones: VC3-1 alto (`Approval.grant` no amarraba sujeto, versión, vigencia, máximo y reserva al payload firmado) y VC3-2 a VC3-5 medios. Sin críticos, así que no corresponde segunda ronda. Se corrigieron el alto, los medios y los bajos, con 21 pruebas nuevas.
+
+Evidencia de cierre (18:37): `pnpm verify` exit 0: typecheck, lint, 12 archivos y 380 pruebas, `db:seed-check` con 5 escenarios válidos y build (`verify: TODO EN VERDE`).
+
+Evidencia (18:17): `pnpm verify` exit 0: typecheck, lint, 12 archivos y 359 pruebas, `db:seed-check` (base: 48 h B USD 2860.00 y 6 h D USD 2880.00; deadline_impossible sin ruta; arrival_remittance R1 USD 288.00) y build. Prueba de arquitectura verificada con una mutación temporal (detectó `pg`, `parseFloat` y `Number(`). Commits f057545, 2636caa y e033135. Comprobado: el push a `dev` crea un Preview (`dev:preview:READY`).
+
+## Fase 2: Persistencia y ejecución (puerta G1)
+
+Inicio: domingo 18, 18:20. Secciones: BUILD_PROMPT 8.3 a 8.6, 10, 11 (idempotencia), 12, 16.2 (N01), 16.3 (O01 a O08).
+
+Subtareas:
+- [ ] 2.1 Esquema Drizzle completo, migración generada y aplicada en Neon dev; VC5 (esquema vacío y existente).
+- [ ] 2.2 Puertos de repositorios y unidad de trabajo; repositorios Drizzle con bloqueo en orden cuenta, obligación (o remesa) y plan.
+- [ ] 2.3 Creación de espacios por escenario (actores, cuentas, reserva, política, destinatarios, obligación, beca, gastos, mandato e historial).
+- [ ] 2.4 Proveedor simulado (cotizaciones, recotización, envío idempotente, respuesta perdida, eventos) e institución simulada (acreditación, libro, devoluciones).
+- [ ] 2.5 Reloj virtual y fallas inyectables con evento FAULT_INJECTED.
+- [ ] 2.6 Casos de uso de T1: planificar, comparar, pedir aprobación, aprobar, ejecutar (transaccional e idempotente) y conciliar; estado con procedencia.
+- [ ] 2.7 Bitácora de eventos redactada y secuencia por espacio.
+- [ ] 2.8 Pruebas de integración N01 y O01 a O08 (O06 requiere el agente: se cubre en la Fase 5).
+- [ ] 2.9 `pnpm verify`, revisión VC4 (y VC5), merge a `main`, smoke.
 
 ## Deuda
 

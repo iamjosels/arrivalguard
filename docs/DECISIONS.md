@@ -92,3 +92,9 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Hora virtual inicial:** `2026-10-20T09:00:00Z`, que se muestra como "Tue 20 Oct, 09:00 virtual time". La hora virtual se muestra en UTC con el rótulo *virtual time*.
 - **Escenario `overpayment_refund`:** el spec no fija el saldo; se usa USD 2,140.00 (como si la matrícula ya se hubiera pagado). La devolución de USD 70.00 se abona a la cuenta de origen.
 - **Formato:** `formatMoney` vive en `src/interfaces/format/money.ts`, porque lo usan la interfaz y los resultados de herramientas del agente. Nunca usa punto flotante (UI_UX 6.3).
+
+## DEC-013. La devolución en USD es una liquidación informada por la institución, no una conversión
+
+- **Fecha:** domingo 18 de octubre, 18:52 (Lima). **Fuente:** revisión VC1 (hallazgo VC1-1) y BUILD_PROMPT 4.2 y 6.3.
+- **Decisión:** el reclamo se hace en la moneda de la obligación (CNY 500.00 de exceso verificado). La institución simulada informa el monto que liquida en la cuenta de origen: USD 70.00, tomado de la configuración del escenario (`refund.settlementUsd`). El sistema no convierte CNY a USD en ningún punto de esta operación: guarda el monto informado (`settlement`) junto al reclamo.
+- **Cómo se muestra:** la interfaz y la evidencia dicen "Refunded USD 70.00, settled by the university to the paying account" y nunca presentan la cifra como resultado de una conversión ni muestran una tasa implícita. Toda conversión real del sistema sigue pasando por `convertWithQuote` con una cotización explícita.

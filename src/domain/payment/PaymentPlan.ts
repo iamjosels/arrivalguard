@@ -1,3 +1,4 @@
+import { DomainValidationError, InvalidTransitionError } from "../errors/DomainError";
 import { assertTransition, type TransitionTable } from "../shared/StateMachine";
 import type { VirtualInstant } from "../time/Instant";
 
@@ -95,8 +96,14 @@ export class PaymentPlan {
     this.props = { ...this.props, approvalRequestedAt: at, approvalExpiresAt: expiresAt };
   }
 
-  /** Cambio de objetivo sin cambio material: misma versión, nuevo objetivo. */
-  retarget(targetArrivalAt: VirtualInstant): void {
+  /**
+   * Cambio de objetivo sin cambio material: misma versión, nuevo objetivo. Solo antes de ejecutar y nunca más
+   * tarde que el vencimiento. Si el objetivo nuevo obliga a otra ruta, el guard de ejecución da DEADLINE_MISSED
+   * y la aplicación crea una versión nueva (cambio material).
+   */
+  retarget(targetArrivalAt: VirtualInstant, obligationDueAt: VirtualInstant): void {
+    if (!this.isBeforeExecution()) throw new InvalidTransitionError("PaymentPlan", this.props.status, "RETARGET");
+    if (targetArrivalAt.isAfter(obligationDueAt)) throw new DomainValidationError("El objetivo no puede ser posterior al vencimiento");
     this.props = { ...this.props, targetArrivalAt };
   }
 
