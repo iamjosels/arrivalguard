@@ -1,42 +1,44 @@
 # Informe final de ArrivalGuard
 
-Lunes 19 de octubre de 2026, 10:35, corregido después de crear el tag (Lima). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
+Lunes 19 de octubre de 2026, 13:05 (Lima). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
 
 ## 1. Lo esencial
 
-- **Producción:** https://arrivalguard.vercel.app, commit `ed1ed75`, el mismo del tag (`GET /api/health` a las 10:29: `commit ed1ed75`, `status ok`, `database ok`, `environment production`).
-- **Tag de entrega:** `v1.0.0-submission`, que apunta a `ed1ed75` (objeto anotado `90e115a`) y está en `origin` (`git ls-remote --tags origin`). En `ed1ed75` coinciden el tag, el último `pnpm verify` (exit 0), `main`, producción, el smoke con CREDITED y la última corrida de `tasks:run`.
-- **Sobre esta versión del informe:** se corrigió después de crear el tag, en un commit posterior de la rama `dev` que solo cambia documentos. La copia que quedó dentro del tag (`ed1ed75`) nombraba `d8513f7` como último smoke y `a82ff77` como último `verify`, que eran los datos cuando se escribió; esta versión pone la evidencia final, toda sobre `ed1ed75`. `main` y producción no se movieron.
+- **Entrega:** el tag **`v1.0.1-submission`**, en `origin`. Apunta al commit que agrega este informe sobre el código **`172676b`**; ese commit solo cambia documentos y resultados (`git diff --stat 172676b..v1.0.1-submission -- src tests scripts` sale vacío).
+- **Producción:** https://arrivalguard.vercel.app. Las corridas oficiales de este informe se hicieron con producción en `172676b`. Después del tag, producción sirve el commit del tag, con el mismo código.
+- **`v1.0.1` reemplaza a `v1.0.0`.** `v1.0.0-submission` (`ed1ed75`) sigue en `origin`, porque borrar o mover un tag remoto no está permitido. No se usa por dos motivos:
+  - su informe nombraba commits que ya no correspondían;
+  - la reinstalación desde cero con el entorno real encontró en ese código un error del intervalo entre corridas de Run T1 to T8, con una prueba que fallaba rara vez (sección 6).
+  La autorización inicial prevé `v1.0.1-submission` para una corrección así.
 - **Repositorio:** https://github.com/iamjosels/arrivalguard (privado; hacerlo público es decisión de ustedes, ver sección 8).
-- **Fases 0 a 9 cerradas y puertas G1 a G5 cumplidas**, cada cierre con `pnpm verify` en exit 0 (detalle en `docs/PROGRESS.md`).
-- **Revisiones independientes VC1 a VC11** en `docs/reviews/`: ningún hallazgo crítico ni alto abierto.
+- **Fases y puertas:** las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Cada cierre tiene `pnpm verify` en exit 0, y los de las Fases 0 a 6 se volvieron a correr en esta sesión (sección 4).
+- **Revisiones independientes VC1 a VC11:** están en `docs/reviews/`, sin ningún hallazgo crítico ni alto abierto.
 - **Recortes:** ninguno. Todos los P0 y todos los P1 están terminados. Los P2 no se hicieron (sección 6).
-- **Gasto de IA medido:** cerca de USD 2.61 (USD 2.53 en la rama dev y USD 0.08 en producción).
+- **Gasto de IA medido:** cerca de USD 3.14 (USD 3.03 en la rama dev y USD 0.11 en producción).
 
 ## 2. Qué está hecho y con qué evidencia
 
 | Qué | Evidencia (comando y resultado) |
 |---|---|
-| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` sobre `ed1ed75`: 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-19T15-29-04-637Z.json`, bitácora y transcripción de T8 en `docs/evidence/`) |
-| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=ed1ed75`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 10:25, sobre el commit del tag) |
+| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` con producción en `172676b`: 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-19T17-31-53-049Z.json`; bitácora y transcripción de T8 en `docs/evidence/`) |
+| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=172676b`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 12:31) |
 | T1 por chat con el modelo real en producción (puerta G2) | `pnpm smoke:chat`: CREDITED con el recibo `AU-RC-8555B526` (`docs/evidence/g2-chat-2026-10-19T03-34-06-061Z.json`) |
-| S01 a S12 (P0) y S13 a S16 (P1) en el servidor, con su categoría oficial | `pnpm eval:deterministic` sobre `75614ed`: 114 de 114 pruebas en 40 escenarios; S01 a S16, 16 de 16 (`docs/results/deterministic-2026-10-19T13-43-17-641Z.json`) |
-| Ataques de nivel agente con el modelo real | `pnpm eval:agent` sobre `75614ed`: S01, S02, S04, S05 y S10 a S15 en verde, juzgados por el estado del servidor (`docs/results/agent-2026-10-19T14-11-00-521Z.json`) |
-| Diálogo D01 a D12 con métricas (P1) | `pnpm eval:agent`: 32 de 32 escenarios. Mediana de 1 turno hasta el caso preparado según el servidor (6 de 6 casos medidos), 0 preguntas de más en 7 pedidos completos, 3 de 3 correcciones que conservan los datos, 0 salidas seguras, mediana de 18.4 s por turno |
+| S01 a S12 (P0) y S13 a S16 (P1) en el servidor, con su categoría oficial | `pnpm eval:deterministic` sobre `172676b`: 117 de 117 pruebas en 40 escenarios; S01 a S16, 16 de 16 (`docs/results/deterministic-2026-10-19T17-31-19-099Z.json`) |
+| Ataques de nivel agente con el modelo real | `pnpm eval:agent` sobre `172676b`: S01, S02, S04, S05 y S10 a S15, juzgados por el estado del servidor (`docs/results/agent-2026-10-19T17-58-38-568Z.json`) |
+| Diálogo D01 a D12 con métricas (P1) | `pnpm eval:agent`: 32 de 32 escenarios. Mediana de 1 turno hasta el caso preparado según el servidor (6 de 6 casos medidos), 0 preguntas de más en 7 pedidos completos, 3 de 3 correcciones que conservan los datos, 0 salidas seguras, mediana de 17.8 s por turno |
 | Acceso del jurado con código de evaluación (A4) | El espacio se abre con el código y trae los tres roles en el mismo navegador, con sesiones de 14 días. Lo prueban `tests/api/access.test.ts` y `tests/security/sessionAuthority.test.ts`, y en producción el smoke y `tasks:run` (acceso 201) |
-| Interfaz (T1 solo con clics, accesibilidad, móvil, CSP) | `pnpm ui:check`: todos los pasos OK, incluidos el botón de tema y Run T1 to T8; 39 capturas en `docs/design/screens/`, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP (`docs/evidence/ui-axe.json`) |
-| Calidad del código | `pnpm verify` sobre `ed1ed75`, el commit del tag (10:14 a 10:24): typecheck, lint, 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales del entorno, exit 0 |
-| Instalación desde cero siguiendo solo el README | VC11: clon limpio del repositorio publicado, con un Postgres local y valores propios, sin ningún secreto del proyecto: `pnpm install`, `db:migrate`, `pnpm test` (546 de 546), `secrets-scan` y `db:seed-check` terminaron todos en exit 0 (`docs/reviews/VC11.md`) |
+| Interfaz (T1 solo con clics, accesibilidad, móvil, CSP) | `pnpm ui:check` (09:35, `b7f997a`, misma interfaz): todos los pasos OK, incluidos el botón de tema y Run T1 to T8; 39 capturas en `docs/design/screens/`, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP (`docs/evidence/ui-axe.json`) |
+| Calidad del código | `pnpm verify` sobre `172676b` (12:19 a 12:30): typecheck, lint, 549 de 549 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales del entorno, exit 0. Antes de crear el tag se corre otra vez sobre el commit del tag |
+| Instalación desde cero siguiendo solo el README (VC11) | Dos rondas, ambas en exit 0 (`docs/reviews/VC11.md`): <br>• Clon limpio con un Postgres local y valores propios: `install`, `db:migrate`, `test` 546 de 546, `secrets-scan` y `seed-check`. <br>• En el entorno real, con `node_modules` y `.next` borrados: `install`, `db:migrate`, `test` 547 de 547, `secrets-scan` con los 5 valores reales, `seed-check` y smoke CREDITED |
 | Documentos (P0 y P1) | README, `docs/TECHNICAL.md`, `docs/SECURITY_SELF_ASSESSMENT.md`, `docs/EVALUATION.md` con resultados reales, `docs/EXECUTION_EVIDENCE.md`, `docs/DEMO_GUIDE.md`, `docs/VIDEO_SCRIPT.md`, `docs/PITCH_OUTLINE.md`, `LICENSE` y `THIRD_PARTY_LICENSES.md` |
 | Secretos | `pnpm secrets-scan`: OK, sin secretos (también dentro de cada `verify`) |
 
 ## 3. Resultados reales por escenario
 
-Tablas generadas desde los archivos de `docs/results/` (las mismas que publica `pnpm results:report` en `docs/results/RESULTS.md`).
-
-- N, O y S deterministas: commit `75614ed`, 2026-10-19T13:53Z (08:53 Lima).
-- Agente: commit `75614ed`, 2026-10-19T14:11Z (09:11 Lima), modelo `claude-sonnet-5-5` con effort `low`, una corrida por escenario.
-- Tareas: commit `ed1ed75`, 2026-10-19T15:29Z (10:29 Lima), con producción en `ed1ed75`.
+Tablas generadas desde los archivos de `docs/results/`, las mismas que publica `pnpm results:report` en `docs/results/RESULTS.md`. Todas son del código `172676b`:
+- N, O y S deterministas: 2026-10-19T17:41Z (12:41 Lima).
+- Agente: 2026-10-19T17:58Z (12:58 Lima), con el modelo `claude-sonnet-5-5`, effort `low` y una corrida por escenario, sin compartir la base con otra corrida.
+- Tareas: 2026-10-19T17:31Z (12:31 Lima), con producción en `172676b`.
 
 N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 
@@ -136,20 +138,20 @@ N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 
 | Tarea | Resultado | Duración |
 |---|---|---|
-| T1 | en verde | 3.5 s |
-| T2 | en verde | 2.4 s |
-| T3 | en verde | 1.9 s |
-| T4 | en verde | 1.9 s |
-| T5 | en verde | 0.9 s |
-| T6 | en verde | 3.0 s |
-| T7 | en verde | 1.9 s |
-| T8 | en verde | 5.0 s |
+| T1 | en verde | 3.7 s |
+| T2 | en verde | 2.5 s |
+| T3 | en verde | 2.0 s |
+| T4 | en verde | 2.0 s |
+| T5 | en verde | 1.0 s |
+| T6 | en verde | 3.1 s |
+| T7 | en verde | 2.1 s |
+| T8 | en verde | 5.4 s |
 
-Consola, Run T1 to T8 en el servidor: HTTP 200, 8 de 8, 4.0 s.
+Consola, Run T1 to T8 en el servidor: HTTP 200, 8 de 8, 3.8 s.
 
-Las cuatro corridas del agente quedan publicadas en `docs/EVALUATION.md` 7.2. Una tuvo 27 de 28: D02 falló por un juez que solo contaba signos de pregunta. La corrección está documentada.
+Todas las corridas del agente quedan publicadas en `docs/EVALUATION.md` 7.2. Una tuvo 27 de 28: D02 falló por un juez que solo contaba signos de pregunta. La corrección está documentada.
 
-## 4. Revisiones independientes
+## 4. Revisiones independientes y cierres de fase
 
 | VC | Fase | Resultado |
 |---|---|---|
@@ -160,18 +162,28 @@ Las cuatro corridas del agente quedan publicadas en `docs/EVALUATION.md` 7.2. Un
 | VC8 | 5 Agente | 3 medios y 6 bajos; medios y 5 bajos corregidos |
 | VC9 | 7 Seguridad completa | 1 crítico y 11 bajos en dos rondas, todos corregidos con su regresión (uno resuelto como DEC-018); la segunda ronda, sin críticos, altos ni medios |
 | VC10 | 8 Resultados | 4 medios y 8 bajos, corregidos antes de la corrida oficial final |
-| VC11 | 9 Cierre | la primera ronda no fue concluyente (sin credenciales por la regla de permisos) y dejó 1 medio y 1 bajo; al repetirla apareció 1 paso oculto (medio); los tres se corrigieron y la segunda ronda se aprobó sin hallazgos |
+| VC11 | 9 Cierre | Cuatro rondas. <br>• 1: no concluyente (sin credenciales por la regla de permisos). <br>• 2: Postgres local, aprobada. <br>• 3: entorno real, aprobada con un alto y un medio. <br>• 4: aprobó la corrección del alto (VC11-5). <br>Todos los altos y medios están corregidos con su prueba; queda un bajo como deuda |
+
+Reverificación de los cierres en esta sesión. `pnpm verify` sobre el commit de cierre de cada fase, todos con exit 0 y `verify: TODO EN VERDE`:
+- Fase 0 `cf4e5a1`: 7 de 7.
+- Fase 1 `ae1fc7b`: 380 de 380.
+- Fase 2 `d7cc287`: 411 de 411.
+- Fase 3 `0eee748`: 442 de 442.
+- Fase 4 `a3304a1`: 487 de 487.
+- Fases 5 y 6 `b3e351c`: 509 de 509.
+- Fases 7, 8 y 9: `82e72e5`, `b7f997a` y `ed1ed75`.
+- Código final: `172676b`, con 549 de 549 pruebas.
 
 ## 5. Gasto de IA
 
-- **Rama dev de Neon:** 475 llamadas al modelo real `claude-sonnet-5-5`, USD 2.53. Es la suma de `ai_usage` con estado OK o TIMEOUT y modelo real, del domingo 18 a las 21:07 al lunes 19 a las 09:32 (Lima). Incluye las cuatro corridas de `eval:agent` (USD 0.47, 0.47, 0.46 y 0.47), `ai:turns` y las sondas de la auditoría VC9.
-- **Producción:** USD 0.08 el lunes 19 (día UTC), leído del panel de uso de IA de la consola. Incluye el smoke del chat de G2 y los T8 de `tasks:run` y de Run T1 to T8.
+- **Rama dev de Neon:** 575 llamadas al modelo real `claude-sonnet-5-5`, USD 3.03. Es la suma de `ai_usage` con estado OK o TIMEOUT y modelo real, del domingo 18 a las 21:07 al lunes 19 a las 12:58 (Lima). Incluye las cinco corridas de `eval:agent` (USD 0.47, 0.47, 0.46, 0.47 y 0.50), `ai:turns` y las sondas de la auditoría VC9.
+- **Producción:** USD 0.11 el lunes 19 (día UTC), leído del panel de uso de IA de la consola. Incluye el smoke del chat de G2 y los T8 de `tasks:run` y de Run T1 to T8.
 - **Fuera de `ai_usage`:** las 2 llamadas de `ai:check` de la Fase 0 (`docs/evidence/phase0-ai-check.json`).
 - **Precios:** los de DEC-008.
 
 Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y día (DEC-019). Al llegar a un tope, el chat pasa a controles estructurados y no se pierde nada.
 
-## 6. Qué no está hecho
+## 6. Qué no está hecho y qué se corrigió al final
 
 - **Recortes P0 o P1:** ninguno.
 - **P2 no implementados** (BUILD_PROMPT 19, se declaran como no implementados):
@@ -181,23 +193,20 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
   - comparación justa con el flujo estructurado;
   - respuestas en streaming;
   - animaciones.
+- **Corrección final: el intervalo entre corridas de Run T1 to T8.** Se encontró después de `v1.0.0` y queda en `v1.0.1`.
+  - **El error:** el limitador usaba ventanas fijas, así que dos inicios separados por milisegundos, a ambos lados de un cambio de minuto, empezaban los dos.
+  - **Primer arreglo, descartado:** dos grillas de ventanas (`dc83650` y `59811ff`). Introducía un bloqueo encadenado entre jurados, porque los rechazos también contaban (VC11-5, alto).
+  - **Arreglo final:** `tryAcquire`, en `0610be8` y `172676b`. Es atómico, bajo `pg_advisory_xact_lock`, y concede un inicio solo si el último inicio concedido es más viejo que el intervalo. Los rechazos no escriben nada y Retry-After lleva a un inicio aceptado. Lee la hora como milisegundos y una lectura inválida cierra la ranura.
+  - **Pruebas:** cubren el borde de la ventana, el bloqueo encadenado y el Retry-After. Fallan con el código anterior y pasan con este.
+  - **Alcance:** severidad baja en su origen, sin efecto en dinero ni seguridad.
 - **Deuda declarada en PROGRESS** (medios y bajos, sin efecto en dinero ni seguridad):
   - que el documento de aprobación entre completo en 1440 × 900;
   - indicador de cambios en las pestañas móviles;
   - columna de estado del tablero de la landing en móvil;
   - nombres de escenario de la landing leídos de la configuración del servidor;
   - mapeos dentro de `ChatTurnUseCase` a llevar a Mapper;
-  - días restantes del período en el medidor del permiso.
-
-### Hallazgo posterior al tag
-
-Al reinstalar desde cero con el entorno real, `pnpm test` dio 545 de 546. Ver `docs/reviews/VC11.md`, VC11-4.
-
-- **Qué es:** un error real de severidad baja. Con el limitador de ventanas fijas, dos inicios de Run T1 to T8 separados por milisegundos, pero a ambos lados de un cambio de minuto, empezaban los dos.
-- **Efecto:** ninguno en dinero ni seguridad; solo permite dos corridas simultáneas de la consola.
-- **Corrección:** una prueba que reproduce el borde, y luego dos grillas de ventanas desplazadas, en `dc83650 y 59811ff` sobre `dev`: `pnpm verify` sobre `59811ff` (11:29 a 11:39) exit 0, con 547 de 547 pruebas y `secrets-scan` con los 5 valores reales.
-- **Qué no se hizo:** no se desplegó ni se movió el tag, porque no es una corrección crítica. Producción y `v1.0.0-submission` siguen en `ed1ed75`.
-- **Qué queda en `ed1ed75`:** el error, y una prueba que falla rara vez.
+  - días restantes del período en el medidor del permiso;
+  - la ranura global de Run T1 to T8 se ocupa antes de revisar los límites por espacio, por origen y diario (ya existía; el orden es deliberado).
 
 ## 7. Riesgos conocidos
 
@@ -215,7 +224,6 @@ Al reinstalar desde cero con el entorno real, `pnpm test` dio 545 de 546. Ver `d
 2. **Armar las slides** a partir de `docs/PITCH_OUTLINE.md`, con las capturas de `docs/design/screens/`.
 3. **Revisar `secrets-scan`** antes de publicar: `pnpm secrets-scan` debe decir "OK, sin secretos". Nunca suban `.env.local`.
 4. **Decidir qué queda en la versión pública:** el PDF del plan (`docs/plan/ArrivalGuard_Plan_integral_del_equipo.pdf`) y los exportes de diseño (`docs/design/*.html` y `support.js`). Después, **hacer público el repositorio** si así lo deciden.
-5. **Poner en la entrega** la URL https://arrivalguard.vercel.app y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
+5. **Poner en la entrega** la URL https://arrivalguard.vercel.app, el tag `v1.0.1-submission` y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
 6. **Completar la inscripción** en el formulario del FinTechathon.
-7. **Decidir si despliegan la corrección posterior al tag** (`dc83650 y 59811ff` en `dev`, sección 6). Si sí: `git checkout main`, `git merge --ff-only dev`, `git push origin main`, después `pnpm smoke --base-url https://arrivalguard.vercel.app` hasta CREDITED, y si quieren un tag nuevo, `git tag -a v1.0.1-submission -m "..."` y `git push origin v1.0.1-submission`. Si no, la entrega queda en `v1.0.0-submission`.
-8. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.
+7. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.

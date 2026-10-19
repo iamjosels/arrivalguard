@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 10:35.
-- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. Entrega congelada con el tag `v1.0.0-submission`.
+- **Hora (Lima):** lunes 19 de octubre, 13:05.
+- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. La entrega es el tag `v1.0.1-submission` (DEC-021).
 - **Subtarea en curso:** ninguna.
 - **Siguiente paso exacto:** ninguno para Claude. Lo que queda es de los humanos, antes del martes 20 a las 10:59 (docs/PARA_HUMANOS.md y docs/INFORME_FINAL.md, sección 8).
-- **Último `pnpm verify`:** lunes 10:14 a 10:24 sobre `ed1ed75`, el commit del tag `v1.0.0-submission`: exit 0, con 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales.
-- **URL de producción:** https://arrivalguard.vercel.app, en `ed1ed75`, el mismo commit del tag. El smoke con T1 CREDITED fue a las 10:25 y `tasks:run`, 8 de 8 con la consola 8 de 8, a las 10:29.
+- **Último `pnpm verify`:** lunes 12:19 a 12:30 sobre `172676b`, el último commit con código: exit 0, con 549 de 549 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales. Antes de crear el tag se corre otra vez sobre el commit del tag.
+- **URL de producción:** https://arrivalguard.vercel.app. Las corridas oficiales se hicieron con producción en `172676b`: el smoke dio CREDITED a las 12:31 y `tasks:run` 8 de 8, con la consola 8 de 8, a las 12:31.
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** cerca de USD 2.61 medidos: USD 2.53 en la rama dev (475 llamadas al modelo real, `ai_usage`) y USD 0.08 en producción el lunes 19, día UTC (panel de la consola).
 
@@ -24,7 +24,7 @@
 | 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
 | 7 Seguridad completa (G3) | cerrada, G3 cumplida | lun 11:30 | lun 00:28 | lun 00:25 exit 0 | VC9 en dos rondas: 1 crítico y 11 bajos, todos corregidos con regresión (uno como DEC-018); segunda ronda sin críticos, altos ni medios (docs/reviews/VC9.md) |
 | 8 Evaluación y documentos (G4) | cerrada, G4 cumplida | lun 14:00 | lun 09:50 | lun 09:44 exit 0 | VC10 aprobado con deuda: 4 medios y 8 bajos, sin críticos ni altos, todos corregidos (docs/reviews/VC10.md) |
-| 9 Cierre (G5) | cerrada, G5 cumplida | lun 16:00 | lun 10:26 (tag) | lun 10:14 a 10:24 exit 0 (`ed1ed75`, commit del tag) | VC11 aprobado en la segunda ronda: 2 medios y 1 bajo corregidos, sin críticos ni altos (docs/reviews/VC11.md) |
+| 9 Cierre (G5) | cerrada, G5 cumplida | lun 16:00 | lun 13:05 (`v1.0.1-submission`) | lun 12:19 a 12:30 exit 0 (`172676b`, código de `v1.0.1-submission`); antes, 10:14 a 10:24 sobre `ed1ed75` (`v1.0.0`) | VC11 aprobado en la segunda ronda: 2 medios y 1 bajo corregidos, sin críticos ni altos (docs/reviews/VC11.md) |
 
 Puertas: G1 (Fase 2), G2 (Fase 5), G3 (Fase 7), G4 (Fase 8), G5 (Fase 9).
 
@@ -232,7 +232,9 @@ Subtareas:
 - [x] 9.1 Revisión VC11 (`revisor`). La primera ronda no fue concluyente: la regla de permisos impide copiar `.env.local` y no se buscó otra vía. Encontró 1 medio (`smoke` sin `--code`) y 1 bajo (comandos de Windows). Al repetir la instalación con un Postgres local apareció un paso oculto (medio): los límites de las pruebas. Los tres se corrigieron en `cdc16aa` y `a82ff77`. Segunda ronda en un clon limpio con Postgres local y valores propios, sin secretos: `pnpm install`, `db:migrate`, `pnpm test` (546 de 546), `secrets-scan` y `db:seed-check`, todos en exit 0. Aprobado.
 - [x] 9.2 `pnpm verify` sobre `a82ff77` (10:01 a 10:11), exit 0: 39 archivos y 546 pruebas, y `secrets-scan` con los 5 valores reales del entorno, sin secretos. Merge a `main` y `GET /api/health`: `d8513f7 ok ok`. `pnpm smoke --base-url https://arrivalguard.vercel.app` (10:12): `commit=d8513f7`, acceso 201, `reconcile -> 200 status=CREDITED`, saldo 214000, `smoke: OK (T1 CREDITED)`.
 - [x] 9.3 `docs/INFORME_FINAL.md`. Sus tablas N, O, S, D y T se generaron desde `docs/results/`. PARA_HUMANOS tiene lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
-- [x] 9.4 Tag `v1.0.0-submission` sobre `ed1ed75`, enviado a origin: `git ls-remote --tags origin` da `refs/tags/v1.0.0-submission^{}` en `ed1ed75`. Ese mismo commit tiene `pnpm verify` en exit 0 (10:14 a 10:24) y es el de `main` y producción (`GET /api/health`: `ed1ed75 ok ok`). Allí el smoke dio CREDITED (10:25) y `tasks:run` 8 de 8 con la consola 8 de 8 (10:29, `docs/results/tasks-2026-10-19T15-29-04-637Z.json`). Árbol limpio. Después del tag, un commit de `dev` solo de documentos actualizó el informe final, los resultados y este registro con esa evidencia; `main` y producción se quedaron en `ed1ed75`.
+- [x] 9.4 Tags en origin.
+  - `v1.0.0-submission` sobre `ed1ed75` (10:26): queda como historia y fue reemplazado (DEC-021).
+  - `v1.0.1-submission`, la entrega, sobre el commit que agrega el cierre al código `172676b`. Antes de crearlo, en la conversación, se comprueban `pnpm verify` sobre ese commit, el despliegue, el smoke y `git ls-remote --tags origin`. El árbol queda limpio.
 
 Reverificación en esta sesión (lun 10:33 a 10:59). `pnpm verify` se volvió a correr sobre el commit de cierre de las Fases 0 a 6: checkout temporal en el mismo directorio, `pnpm install --frozen-lockfile` de esa versión, `.next` borrado y vuelta a `dev`. Todos con exit 0 y `verify: TODO EN VERDE`:
 - Fase 0 `cf4e5a1`: 7 de 7.
@@ -246,6 +248,17 @@ Las Fases 7, 8 y 9 tienen su `verify` en esta sesión sobre `82e72e5`, `b7f997a`
 
 Hallazgo posterior al tag (lun 11:00 a 11:40). Al reinstalar desde cero con el entorno real (VC11), `pnpm test` dio 545 de 546. La falla fue "una sola corrida empieza por intervalo". El limitador usa ventanas fijas: dos inicios de Run T1 to T8 separados por milisegundos, pero a ambos lados de un cambio de minuto, empezaban los dos. Es un error real y de severidad baja, sin efecto en dinero ni seguridad. Se corrigió primero con una prueba que reproduce el borde, con un reloj propio del limitador porque las pruebas corren en paralelo. La corrección usa dos grillas de ventanas desplazadas. Va en `dc83650 y 59811ff` sobre `dev`: `pnpm verify` sobre `59811ff` (11:29 a 11:39) exit 0, con 547 de 547 pruebas y `secrets-scan` con los 5 valores reales. No se desplegó ni se movió el tag, porque no es una corrección crítica. Producción y `v1.0.0-submission` siguen en `ed1ed75`; la decisión de desplegarlo queda en PARA_HUMANOS.
 
+
+Cierre con `v1.0.1-submission` (DEC-021). Hubo dos hallazgos más en la reinstalación con el entorno real (VC11, rondas 3 y 4):
+- VC11-5, alto: el primer arreglo del intervalo, con dos grillas, creaba un bloqueo encadenado. Se reemplazó por `tryAcquire` atómico (`0610be8`).
+- VC11-7, bajo: la lectura de la hora dependía de `DateStyle` (`172676b`).
+Ambos se corrigieron con pruebas que fallaban antes. Corridas oficiales finales sobre `172676b`:
+- `pnpm verify`: exit 0 con 549 de 549 pruebas.
+- `eval:deterministic`: 117 de 117 pruebas en 40 escenarios.
+- `eval:agent`: 32 de 32 escenarios.
+- `tasks:run` contra producción: 8 de 8, y la consola 8 de 8.
+- Smoke: CREDITED.
+
 **Puerta G5 cumplida.** Las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Las revisiones VC1 a VC11 no dejan hallazgos críticos ni altos abiertos.
 
 ## Deuda
@@ -257,6 +270,8 @@ Hallazgos medios y bajos de las revisiones y pendientes menores.
 - VC8: mapeos dentro de `ChatTurnUseCase` (turno a DTO, historial, tool_result, costo) a llevar a Mapper y servicio; la clave del agente se deriva en la capa de interfaz.
 - Fase 6: el medidor del permiso no muestra los días que quedan del período. (El botón Evidence en móvil quedó resuelto el domingo 18 a las 23:35: en el teléfono es un ícono con su nombre accesible.)
 - VC7: los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos. ("Run T1 to T8" en la consola quedó resuelto en `1bb4890`, DEC-020.)
+
+- VC11-8 (bajo, ya existía): la ranura global de Run T1 to T8 se ocupa antes de revisar los límites por espacio, por origen y diario; el orden es deliberado.
 
 ## Recortes
 

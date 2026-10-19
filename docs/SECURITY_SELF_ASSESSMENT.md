@@ -47,7 +47,7 @@ Latest results:
 
 <!-- results:security:INDUCED_TRANSFER -->
 
-Induced transfer. Sources: deterministic `docs/results/deterministic-2026-10-19T13-43-17-641Z.json` (commit `75614ed`, 2026-10-19T13:53:09.977Z); agent `docs/results/agent-2026-10-19T14-11-00-521Z.json` (commit `75614ed`, 2026-10-19T14:11:00.521Z, model `claude-sonnet-5-5`, effort `low`).
+Induced transfer. Sources: deterministic `docs/results/deterministic-2026-10-19T17-31-19-099Z.json` (commit `172676b`, 2026-10-19T17:41:49.066Z); agent `docs/results/agent-2026-10-19T17-58-38-568Z.json` (commit `172676b`, 2026-10-19T17:58:38.568Z, model `claude-sonnet-5-5`, effort `low`).
 
 | Case | Server, no AI | Real model, judged by server state and text checks |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ Latest results:
 
 <!-- results:security:DATA_EXTRACTION -->
 
-Data extraction. Sources: deterministic `docs/results/deterministic-2026-10-19T13-43-17-641Z.json` (commit `75614ed`, 2026-10-19T13:53:09.977Z); agent `docs/results/agent-2026-10-19T14-11-00-521Z.json` (commit `75614ed`, 2026-10-19T14:11:00.521Z, model `claude-sonnet-5-5`, effort `low`).
+Data extraction. Sources: deterministic `docs/results/deterministic-2026-10-19T17-31-19-099Z.json` (commit `172676b`, 2026-10-19T17:41:49.066Z); agent `docs/results/agent-2026-10-19T17-58-38-568Z.json` (commit `172676b`, 2026-10-19T17:58:38.568Z, model `claude-sonnet-5-5`, effort `low`).
 
 | Case | Server, no AI | Real model, judged by server state and text checks |
 | --- | --- | --- |
@@ -128,7 +128,7 @@ Latest results:
 
 <!-- results:security:PRIVILEGE_ESCALATION -->
 
-Privilege escalation. Sources: deterministic `docs/results/deterministic-2026-10-19T13-43-17-641Z.json` (commit `75614ed`, 2026-10-19T13:53:09.977Z); agent `docs/results/agent-2026-10-19T14-11-00-521Z.json` (commit `75614ed`, 2026-10-19T14:11:00.521Z, model `claude-sonnet-5-5`, effort `low`).
+Privilege escalation. Sources: deterministic `docs/results/deterministic-2026-10-19T17-31-19-099Z.json` (commit `172676b`, 2026-10-19T17:41:49.066Z); agent `docs/results/agent-2026-10-19T17-58-38-568Z.json` (commit `172676b`, 2026-10-19T17:58:38.568Z, model `claude-sonnet-5-5`, effort `low`).
 
 | Case | Server, no AI | Real model, judged by server state and text checks |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ Latest results:
 
 <!-- results:security:PROMPT_INJECTION -->
 
-Prompt injection. Sources: deterministic `docs/results/deterministic-2026-10-19T13-43-17-641Z.json` (commit `75614ed`, 2026-10-19T13:53:09.977Z); agent `docs/results/agent-2026-10-19T14-11-00-521Z.json` (commit `75614ed`, 2026-10-19T14:11:00.521Z, model `claude-sonnet-5-5`, effort `low`).
+Prompt injection. Sources: deterministic `docs/results/deterministic-2026-10-19T17-31-19-099Z.json` (commit `172676b`, 2026-10-19T17:41:49.066Z); agent `docs/results/agent-2026-10-19T17-58-38-568Z.json` (commit `172676b`, 2026-10-19T17:58:38.568Z, model `claude-sonnet-5-5`, effort `low`).
 
 | Case | Server, no AI | Real model, judged by server state and text checks |
 | --- | --- | --- |

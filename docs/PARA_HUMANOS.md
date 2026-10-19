@@ -4,7 +4,7 @@ Lo que deben hacer o probar, lo más urgente arriba. Cada entrada lleva la hora 
 
 ## Ahora
 
-- **Lunes 19, 11:45. Una corrección pequeña quedó en `dev` sin desplegar (`dc83650 y 59811ff`).** Es el intervalo entre corridas de Run T1 to T8 en el borde de un minuto. Tiene severidad baja y no afecta dinero ni seguridad. Producción y el tag `v1.0.0-submission` siguen en `ed1ed75`. Si quieren desplegarla, los pasos están en `docs/INFORME_FINAL.md`, sección 8, punto 7.
+- **Lunes 19, 13:05. La entrega es `v1.0.1-submission`.** Reemplaza a `v1.0.0-submission`, que queda en origin como historia (DEC-021). Trae la corrección del intervalo entre corridas de Run T1 to T8 y el informe final con los commits correctos. Producción ya tiene ese código. En la entrega pongan `v1.0.1-submission`.
 - **Lunes 19, 10:20. Todo cerrado: entrega congelada con el tag `v1.0.0-submission`.** El resumen completo está en `docs/INFORME_FINAL.md`. Antes del cierre oficial (**martes 20, 10:59 Lima**) les toca:
   1. Grabar el video final con `docs/VIDEO_SCRIPT.md` y `docs/DEMO_GUIDE.md`.
   2. Armar las slides a partir de `docs/PITCH_OUTLINE.md`.

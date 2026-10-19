@@ -142,3 +142,12 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 
 - **Fecha:** domingo 18 de octubre, 23:10 (Lima). **Fuente:** UI_UX 11.5 y DESIGN_PLAN (`ScriptedTasks`), deuda de VC7.
 - **Decisión:** `POST /api/evaluation/scripted-tasks` (solo el evaluador) corre T1 a T8 con los mismos casos de uso que la API, cada tarea en un espacio sintético nuevo, y las juzga por el estado del servidor, como `pnpm tasks:run`. El espacio del evaluador solo recibe el evento `SCRIPTED_TASKS_RUN` con el resumen. T8 usa el modelo real con los topes de siempre. Límites en configuración: 3 corridas por espacio y hora, 10 por origen y día y 30 por día en total (`SCRIPTED_TASKS_PER_WORKSPACE_HOUR`, `SCRIPTED_TASKS_PER_ORIGIN_DAY`, `SCRIPTED_TASKS_PER_DAY`), y una sola corrida empieza por minuto en todo el sistema (VC9-10 y VC9-11). Un error inesperado de una tarea vuelve solo como código (VC9-12).
+
+## DEC-021. La entrega es `v1.0.1-submission`
+
+- **Fecha:** lunes 19 de octubre, 12:30 (Lima). **Fuente:** la autorización inicial ("v1.0.1-submission si hiciera falta una corrección crítica") y las rondas 3 y 4 de VC11.
+- **Decisión:** la entrega es `v1.0.1-submission`. `v1.0.0-submission` (`ed1ed75`) queda en `origin` como historia, porque borrar o mover un tag remoto está prohibido. Hay dos motivos:
+  - el informe dentro de `v1.0.0` nombraba commits que ya no correspondían;
+  - ese código tenía un error del intervalo entre corridas de Run T1 to T8, con una prueba que fallaba rara vez. Su primer arreglo, además, introdujo un bloqueo encadenado de severidad alta.
+  Una entrega que afirma que todo está en verde no debe llevar una prueba que falla ni un informe con datos que no corresponden.
+- **Contenido:** el código `172676b` con todas las corridas oficiales (verify, eval:deterministic, eval:agent, tasks:run contra producción y smoke), y un último commit solo de documentos y resultados.
