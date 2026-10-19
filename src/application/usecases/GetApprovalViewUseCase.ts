@@ -18,6 +18,8 @@ export interface ApprovalView {
   readonly quoteExpired: boolean;
   readonly approval: Approval | null;
   readonly now: VirtualInstant;
+  readonly studentName: string;
+  readonly payerName: string;
 }
 
 /**
@@ -41,6 +43,7 @@ export class GetApprovalViewUseCase {
     const limits = approval ? { maxDebit: approval.maxDebit, reserve: approval.reserve } : { maxDebit: ctx.policy.maxTuitionDebit, reserve: ctx.policy.reserve };
     const payload = approvalPayloadFor(ctx, record, limits);
     const receiver = record.quote ? await this.deps.uow.read.recipients.get(actor.workspaceId, record.quote.receiverId) : null;
+    const actors = await this.deps.uow.read.actors.list(actor.workspaceId);
     return {
       context: ctx,
       record,
@@ -50,6 +53,8 @@ export class GetApprovalViewUseCase {
       quoteExpired: record.quote ? isQuoteExpired(record.quote, ctx.now) : false,
       approval,
       now: ctx.now,
+      studentName: actors.find((a) => a.role === "student")?.displayName ?? "Student",
+      payerName: actors.find((a) => a.role === "payer")?.displayName ?? "Payer",
     };
   }
 }

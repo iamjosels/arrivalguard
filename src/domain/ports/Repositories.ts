@@ -244,6 +244,27 @@ export interface ProviderEventReceiptRepository {
   markProcessed(workspaceId: string, providerEventId: string): Promise<boolean>;
 }
 
+export type PendingChangeKind = "POLICY_CHANGE" | "MANDATE_CHANGE";
+export type PendingChangeStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
+
+/** Cambio de política o de mandato preparado por chat, a la espera de confirmación en pantalla fija. */
+export interface PendingChangeRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly kind: PendingChangeKind;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly fingerprint: string;
+  readonly status: PendingChangeStatus;
+  readonly createdByActorId: string;
+}
+
+export interface PendingChangeRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<PendingChangeRecord | null>;
+  listPending(workspaceId: string): Promise<PendingChangeRecord[]>;
+  insert(record: PendingChangeRecord): Promise<void>;
+  setStatus(workspaceId: string, id: string, status: PendingChangeStatus): Promise<void>;
+}
+
 export interface Repositories {
   readonly workspaces: WorkspaceRepository;
   readonly actors: ActorRepository;
@@ -259,6 +280,7 @@ export interface Repositories {
   readonly finance: FinanceFactsRepository;
   readonly events: EventRepository;
   readonly providerReceipts: ProviderEventReceiptRepository;
+  readonly pendingChanges: PendingChangeRepository;
 }
 
 /** Unidad de trabajo: una transacción de base de datos con repositorios ligados a ella. */

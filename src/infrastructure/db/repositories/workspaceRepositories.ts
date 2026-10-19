@@ -6,6 +6,10 @@ import type {
   EventRepository,
   FaultName,
   LockOptions,
+  PendingChangeKind,
+  PendingChangeRecord,
+  PendingChangeRepository,
+  PendingChangeStatus,
   ProviderEventReceiptRepository,
   StoredEvent,
   WorkspaceRecord,
@@ -14,7 +18,7 @@ import type {
 import { RealInstant, VirtualInstant } from "@/domain/time/Instant";
 import { redact } from "../../security/redact";
 import type { DbExecutor } from "../executor";
-import { actors, domainEvents, processedProviderEvents, workspaces } from "../schema";
+import { actors, domainEvents, pendingChanges, processedProviderEvents, workspaces } from "../schema";
 
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly db: DbExecutor) {}
@@ -138,4 +142,43 @@ export class DrizzleProviderEventReceiptRepository implements ProviderEventRecei
       .returning({ id: processedProviderEvents.providerEventId });
     return rows.length > 0;
   }
+}
+
+export class DrizzlePendingChangeRepository implements PendingChangeRepository {
+  constructor(private readonly db: DbExecutor) {}
+
+  async get(workspaceId: string, id: string, options?: LockOptions): Promise<PendingChangeRecord | null> {
+    const query = this.db.select().from(pendingChanges).where(and(eq(pendingChanges.workspaceId, workspaceId), eq(pendingChanges.id, id)));
+    const [row] = options?.forUpdate ? await query.for("update") : await query;
+    return row ? toPendingChange(row) : null;
+  }
+
+  async listPending(workspaceId: string): Promise<PendingChangeRecord[]> {
+    const rows = await this.db
+      .select()
+      .from(pendingChanges)
+      .where(and(eq(pendingChanges.workspaceId, workspaceId), eq(pendingChanges.status, "PENDING")))
+      .orderBy(asc(pendingChanges.createdAt));
+    return rows.map(toPendingChange);
+  }
+
+  async insert(record: PendingChangeRecord): Promise<void> {
+    await this.db.insert(pendingChanges).values({ ...record, payload: { ...record.payload } });
+  }
+
+  async setStatus(workspaceId: string, id: string, status: PendingChangeStatus): Promise<void> {
+    await this.db.update(pendingChanges).set({ status, resolvedAt: new Date() }).where(and(eq(pendingChanges.workspaceId, workspaceId), eq(pendingChanges.id, id)));
+  }
+}
+
+function toPendingChange(row: typeof pendingChanges.$inferSelect): PendingChangeRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    kind: row.kind as PendingChangeKind,
+    payload: (row.payload ?? {}) as Record<string, unknown>,
+    fingerprint: row.fingerprint,
+    status: row.status as PendingChangeStatus,
+    createdByActorId: row.createdByActorId,
+  };
 }

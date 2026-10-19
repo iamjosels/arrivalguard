@@ -91,14 +91,14 @@ export async function applyTuitionPlan(
     await repos.plans.saveVersion(current);
     const active = await repos.approvals.findActive(ctx.workspace.id, current.plan.id, current.plan.version, { forUpdate: true });
     if (active) {
-      active.invalidate(`MATERIAL_CHANGE: ${materialFields.join(", ") || "plan"}`);
+      active.invalidate(input.reason ? input.reason : `MATERIAL_CHANGE: ${materialFields.join(", ") || "plan"}`);
       await repos.approvals.save(active);
       invalidated.push(active.id);
       events.push(
         event("APPROVAL_INVALIDATED", actor.role, { type: "Approval", id: active.id }, ctx.now, {
           planId: current.plan.id,
           version: current.plan.version,
-          reason: "APPROVAL_INVALID",
+          reason: input.reason ?? "MATERIAL_CHANGE",
           changedFields: materialFields,
         }),
       );

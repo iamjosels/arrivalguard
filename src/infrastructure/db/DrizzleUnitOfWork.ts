@@ -18,6 +18,7 @@ import {
 import {
   DrizzleActorRepository,
   DrizzleEventRepository,
+  DrizzlePendingChangeRepository,
   DrizzleProviderEventReceiptRepository,
   DrizzleWorkspaceRepository,
 } from "./repositories/workspaceRepositories";
@@ -38,6 +39,7 @@ export function repositoriesFor(db: DbExecutor): Repositories {
     finance: new DrizzleFinanceFactsRepository(db),
     events: new DrizzleEventRepository(db),
     providerReceipts: new DrizzleProviderEventReceiptRepository(db),
+    pendingChanges: new DrizzlePendingChangeRepository(db),
   };
 }
 

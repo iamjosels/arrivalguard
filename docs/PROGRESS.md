@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 19:48.
-- **Fase:** 2 cerrada (verify 19:46 exit 0, VC4 corregido y VC5 aprobado); se lleva a `main`. Fase 3 API, sesiones y acceso en curso: su código está fuera de este commit y se retoma enseguida. Fase 1 cerrada a las 18:38.
-- **Subtarea en curso:** 2.9 merge a `main`, despliegue (aplica la migración `0001` en `production`) y smoke.
-- **Siguiente paso exacto:** retomar la Fase 3 (sesiones, acceso del jurado, rutas de la sección 11, pruebas S03 y S06 a S09, smoke con T1 por HTTP hasta CREDITED y revisión VC6).
-- **Último `pnpm verify`:** 19:43 a 19:46, exit 0 (17 archivos y 411 pruebas, unitarias e integración contra Neon dev).
-- **URL de producción:** https://arrivalguard.vercel.app (commit ae1fc7b, smoke OK 18:39; pasa a la Fase 2 con este cierre).
+- **Hora (Lima):** domingo 18 de octubre, 19:50.
+- **Fase:** 3 API, sesiones y acceso (en curso desde las 19:08). Fase 2 cerrada a las 19:48 (`d7cc287` en producción). Fase 1 cerrada a las 18:38.
+- **Subtarea en curso:** 3.8 revisión VC6 (subagente `auditor-seguridad`, en curso desde las 19:56) y, en paralelo, inicio de la Fase 4 (componentes de marca e interfaz).
+- **Siguiente paso exacto:** corregir lo que encuentre VC6 con pruebas de regresión, `pnpm verify`, merge a `main` y `pnpm smoke` en producción hasta CREDITED.
+- **Último `pnpm verify`:** 19:51 a 19:54, exit 0 (21 archivos y 429 pruebas: unitarias, integración, API y seguridad contra Neon dev).
+- **URL de producción:** https://arrivalguard.vercel.app (commit d7cc287, smoke OK 19:47).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
 
@@ -93,6 +93,8 @@ Revisión (19:06 a 19:21, subagente `revisor`, docs/reviews/VC4.md y VC5.md): VC
 
 Evidencia de cierre (19:46): `pnpm verify` exit 0: `OK typecheck`, `OK lint`, `OK test` (17 archivos y 411 pruebas), `OK db:seed-check` (5 escenarios válidos) y `OK build`, `verify: TODO EN VERDE`. Antes, solo la suite de integración: 9 archivos y 42 pruebas en verde (237 s). En la rama `dev` de Neon se borraron las 6 filas duplicadas del libro antes de migrar; `db:migrate` en `dev`: "OK, 2 migraciones registradas".
 
+Producción (19:47): merge fast-forward de `dev` a `main` (`d7cc287`); el build de Vercel aplicó la migración `0001` en `production` y quedó `main:production:READY`. `pnpm smoke --base-url https://arrivalguard.vercel.app`: `GET /api/health -> 200 status=ok database=ok commit=d7cc287`, `GET / -> 200 simulation band=present`, `smoke: OK`. El smoke con T1 por HTTP llega con la Fase 3, que es la que agrega las rutas.
+
 Evidencia (19:05): `pnpm verify` exit 0 con 16 archivos y 403 pruebas. Integración contra Neon dev: N01 (B, débito USD 2,860.00 una sola vez, CREDITED con recibo, saldo USD 2,140.00), idempotencia (misma clave devuelve el mismo intento; misma clave con otro contenido da IDEMPOTENCY_CONFLICT), O01, O02a (USD 2,865.00 y saldo USD 2,135.00), O02b (EXCEEDS_PAYER_MAX, plan READY_FOR_APPROVAL, aprobación INVALIDATED, ningún intento), O03 (UNKNOWN, ActiveAttemptExists ante otro pago y un solo débito tras conciliar), O04 (dos ejecuciones concurrentes reales: un solo intento y un solo débito; misma clave en paralelo: mismo intento), O05 (DUPLICATE_EVENT_IGNORED, saldo intacto), O07 (HOLD_RELEASED una vez, reintento con aprobación nueva), O08 (PENDING_UNIVERSITY hasta 24 h más 36 h, sin recibo inventado), N02, N10, D05 (versión 2 con D, aprobación anterior invalidada, saldo final USD 2,120.00), el intento persistido antes de enviar (proveedor espía) y VC5 (29 tablas y 3 índices parciales sobre un esquema vacío; la base existente se vuelve a migrar sin perder datos). Puerta G1: T1 de punta a punta en modo estructurado, con respuesta perdida y concurrencia, demostrada a nivel de caso de uso. O06 (IA no disponible) se cubre en la Fase 5.
 
 Cambio de diseño por concurrencia: ninguna transacción consulta a los simuladores mientras retiene conexión y bloqueos (se consultan antes de abrirla). Las pruebas de integración corren en paralelo (cada una en su espacio): de 319 s a 71 s. Fijada la región `iad1` de Vercel, igual a la de Neon (`us-east-1`).
@@ -102,14 +104,16 @@ Cambio de diseño por concurrencia: ninguna transacción consulta a los simulado
 Inicio: domingo 18, 19:08. Secciones: BUILD_PROMPT 4.3, 9.3, 11, 13.6 (límites), 14.1 y 14.2 (S03, S06 a S09), A4.
 
 Subtareas:
-- [ ] 3.1 Sesiones: token de 256 bits, hash HMAC-SHA256 con pepper, 14 días, revocación; cookies ag_student, ag_payer y ag_evaluator (HttpOnly, Secure, SameSite=Strict).
-- [ ] 3.2 Acceso del jurado: código de evaluación, espacio con los tres roles, límites 20 por hora por IP con hash y 200 por día.
-- [ ] 3.3 Envoltorio HTTP: actor de sesión con x-ag-actor, Origin, Content-Type, Zod, requestId y httpErrorMapper único.
-- [ ] 3.4 DTO y Mapper de salida (CaseViewDTO, PlanDTO, ApprovalViewDTO, AttemptDTO, CashProjectionDTO, eventos).
-- [ ] 3.5 T6: cambio de política del pagador, cambios preparados con confirmación fija, revocación (N11, N12 en los dos órdenes).
-- [ ] 3.6 Rutas de la sección 11 para T1, T2, T5, T6 y la consola del evaluador.
-- [ ] 3.7 Pruebas de API: T1 completa por HTTP, S03, S06, S07, S08, S09, cookies, Origin y límites.
+- [x] 3.1 Sesiones: token de 256 bits, hash HMAC-SHA256 con pepper, 14 días, revocación; cookies ag_student, ag_payer y ag_evaluator (HttpOnly, Secure, SameSite=Strict).
+- [x] 3.2 Acceso del jurado: código de evaluación, espacio con los tres roles, límites 20 por hora por IP con hash y 200 por día.
+- [x] 3.3 Envoltorio HTTP: actor de sesión con x-ag-actor, Origin, Content-Type, Zod, requestId y httpErrorMapper único.
+- [x] 3.4 DTO y Mapper de salida (CaseViewDTO, PlanDTO, ApprovalViewDTO, AttemptDTO, CashProjectionDTO, eventos).
+- [x] 3.5 T6: cambio de política del pagador, cambios preparados con confirmación fija, revocación (N11, N12 en los dos órdenes).
+- [x] 3.6 Rutas de la sección 11 para T1, T2, T5, T6 y la consola del evaluador (22 rutas en el build). `/api/chat` llega en la Fase 5; remesas, devoluciones y evidencia, en la Fase 6.
+- [x] 3.7 Pruebas de API: T1 completa por HTTP, S03, S06, S07, S08, S09, cookies, Origin y límites.
 - [ ] 3.8 `smoke` con T1 en modo estructurado y CREDITED; `pnpm verify`, revisión VC6, merge a `main` y smoke en producción.
+
+Evidencia (19:50): pruebas de API y seguridad, 6 archivos y 23 pruebas en verde (acceso A4 con cookies y límites, CSRF, T1 por HTTP con O03, T4 y T5, N11, N12 en los dos órdenes, cambio preparado con confirmación fija, S03, S06, S07, S08, S09 y que ninguna ruta acepte "acreditado" o "aprobado" del navegador). `scripts/smoke.ts` ahora corre T1 por HTTP como el navegador (cookies, Origin, `x-ag-actor`, `Idempotency-Key`) y exige CREDITED. Contra `pnpm start` local: 9 pasos OK, `POST /api/payments/{id}/reconcile -> 200 status=CREDITED`, `GET /api/case -> 200 balance minor=214000`, `smoke: OK (T1 CREDITED)`.
 
 ## Deuda
 

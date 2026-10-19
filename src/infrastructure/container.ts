@@ -10,6 +10,16 @@ import { GrantApprovalUseCase } from "@/application/usecases/GrantApprovalUseCas
 import { InjectFaultUseCase } from "@/application/usecases/InjectFaultUseCase";
 import { PlanTuitionPaymentUseCase } from "@/application/usecases/PlanTuitionPaymentUseCase";
 import { ProjectCashUseCase } from "@/application/usecases/ProjectCashUseCase";
+import { ChangePayerPolicyUseCase } from "@/application/usecases/ChangePayerPolicyUseCase";
+import { ConfirmPayerChangeUseCase } from "@/application/usecases/ConfirmPayerChangeUseCase";
+import { GetCaseViewUseCase } from "@/application/usecases/GetCaseViewUseCase";
+import { OpenEvaluationAccessUseCase } from "@/application/usecases/OpenEvaluationAccessUseCase";
+import { PreparePayerChangeUseCase } from "@/application/usecases/PreparePayerChangeUseCase";
+import { ReadModelsUseCase } from "@/application/usecases/ReadModelsUseCase";
+import { RevokePermissionUseCase } from "@/application/usecases/RevokePermissionUseCase";
+import { DbRateLimiter, DrizzleSessionStore, EnvAccessCode } from "./auth/DrizzleSessionStore";
+import { pepperedHash } from "./auth/secrets";
+import { getServerEnv } from "./config/env";
 import { ReconcilePaymentUseCase } from "@/application/usecases/ReconcilePaymentUseCase";
 import { RequestPayerApprovalUseCase } from "@/application/usecases/RequestPayerApprovalUseCase";
 import { NodeHasher } from "./crypto/NodeHasher";
@@ -39,10 +49,30 @@ export function buildContainer() {
     realClock: new SystemClock(),
   };
   const processor = new TuitionPaymentProcessor(deps);
+  const pepper = () => getServerEnv().SESSION_PEPPER;
+  const sessions = new DrizzleSessionStore(db, pepper);
+  const limiter = new DbRateLimiter(db);
+  const createWorkspace = new CreateEvaluationWorkspaceUseCase(deps);
   return {
     deps,
     processor,
-    createWorkspace: new CreateEvaluationWorkspaceUseCase(deps),
+    sessions,
+    limiter,
+    /** HMAC con pepper de un valor que no debe guardarse en claro (por ejemplo, la IP). */
+    hashForStorage: (purpose: string, value: string) => pepperedHash(pepper(), purpose, value),
+    createWorkspace,
+    access: new OpenEvaluationAccessUseCase(createWorkspace, sessions, limiter, new EnvAccessCode(() => getServerEnv().EVAL_ACCESS_CODE, pepper), {
+      sessionTtlHours: getServerEnv().EVAL_SESSION_TTL_HOURS,
+      perIpPerHour: getServerEnv().EVAL_ACCESS_PER_IP_HOUR,
+      perDay: getServerEnv().EVAL_WORKSPACES_PER_DAY,
+      keyPrefix: getServerEnv().RATE_LIMIT_PREFIX,
+    }),
+    caseView: new GetCaseViewUseCase(deps, processor),
+    changePolicy: new ChangePayerPolicyUseCase(deps),
+    preparePayerChange: new PreparePayerChangeUseCase(deps),
+    confirmPayerChange: new ConfirmPayerChangeUseCase(deps),
+    revoke: new RevokePermissionUseCase(deps),
+    readModels: new ReadModelsUseCase(deps),
     planTuition: new PlanTuitionPaymentUseCase(deps),
     compareRoutes: new CompareRoutesUseCase(deps),
     requestApproval: new RequestPayerApprovalUseCase(deps),
