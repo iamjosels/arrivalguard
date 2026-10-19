@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 20:31.
-- **Fase:** 3 cerrándose (VC6 sin críticos ni altos; medios y bajos corregidos con pruebas). Fase 4 Interfaz en curso desde las 19:58: su código está fuera de este commit y se retoma enseguida. Fase 2 cerrada a las 19:48.
-- **Subtarea en curso:** 3.8 `pnpm verify`, merge a `main` y `pnpm smoke` en producción hasta CREDITED.
-- **Siguiente paso exacto:** retomar la Fase 4 (revisión visual de las capturas, `pnpm ui:check`, VC7 con el revisor).
-- **Último `pnpm verify`:** 20:32 a 20:37, exit 0 (22 archivos y 442 pruebas: unitarias, integración, API y seguridad contra Neon dev).
-- **URL de producción:** https://arrivalguard.vercel.app (commit d7cc287, smoke OK 19:47).
+- **Hora (Lima):** domingo 18 de octubre, 20:58.
+- **Fase:** 4 Interfaz (en curso desde las 19:58). Fase 3 cerrada a las 20:38 (`0eee748` en producción, smoke con T1 hasta CREDITED). Fase 2 cerrada a las 19:48.
+- **Subtarea en curso:** 4.8 revisión VC7 (subagente `revisor`, con las capturas).
+- **Siguiente paso exacto:** corregir lo que encuentre VC7, `pnpm verify`, merge a `main` y smoke; después la Fase 5 (agente).
+- **Último `pnpm verify`:** 20:51 a 20:57, exit 0 (25 archivos y 460 pruebas).
+- **URL de producción:** https://arrivalguard.vercel.app (commit 0eee748, smoke con T1 CREDITED 20:39).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
 
@@ -117,6 +117,8 @@ Revisión (19:56 a 20:15, subagente `auditor-seguridad`, docs/reviews/VC6.md): 3
 
 Evidencia de cierre (20:37): `pnpm verify` exit 0: `OK typecheck`, `OK lint`, `OK test` (22 archivos y 442 pruebas), `OK db:seed-check` (5 escenarios válidos) y `OK build`, `verify: TODO EN VERDE`.
 
+Producción (20:39): merge fast-forward a `main` (`0eee748`), `main:production:READY`. `pnpm smoke --base-url https://arrivalguard.vercel.app`: `GET /api/health -> 200 status=ok database=ok commit=0eee748`, `GET / -> 200 simulation band=present`, acceso con el código de evaluación 201, plan con ruta B, solicitud, vista del pagador con huella, aprobación 201, `POST /api/payments` 201 PENDING_UNIVERSITY con débito USD 286000 (unidades menores), reloj +24 h, `reconcile -> 200 status=CREDITED`, `GET /api/case` con saldo 214000, `smoke: OK (T1 CREDITED)`.
+
 Evidencia (19:50): pruebas de API y seguridad, 6 archivos y 23 pruebas en verde (acceso A4 con cookies y límites, CSRF, T1 por HTTP con O03, T4 y T5, N11, N12 en los dos órdenes, cambio preparado con confirmación fija, S03, S06, S07, S08, S09 y que ninguna ruta acepte "acreditado" o "aprobado" del navegador). `scripts/smoke.ts` ahora corre T1 por HTTP como el navegador (cookies, Origin, `x-ag-actor`, `Idempotency-Key`) y exige CREDITED. Contra `pnpm start` local: 9 pasos OK, `POST /api/payments/{id}/reconcile -> 200 status=CREDITED`, `GET /api/case -> 200 balance minor=214000`, `smoke: OK (T1 CREDITED)`.
 
 ## Fase 4: Interfaz
@@ -124,14 +126,18 @@ Evidencia (19:50): pruebas de API y seguridad, 6 archivos y 23 pruebas en verde 
 Inicio: domingo 18, 19:58 (en paralelo con la revisión VC6). Secciones: UI_UX_PROMPT completo (manda en lo visual), DESIGN_PLAN 2 a 6, BUILD_PROMPT 11 (contratos de la API).
 
 Subtareas:
-- [ ] 4.1 Marca: ThresholdMark, Logo, ConsentSeal determinista (vector de prueba de DESIGN_PLAN 4.2), MiniSeal, SimulationBand, octágono; SVG en `public/brand`.
-- [ ] 4.2 Primitivas reestilizadas con los tokens (Button, Input, Field, Select, Switch, Tabs, Sheet, Panel, Skeleton, Toaster).
-- [ ] 4.3 Finanzas: MoneyFigure, StatusPill, reasonCopy (UI_UX 9.5), RouteBoard, JourneyLine, FundsBar, CashProjection, ConditionalIncomeCard, PermissionMeter, BlockedNotice, ApprovalRequestCard.
-- [ ] 4.4 Capa de datos del cliente (`x-ag-actor`, errores tipados, sondeo) y layout: TopBar con color de rol, RoleSwitcher accesible, VirtualClock, selector de tema sin parpadeo.
-- [ ] 4.5 Pantallas: landing con acceso del jurado, espacio de Sofía (zona A con modo estructurado, zona B con el estado del servidor), vista de Carlos (solicitudes, actividad, permisos con edición y revocación), documento de aprobación con sello, confirmación de cambios y consola del evaluador (escenario, reloj, fallas y bitácora).
-- [ ] 4.6 `/system` (P1) con tokens, tipografía, componentes y sellos.
-- [ ] 4.7 VC7: `pnpm ui:check` (Playwright) recorre T1 solo con clics hasta CREDITED; capturas a 1440 × 900 y 390 × 844 en claro y oscuro en `docs/design/screens/`; axe por pantalla en `docs/evidence/ui-axe.json`.
+- [x] 4.1 Marca: ThresholdMark, Logo, ConsentSeal determinista (vector de prueba de DESIGN_PLAN 4.2), MiniSeal, SimulationBand, octágono; SVG en `public/brand`.
+- [x] 4.2 Primitivas reestilizadas con los tokens (Button, Input, Field, Select, Switch, Tabs, Sheet, Panel, Skeleton, Toaster).
+- [x] 4.3 Finanzas: MoneyFigure, StatusPill, reasonCopy (UI_UX 9.5), RouteBoard, JourneyLine, FundsBar, CashProjection, ConditionalIncomeCard, PermissionMeter, BlockedNotice, ApprovalRequestCard.
+- [x] 4.4 Capa de datos del cliente (`x-ag-actor`, errores tipados, sondeo) y layout: TopBar con color de rol, RoleSwitcher accesible, VirtualClock, selector de tema sin parpadeo.
+- [x] 4.5 Pantallas: landing con acceso del jurado, espacio de Sofía (zona A con modo estructurado, zona B con el estado del servidor), vista de Carlos (solicitudes, actividad, permisos con edición y revocación), documento de aprobación con sello, confirmación de cambios y consola del evaluador (escenario, reloj, fallas y bitácora).
+- [x] 4.6 `/system` (P1) con tokens, tipografía, componentes y sellos.
+- [x] 4.7 VC7: `pnpm ui:check` (Playwright) recorre T1 solo con clics hasta CREDITED; capturas a 1440 × 900 y 390 × 844 en claro y oscuro en `docs/design/screens/`; axe por pantalla en `docs/evidence/ui-axe.json`.
 - [ ] 4.8 `pnpm verify`, revisión VC7 con las capturas, correcciones, merge a `main` y smoke.
+
+Evidencia (20:51): `pnpm ui:check --base-url http://localhost:3000` contra `pnpm build && pnpm start`: landing, acceso con el código (escenario base), Plan my payment (ruta B), Request approval, Carlos abre la solicitud y aprueba (aparece el sello), Sofía envía, el evaluador avanza 24 horas y Check this payment llega a CREDITED, todo con clics; `axe: 34 capturas revisadas, 0 violaciones serias o críticas`; `scroll horizontal: ninguno`; `ui:check: OK (T1 CREDITED solo con clics)`. Capturas en `docs/design/screens/` (landing, /system, estudiante vacío, esperando y acreditado, documento pendiente y aprobado, vista del pagador y consola), a 1440 × 900 y 390 × 844, en claro y oscuro (la consola solo en oscuro). Revisadas a ojo: se corrigieron el desborde horizontal de la consola en móvil, la bitácora sin día después de avanzar el reloj, textos duplicados en fondos y beca, la tarjeta invalidada con opacidad (no cumplía 4.5:1) y pestañas con `aria-controls` sin panel.
+
+`pnpm verify` (20:51 a 20:57): exit 0, 25 archivos y 460 pruebas (incluye las unitarias de la interfaz: geometría del sello con el vector de DESIGN_PLAN 4.2, textos de razones de UI_UX 9.5, hora virtual y montos del pagador sin punto flotante).
 
 Cambios de API para la interfaz (aditivos): `SessionDTO` agrega `virtualStart` y `people` (nombres sintéticos para el selector de rol); `PlanDTO` agrega `targetArrivalHours` y `comparedAt` (sacados de las cotizaciones evaluadas).
 

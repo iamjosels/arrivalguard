@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Overpass, Overpass_Mono, Source_Serif_4 } from "next/font/google";
 import type { ReactNode } from "react";
+import { Toaster } from "@/ui/primitives";
+import { THEME_INIT_SCRIPT } from "@/ui/theme/themeScript";
 import "./globals.css";
 
 const sans = Overpass({ subsets: ["latin"], display: "swap", variable: "--font-overpass" });
@@ -15,8 +17,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
-      <body className="min-h-dvh bg-paper text-ink antialiased">{children}</body>
+    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="min-h-dvh bg-paper text-ink antialiased">
+        <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2">
+          Skip to content
+        </a>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }
