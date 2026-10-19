@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 10:20.
+- **Hora (Lima):** lunes 19 de octubre, 10:35.
 - **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. Entrega congelada con el tag `v1.0.0-submission`.
 - **Subtarea en curso:** ninguna.
 - **Siguiente paso exacto:** ninguno para Claude. Lo que queda es de los humanos, antes del martes 20 a las 10:59 (docs/PARA_HUMANOS.md y docs/INFORME_FINAL.md, sección 8).
-- **Último `pnpm verify`:** lunes 10:01 a 10:11 sobre `a82ff77`, el último commit con código: exit 0, con 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los valores reales. Los commits siguientes solo cambian documentos.
-- **URL de producción:** https://arrivalguard.vercel.app (commit `d8513f7`, smoke con T1 CREDITED a las 10:12).
+- **Último `pnpm verify`:** lunes 10:14 a 10:24 sobre `ed1ed75`, el commit del tag `v1.0.0-submission`: exit 0, con 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales.
+- **URL de producción:** https://arrivalguard.vercel.app, en `ed1ed75`, el mismo commit del tag. El smoke con T1 CREDITED fue a las 10:25 y `tasks:run`, 8 de 8 con la consola 8 de 8, a las 10:29.
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** cerca de USD 2.61 medidos: USD 2.53 en la rama dev (475 llamadas al modelo real, `ai_usage`) y USD 0.08 en producción el lunes 19, día UTC (panel de la consola).
 
@@ -232,7 +232,7 @@ Subtareas:
 - [x] 9.1 Revisión VC11 (`revisor`). La primera ronda no fue concluyente: la regla de permisos impide copiar `.env.local` y no se buscó otra vía. Encontró 1 medio (`smoke` sin `--code`) y 1 bajo (comandos de Windows). Al repetir la instalación con un Postgres local apareció un paso oculto (medio): los límites de las pruebas. Los tres se corrigieron en `cdc16aa` y `a82ff77`. Segunda ronda en un clon limpio con Postgres local y valores propios, sin secretos: `pnpm install`, `db:migrate`, `pnpm test` (546 de 546), `secrets-scan` y `db:seed-check`, todos en exit 0. Aprobado.
 - [x] 9.2 `pnpm verify` sobre `a82ff77` (10:01 a 10:11), exit 0: 39 archivos y 546 pruebas, y `secrets-scan` con los 5 valores reales del entorno, sin secretos. Merge a `main` y `GET /api/health`: `d8513f7 ok ok`. `pnpm smoke --base-url https://arrivalguard.vercel.app` (10:12): `commit=d8513f7`, acceso 201, `reconcile -> 200 status=CREDITED`, saldo 214000, `smoke: OK (T1 CREDITED)`.
 - [x] 9.3 `docs/INFORME_FINAL.md`. Sus tablas N, O, S, D y T se generaron desde `docs/results/`. PARA_HUMANOS tiene lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
-- [x] 9.4 Árbol de git limpio y tag `v1.0.0-submission` sobre el commit que contiene este cierre, enviado a origin. En la conversación se comprueban `pnpm verify` sobre ese commit, el despliegue, el smoke y `git ls-remote --tags origin`.
+- [x] 9.4 Tag `v1.0.0-submission` sobre `ed1ed75`, enviado a origin: `git ls-remote --tags origin` da `refs/tags/v1.0.0-submission^{}` en `ed1ed75`. Ese mismo commit tiene `pnpm verify` en exit 0 (10:14 a 10:24) y es el de `main` y producción (`GET /api/health`: `ed1ed75 ok ok`). Allí el smoke dio CREDITED (10:25) y `tasks:run` 8 de 8 con la consola 8 de 8 (10:29, `docs/results/tasks-2026-10-19T15-29-04-637Z.json`). Árbol limpio. Después del tag, un commit de `dev` solo de documentos actualizó el informe final, los resultados y este registro con esa evidencia; `main` y producción se quedaron en `ed1ed75`.
 
 **Puerta G5 cumplida.** Las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Las revisiones VC1 a VC11 no dejan hallazgos críticos ni altos abiertos.
 

@@ -1,11 +1,12 @@
 # Informe final de ArrivalGuard
 
-Lunes 19 de octubre de 2026, 10:20 (Lima). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
+Lunes 19 de octubre de 2026, 10:35, corregido después de crear el tag (Lima). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
 
 ## 1. Lo esencial
 
-- **Producción:** https://arrivalguard.vercel.app, commit `d8513f7 (último smoke, 10:12); el commit del tag solo agrega este informe, PROGRESS y PARA_HUMANOS, y se despliega igual` (`GET /api/health`: `status ok`, `database ok`).
-- **Tag de entrega:** `v1.0.0-submission`, sobre el commit que contiene este informe, enviado a `origin`.
+- **Producción:** https://arrivalguard.vercel.app, commit `ed1ed75`, el mismo del tag (`GET /api/health` a las 10:29: `commit ed1ed75`, `status ok`, `database ok`, `environment production`).
+- **Tag de entrega:** `v1.0.0-submission`, que apunta a `ed1ed75` (objeto anotado `90e115a`) y está en `origin` (`git ls-remote --tags origin`). En `ed1ed75` coinciden el tag, el último `pnpm verify` (exit 0), `main`, producción, el smoke con CREDITED y la última corrida de `tasks:run`.
+- **Sobre esta versión del informe:** se corrigió después de crear el tag, en un commit posterior de la rama `dev` que solo cambia documentos. La copia que quedó dentro del tag (`ed1ed75`) nombraba `d8513f7` como último smoke y `a82ff77` como último `verify`, que eran los datos cuando se escribió; esta versión pone la evidencia final, toda sobre `ed1ed75`. `main` y producción no se movieron.
 - **Repositorio:** https://github.com/iamjosels/arrivalguard (privado; hacerlo público es decisión de ustedes, ver sección 8).
 - **Fases 0 a 9 cerradas y puertas G1 a G5 cumplidas**, cada cierre con `pnpm verify` en exit 0 (detalle en `docs/PROGRESS.md`).
 - **Revisiones independientes VC1 a VC11** en `docs/reviews/`: ningún hallazgo crítico ni alto abierto.
@@ -16,15 +17,15 @@ Lunes 19 de octubre de 2026, 10:20 (Lima). Construcción autónoma de las Fases 
 
 | Qué | Evidencia (comando y resultado) |
 |---|---|
-| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` sobre `b7f997a`: 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-19T14-46-39-971Z.json`, bitácora y transcripción de T8 en `docs/evidence/`) |
-| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=d8513f7`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 10:12) |
+| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` sobre `ed1ed75`: 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-19T15-29-04-637Z.json`, bitácora y transcripción de T8 en `docs/evidence/`) |
+| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=ed1ed75`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 10:25, sobre el commit del tag) |
 | T1 por chat con el modelo real en producción (puerta G2) | `pnpm smoke:chat`: CREDITED con el recibo `AU-RC-8555B526` (`docs/evidence/g2-chat-2026-10-19T03-34-06-061Z.json`) |
 | S01 a S12 (P0) y S13 a S16 (P1) en el servidor, con su categoría oficial | `pnpm eval:deterministic` sobre `75614ed`: 114 de 114 pruebas en 40 escenarios; S01 a S16, 16 de 16 (`docs/results/deterministic-2026-10-19T13-43-17-641Z.json`) |
 | Ataques de nivel agente con el modelo real | `pnpm eval:agent` sobre `75614ed`: S01, S02, S04, S05 y S10 a S15 en verde, juzgados por el estado del servidor (`docs/results/agent-2026-10-19T14-11-00-521Z.json`) |
 | Diálogo D01 a D12 con métricas (P1) | `pnpm eval:agent`: 32 de 32 escenarios. Mediana de 1 turno hasta el caso preparado según el servidor (6 de 6 casos medidos), 0 preguntas de más en 7 pedidos completos, 3 de 3 correcciones que conservan los datos, 0 salidas seguras, mediana de 18.4 s por turno |
 | Acceso del jurado con código de evaluación (A4) | El espacio se abre con el código y trae los tres roles en el mismo navegador, con sesiones de 14 días. Lo prueban `tests/api/access.test.ts` y `tests/security/sessionAuthority.test.ts`, y en producción el smoke y `tasks:run` (acceso 201) |
 | Interfaz (T1 solo con clics, accesibilidad, móvil, CSP) | `pnpm ui:check`: todos los pasos OK, incluidos el botón de tema y Run T1 to T8; 39 capturas en `docs/design/screens/`, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP (`docs/evidence/ui-axe.json`) |
-| Calidad del código | `pnpm verify` sobre `a82ff77, el último commit con código (d8513f7 solo agrega docs/reviews/VC11.md)`: typecheck, lint, 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`, exit 0 |
+| Calidad del código | `pnpm verify` sobre `ed1ed75`, el commit del tag (10:14 a 10:24): typecheck, lint, 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales del entorno, exit 0 |
 | Instalación desde cero siguiendo solo el README | VC11: clon limpio del repositorio publicado, con un Postgres local y valores propios, sin ningún secreto del proyecto: `pnpm install`, `db:migrate`, `pnpm test` (546 de 546), `secrets-scan` y `db:seed-check` terminaron todos en exit 0 (`docs/reviews/VC11.md`) |
 | Documentos (P0 y P1) | README, `docs/TECHNICAL.md`, `docs/SECURITY_SELF_ASSESSMENT.md`, `docs/EVALUATION.md` con resultados reales, `docs/EXECUTION_EVIDENCE.md`, `docs/DEMO_GUIDE.md`, `docs/VIDEO_SCRIPT.md`, `docs/PITCH_OUTLINE.md`, `LICENSE` y `THIRD_PARTY_LICENSES.md` |
 | Secretos | `pnpm secrets-scan`: OK, sin secretos (también dentro de cada `verify`) |
@@ -35,7 +36,7 @@ Tablas generadas desde los archivos de `docs/results/` (las mismas que publica `
 
 - N, O y S deterministas: commit `75614ed`, 2026-10-19T13:53Z (08:53 Lima).
 - Agente: commit `75614ed`, 2026-10-19T14:11Z (09:11 Lima), modelo `claude-sonnet-5-5` con effort `low`, una corrida por escenario.
-- Tareas: commit `b7f997a`, 2026-10-19T14:46Z (09:46 Lima).
+- Tareas: commit `ed1ed75`, 2026-10-19T15:29Z (10:29 Lima), con producción en `ed1ed75`.
 
 N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 
@@ -138,11 +139,11 @@ N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 | T1 | en verde | 3.5 s |
 | T2 | en verde | 2.4 s |
 | T3 | en verde | 1.9 s |
-| T4 | en verde | 1.8 s |
+| T4 | en verde | 1.9 s |
 | T5 | en verde | 0.9 s |
-| T6 | en verde | 2.8 s |
-| T7 | en verde | 1.8 s |
-| T8 | en verde | 5.1 s |
+| T6 | en verde | 3.0 s |
+| T7 | en verde | 1.9 s |
+| T8 | en verde | 5.0 s |
 
 Consola, Run T1 to T8 en el servidor: HTTP 200, 8 de 8, 4.0 s.
 
