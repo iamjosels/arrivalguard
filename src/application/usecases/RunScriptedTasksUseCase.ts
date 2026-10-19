@@ -1,8 +1,9 @@
+import { DomainError } from "@/domain/errors/DomainError";
 import { Money } from "@/domain/money/Money";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
 import type { ChatTurnDTO } from "../dto/ChatDTO";
-import { NotFoundError, RateLimitedError, RoleNotAllowedError } from "../errors/ApplicationError";
+import { ApplicationError, NotFoundError, RateLimitedError, RoleNotAllowedError } from "../errors/ApplicationError";
 import type { RateLimiterPort } from "../ports/SessionPort";
 import { event } from "../services/events";
 import type { AdvanceVirtualClockUseCase } from "./AdvanceVirtualClockUseCase";
@@ -81,15 +82,28 @@ export class RunScriptedTasksUseCase {
     private readonly deps: Pick<AppDeps, "uow" | "ids">,
     private readonly app: () => ScriptedTaskApp,
     private readonly limiter: RateLimiterPort,
-    private readonly config: { readonly keyPrefix: string; readonly perWorkspacePerHour: number; readonly perDay: number },
+    private readonly config: {
+      readonly keyPrefix: string;
+      readonly perWorkspacePerHour: number;
+      /** Por origen (hash de la IP que pide la corrida): un jurado no agota las corridas del día de los demás. */
+      readonly perOriginPerDay: number;
+      readonly perDay: number;
+      /** Una corrida empieza como máximo una vez por intervalo, en todo el sistema: acota la carga sobre la base. */
+      readonly startIntervalSeconds: number;
+    },
   ) {}
 
-  async execute(actor: ActorContext): Promise<ScriptedTasksRun> {
+  async execute(actor: ActorContext, command: { readonly originHash: string }): Promise<ScriptedTasksRun> {
     requireRole(actor, "evaluator");
     const workspace = await this.deps.uow.read.workspaces.get(actor.workspaceId);
     if (!workspace) throw new NotFoundError();
+    // Límites antes de crear cualquier espacio (VC9b): primero el de corridas en vuelo, que no gasta cupos ajenos.
+    const inFlight = await this.limiter.hit(`${this.config.keyPrefix}:scripted:start`, this.config.startIntervalSeconds, 1);
+    if (!inFlight.allowed) throw new RateLimitedError("Another scripted run just started. Try again in a minute.", inFlight.retryAfterSeconds);
     const perWorkspace = await this.limiter.hit(`${this.config.keyPrefix}:scripted:${actor.workspaceId}`, 3600, this.config.perWorkspacePerHour);
     if (!perWorkspace.allowed) throw new RateLimitedError("Scripted tasks already ran several times in the last hour. Try again later.", perWorkspace.retryAfterSeconds);
+    const perOrigin = await this.limiter.hit(`${this.config.keyPrefix}:scripted:origin:${command.originHash}`, 86_400, this.config.perOriginPerDay);
+    if (!perOrigin.allowed) throw new RateLimitedError("Scripted tasks already ran several times today from this network. Try again tomorrow.", perOrigin.retryAfterSeconds);
     const daily = await this.limiter.hit(`${this.config.keyPrefix}:scripted:daily`, 86_400, this.config.perDay);
     if (!daily.allowed) throw new RateLimitedError("The daily limit of scripted task runs was reached. Try again tomorrow.", daily.retryAfterSeconds);
 
@@ -133,7 +147,9 @@ export class RunScriptedTasksUseCase {
       workspaceId = box.workspaceId;
       await def.run(box, (check, ok) => checks.push({ check, ok }));
     } catch (e) {
-      error = e instanceof Error ? e.message : "Unexpected error";
+      // Solo el código estable: un error crudo (SQL, host de la base) nunca vuelve al cliente (VC9b).
+      error = e instanceof ApplicationError || e instanceof DomainError ? e.code : "UNEXPECTED_ERROR";
+      if (error === "UNEXPECTED_ERROR") console.error(`[scripted-tasks] ${def.id} failed: ${e instanceof Error ? e.name : "unknown"}`);
     }
     const passed = error === null && checks.length > 0 && checks.every((c) => c.ok);
     return { id: def.id, title: def.title, type: def.type, passed, checks, workspaceId, durationMs: Date.now() - started, error };

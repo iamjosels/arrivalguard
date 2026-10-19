@@ -35,4 +35,27 @@ Cada corrección tiene primero su prueba de regresión, que falló antes del cam
 
 ## Segunda ronda
 
-Pendiente: se registra aquí con su resultado.
+- **Fecha:** domingo 18, de 23:20 a lunes 19, 00:10 (Lima). **Rango:** `dev` en `4580baf` (correcciones en `1bb4890`); durante la ronda HEAD pasó a `437c0c9`, que solo cambia `clientIp` y `EvidenceDrawer` y no toca lo atacado.
+- **Veredicto:** las correcciones resisten; **ningún crítico, alto ni medio**. La puerta G3 puede cerrar. Cinco bajos.
+- **Evidencia del revisor:**
+  - `vitest run tests/security tests/api` da 8 archivos y 52 pruebas en verde.
+  - VC9-1 resistió 15 carreras nuevas: preparar mientras otro envía, el mismo reclamo ×4 con claves mezcladas, reclamos DRAFT duplicados heredados enviados en paralelo, reclamar tras REJECTED, el agente y el navegador a la vez, y 10 flujos en paralelo. También resistió la reproducción por HTTP real. En todos los casos hubo un solo REFUNDED y +USD 70.00.
+  - VC9-2, VC9-3, VC9-6 y VC9-7 se sostienen. El tope por origen aguanta 6 turnos en paralelo desde 3 espacios del mismo origen.
+  - `POST /api/evaluation/scripted-tasks` no se pudo usar como otro rol, sin sesión ni por CSRF. Corre una sola vez con su tope aunque lleguen 4 llamadas en paralelo y no filtra datos: 8 ids sin sesión y sin secretos.
+  - Una corrida por HTTP: 8 de 8 en 38 s, USD 0.0039.
+- **Costo del revisor:** una llamada al modelo real, USD 0.0039.
+
+| ID | Severidad | Hallazgo | Acción |
+|---|---|---|---|
+| VC9-8 | bajo | VC9-4 se rodeaba con facilidad. 20 de 22 variantes no dejaban señal: chino tradicional, sinónimos, japonés, francés, alemán, "esqueça", base64 de texto con tildes o en trozos, hex, ancho cero y ancho completo. El efecto ya estaba bloqueado. | Corregido. El texto se normaliza con NFKC y sin caracteres de formato (`\p{Cf}`). Se decodifican como UTF-8 el base64 estándar y url-safe (también en trozos) y el hexadecimal. Se ampliaron las listas en fr, de, ja y zh tradicional, y se agregó "repeat everything above". Prueba nueva "VC9-4b" con 13 variantes de override y 5 de aprobación o secreto, y la lista negativa con preguntas normales en esos idiomas. Siguen sin cubrirse rot13, texto invertido, homoglifos y leet. Por eso las señales se declaran como rótulo de mejor esfuerzo en SECURITY_SELF_ASSESSMENT: el control está en el servidor. |
+| VC9-9 | bajo | `scripted-tasks` y `session/logout` no validaban el cuerpo. Campos de autoridad en el cuerpo daban 200 y se ignoraban. | Corregido: `body: emptyBody` en las dos rutas. Prueba nueva: el cuerpo con `workspaceId`, `role`, `tasks` y `scenario` da 422 y no corre nada. |
+| VC9-10 | bajo | El tope diario de corridas era global: un solo jurado agotaba el día para todos. | Corregido: se agregó un tope diario por origen (hash de la IP que pide la corrida, 10 por defecto, `SCRIPTED_TASKS_PER_ORIGIN_DAY`) además del global. Prueba nueva: un origen agota su cupo y otro sigue corriendo. |
+| VC9-11 | bajo | No había límite de corridas simultáneas. Con 4 a la vez, la lectura del caso de otro usuario subió en local a picos de 18.5 s. | Corregido: empieza una sola corrida por minuto en todo el sistema. Ese límite se comprueba primero y no gasta cupos ajenos. Prueba nueva: dos evaluadores en paralelo dan una corrida y un 429. |
+| VC9-12 | bajo | El error crudo de una tarea (por ejemplo el SQL o el host de la base) volvía al evaluador. | Corregido: se devuelve solo el código estable de `ApplicationError` o `DomainError`, o `UNEXPECTED_ERROR` para todo lo demás, y en el log queda solo el nombre del error. Prueba nueva con un error crudo de base de datos. |
+
+Notas del revisor que no son hallazgos:
+- Los reclamos DRAFT duplicados que dejó la primera ronda en `dev` siguen ahí y no se pueden enviar (422). Fue correcto no agregar un índice único sobre esos datos. En producción no existen.
+- Los espacios que crea scripted-tasks no cuentan para el tope diario de espacios: son hasta 240 por día como máximo. Tampoco cuentan para el tope de IA por origen, pero su único turno (T8) cuesta unos USD 0.004 y está acotado por las corridas permitidas.
+- Las variantes Unicode del delimitador (`＜case_state＞`) pasaban tal cual. Desde VC9-8 el texto del usuario se normaliza para las señales, pero no el que se envía al modelo; no son la etiqueta que describe el system prompt.
+
+**Estado final de VC9:** sin críticos ni altos abiertos. Los 12 hallazgos de las dos rondas quedaron corregidos con su prueba, salvo VC9-5, que se resolvió como decisión (DEC-018) con una prueba que fija la regla.

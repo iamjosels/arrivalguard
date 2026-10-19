@@ -192,7 +192,7 @@ Subtareas:
 - [x] 7.1 S01 a S16 con su categoría oficial y efectos en la base, a nivel API (y herramienta del agente donde corresponde), en `tests/security` (`officialSuite.test.ts` con S01, S02, S04, S05 y S10 a S16; S03 y S06 a S09 en `apiSecurity.test.ts`), commit `31c3952`.
 - [x] 7.2 Encabezados: CSP con nonce (DEC-017), `frame-ancestors 'none'`, nosniff, Referrer-Policy, X-Frame-Options y Permissions-Policy.
 - [x] 7.3 `secrets-scan` en `pnpm verify`.
-- [ ] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección. Primera ronda: 1 crítico (VC9-1) y 6 bajos, corregidos en `1bb4890` (docs/reviews/VC9.md). Segunda ronda en curso.
+- [x] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección. Primera ronda: 1 crítico (VC9-1) y 6 bajos, corregidos en `1bb4890`. Segunda ronda: las correcciones resisten, sin críticos, altos ni medios; 5 bajos más, también corregidos con su prueba (docs/reviews/VC9.md).
 - [ ] 7.5 `pnpm verify`, merge a `main` y smoke.
 
 ## Deuda

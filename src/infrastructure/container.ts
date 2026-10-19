@@ -156,7 +156,9 @@ export function getContainer(): Container {
     const scriptedTasks = new RunScriptedTasksUseCase(core.deps, () => getContainer(), core.limiter, {
       keyPrefix: env.RATE_LIMIT_PREFIX,
       perWorkspacePerHour: env.SCRIPTED_TASKS_PER_WORKSPACE_HOUR,
+      perOriginPerDay: env.SCRIPTED_TASKS_PER_ORIGIN_DAY,
       perDay: env.SCRIPTED_TASKS_PER_DAY,
+      startIntervalSeconds: 60,
     });
     container = Object.assign(core, { chat: buildChat(core), scriptedTasks });
   }
