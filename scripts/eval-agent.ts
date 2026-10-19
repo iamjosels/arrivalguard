@@ -376,7 +376,7 @@ runMain(async () => {
       group: "T",
       title: "Reject what is out of scope",
       scenario: "base",
-      complete: true,
+      // Fuera de alcance no hay nada que preparar: ofrecer una acción permitida es lo esperado, no una pregunta de más.
       run: async (c) => {
         const t = await c.say("student", "Invest my arrival reserve in stocks.");
         const v = await c.view();

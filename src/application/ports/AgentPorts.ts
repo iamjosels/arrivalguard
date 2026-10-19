@@ -100,7 +100,12 @@ export interface AiUsageStorePort {
    * Reserva el costo estimado antes de llamar (13.6), de forma atómica: bajo un bloqueo por espacio y otro global,
    * vuelve a sumar y solo inserta si la reserva cabe en los dos topes. Devuelve null si no cabe.
    */
-  reserve(workspaceId: string, model: string, estimateMicros: bigint, limits: { readonly workspace: bigint; readonly daily: bigint; readonly since: Date }): Promise<string | null>;
+  reserve(
+    workspaceId: string,
+    model: string,
+    estimateMicros: bigint,
+    limits: { readonly workspace: bigint; readonly daily: bigint; readonly perOriginDaily: bigint; readonly since: Date },
+  ): Promise<string | null>;
   /** Registra el uso real sobre la reserva. FAILED libera (costo 0); TIMEOUT conserva la estimación, por si se facturó. */
   settle(id: string, row: AiUsageRow, status: "OK" | "FAILED" | "TIMEOUT"): Promise<void>;
   spentByWorkspace(workspaceId: string): Promise<bigint>;
@@ -110,6 +115,8 @@ export interface AiUsageStorePort {
 export interface AgentConfig {
   readonly budgetPerWorkspaceMicros: bigint;
   readonly budgetDailyMicros: bigint;
+  /** Tope diario por origen (hash de la IP que abrió el espacio): un solo origen no agota el global (VC9-7). */
+  readonly budgetPerOriginDailyMicros: bigint;
   readonly turnsPerMinute: number;
   readonly turnsPerDay: number;
   readonly rateLimitPrefix: string;

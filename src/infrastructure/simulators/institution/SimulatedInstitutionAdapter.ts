@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { PolicyViolationError } from "@/domain/errors/DomainError";
 import { Money, type Currency } from "@/domain/money/Money";
 import type {
@@ -18,6 +18,8 @@ import type { ScenarioId } from "../../scenarios/types";
 import { INSTITUTION_INJECTION_TEXT } from "../injectionTexts";
 
 const money = (currency: string, minor: bigint) => Money.of(currency as Currency, minor);
+/** La base o una transacción abierta: dentro de la sección crítica todo se lee con la misma conexión. */
+type Exec = Pick<Db, "select" | "update">;
 const shortId = () => randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 
 /**
@@ -65,7 +67,7 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
   }
 
   async getCreditStatus(ctx: SimulationContext, reference: string, transferId: string): Promise<CreditStatus | null> {
-    await this.creditDue(ctx);
+    await this.creditDue(this.db, ctx);
     const [row] = await this.db
       .select()
       .from(simInstitutionLedger)
@@ -86,8 +88,12 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
   }
 
   async getLedger(ctx: SimulationContext, reference: string): Promise<LedgerSummary> {
-    await this.creditDue(ctx);
-    const rows = await this.db
+    return this.ledger(this.db, ctx, reference);
+  }
+
+  private async ledger(db: Exec, ctx: SimulationContext, reference: string): Promise<LedgerSummary> {
+    await this.creditDue(db, ctx);
+    const rows = await db
       .select()
       .from(simInstitutionLedger)
       .where(and(eq(simInstitutionLedger.workspaceId, ctx.workspaceId), eq(simInstitutionLedger.reference, reference)))
@@ -95,7 +101,7 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
     const currency = (rows[0]?.currency ?? "CNY") as Currency;
     const owed = rows.length ? money(currency, rows[0]!.owedMinor) : Money.zero(currency);
     const credited = Money.sum(currency, rows.filter((r) => r.status === "CREDITED").map((r) => money(r.currency, r.netMinor)));
-    const refunded = await this.refundedTotal(ctx, reference, currency);
+    const refunded = await this.refundedTotal(db, ctx, reference, currency);
     const excess = credited.subtract(owed).subtract(refunded);
     return { reference, owed, credited, verifiedExcess: excess.isNegative() ? Money.zero(currency) : excess };
   }
@@ -104,35 +110,40 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
     ctx: SimulationContext,
     claim: { readonly claimRef: string; readonly reference: string; readonly amount: Money; readonly destinationAccountRef: string },
   ): Promise<{ readonly institutionClaimId: string }> {
-    const [existing] = await this.db
-      .select()
-      .from(simInstitutionRefunds)
-      .where(and(eq(simInstitutionRefunds.workspaceId, ctx.workspaceId), eq(simInstitutionRefunds.claimRef, claim.claimRef)));
-    if (existing) return { institutionClaimId: existing.id };
-    const ledger = await this.getLedger(ctx, claim.reference);
-    if (claim.amount.greaterThan(ledger.verifiedExcess)) throw new PolicyViolationError(["REFUND_EXCEEDS_VERIFIED_EXCESS"]);
-    const scenario = await this.scenarioOf(ctx);
-    const refundConfig = scenario.refund ?? { verifiedExcessCny: "500.00", settlementUsd: "70.00", settlesInHours: 24 };
-    const configuredExcess = Money.fromDecimal("CNY", refundConfig.verifiedExcessCny);
-    // Liquidación sintética en USD: proporcional a lo reclamado frente al exceso configurado, con redondeo bancario.
-    const settlement = Money.fromDecimal("USD", refundConfig.settlementUsd).mulDiv(claim.amount.minor, configuredExcess.minor);
-    const id = `AU-RF-${shortId()}`;
-    await this.db.insert(simInstitutionRefunds).values({
-      id,
-      workspaceId: ctx.workspaceId,
-      claimRef: claim.claimRef,
-      reference: claim.reference,
-      currency: claim.amount.currency,
-      amountMinor: claim.amount.minor,
-      destinationAccountRef: claim.destinationAccountRef,
-      status: "SUBMITTED",
-      submittedAtVirtual: ctx.now.toDate(),
-      reviewAtVirtual: ctx.now.plusHours(1).toDate(),
-      settlesAtVirtual: ctx.now.plusHours(refundConfig.settlesInHours).toDate(),
-      settlementCurrency: settlement.currency,
-      settlementMinor: settlement.minor,
+    // Comprobar el exceso e insertar es una sola sección crítica por referencia (VC9-1): dos reclamos en paralelo nunca
+    // suman más que el exceso verificado, y el mismo reclamo repetido devuelve el registro que ya existe.
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`institution-refund:${ctx.workspaceId}:${claim.reference}`}))`);
+      const [existing] = await tx
+        .select()
+        .from(simInstitutionRefunds)
+        .where(and(eq(simInstitutionRefunds.workspaceId, ctx.workspaceId), eq(simInstitutionRefunds.claimRef, claim.claimRef)));
+      if (existing) return { institutionClaimId: existing.id };
+      const ledger = await this.ledger(tx, ctx, claim.reference);
+      if (claim.amount.greaterThan(ledger.verifiedExcess)) throw new PolicyViolationError(["REFUND_EXCEEDS_VERIFIED_EXCESS"]);
+      const scenario = await this.scenarioOf(ctx, tx);
+      const refundConfig = scenario.refund ?? { verifiedExcessCny: "500.00", settlementUsd: "70.00", settlesInHours: 24 };
+      const configuredExcess = Money.fromDecimal("CNY", refundConfig.verifiedExcessCny);
+      // Liquidación sintética en USD: proporcional a lo reclamado frente al exceso configurado, con redondeo bancario.
+      const settlement = Money.fromDecimal("USD", refundConfig.settlementUsd).mulDiv(claim.amount.minor, configuredExcess.minor);
+      const id = `AU-RF-${shortId()}`;
+      await tx.insert(simInstitutionRefunds).values({
+        id,
+        workspaceId: ctx.workspaceId,
+        claimRef: claim.claimRef,
+        reference: claim.reference,
+        currency: claim.amount.currency,
+        amountMinor: claim.amount.minor,
+        destinationAccountRef: claim.destinationAccountRef,
+        status: "SUBMITTED",
+        submittedAtVirtual: ctx.now.toDate(),
+        reviewAtVirtual: ctx.now.plusHours(1).toDate(),
+        settlesAtVirtual: ctx.now.plusHours(refundConfig.settlesInHours).toDate(),
+        settlementCurrency: settlement.currency,
+        settlementMinor: settlement.minor,
+      });
+      return { institutionClaimId: id };
     });
-    return { institutionClaimId: id };
   }
 
   async getRefundStatus(ctx: SimulationContext, institutionClaimId: string): Promise<InstitutionRefund | null> {
@@ -160,23 +171,23 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
   }
 
   /** Acredita los envíos cuya llegada estimada ya pasó en hora virtual. */
-  private async creditDue(ctx: SimulationContext): Promise<void> {
-    const pending = await this.db
+  private async creditDue(db: Exec, ctx: SimulationContext): Promise<void> {
+    const pending = await db
       .select()
       .from(simInstitutionLedger)
       .where(and(eq(simInstitutionLedger.workspaceId, ctx.workspaceId), eq(simInstitutionLedger.status, "PENDING")));
     for (const row of pending) {
       const expected = VirtualInstant.fromDate(row.expectedCreditAtVirtual);
       if (ctx.now.isBefore(expected)) continue;
-      await this.db
+      await db
         .update(simInstitutionLedger)
         .set({ status: "CREDITED", creditedAtVirtual: expected.toDate(), receiptId: `AU-RC-${shortId()}` })
         .where(and(eq(simInstitutionLedger.workspaceId, ctx.workspaceId), eq(simInstitutionLedger.id, row.id), eq(simInstitutionLedger.status, "PENDING")));
     }
   }
 
-  private async refundedTotal(ctx: SimulationContext, reference: string, currency: Currency): Promise<Money> {
-    const rows = await this.db
+  private async refundedTotal(db: Exec, ctx: SimulationContext, reference: string, currency: Currency): Promise<Money> {
+    const rows = await db
       .select()
       .from(simInstitutionRefunds)
       .where(and(eq(simInstitutionRefunds.workspaceId, ctx.workspaceId), eq(simInstitutionRefunds.reference, reference)));
@@ -193,8 +204,8 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
     return row?.faults?.DELAY_INSTITUTION_CREDIT === true;
   }
 
-  private async scenarioOf(ctx: SimulationContext) {
-    const [row] = await this.db.select({ scenario: workspaces.scenario }).from(workspaces).where(eq(workspaces.id, ctx.workspaceId));
+  private async scenarioOf(ctx: SimulationContext, db: Exec = this.db) {
+    const [row] = await db.select({ scenario: workspaces.scenario }).from(workspaces).where(eq(workspaces.id, ctx.workspaceId));
     return getScenario((row?.scenario ?? "base") as ScenarioId);
   }
 }

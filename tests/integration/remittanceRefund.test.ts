@@ -93,6 +93,27 @@ describe("T3: remesas para gastos de llegada bajo el permiso permanente", () => 
     expect(view.mandateUsed!.lessThan(Money.fromDecimal("USD", "600.00")) || view.mandateUsed!.equals(Money.fromDecimal("USD", "600.00"))).toBe(true);
   });
 
+  it("VC9-5 (DEC-018): una remesa con aprobación puntual no consume el tope del permiso; el uso autónomo sigue ≤ USD 600.00", async () => {
+    const t = await newWorkspace("arrival_remittance");
+    const big = await app().prepareRemittance.execute(t.student, { net: cny("5000.00"), targetArrivalHours: 48 });
+    expect(big.status).toBe("APPROVAL_REQUESTED");
+    expect(big.quote?.debit.toDecimalString()).toBe("720.00");
+    const view = await app().remittanceApproval.view(t.payer, { remittanceId: big.id });
+    await app().remittanceApproval.grant(t.payer, { remittanceId: big.id, version: big.version, fingerprint: view.fingerprint! });
+    expect((await app().executeRemittance.execute(t.student, { remittanceId: big.id, idempotencyKey: "vc9-5-key-0001" })).outcome).toBe("SENT");
+    const afterApproved = await app().caseView.execute(t.payer);
+    expect(afterApproved.mandateUsed?.toDecimalString()).toBe("0.00");
+    const small = await app().prepareRemittance.execute(t.student, { net: cny("4000.00"), targetArrivalHours: 48 });
+    expect(small.status).toBe("READY");
+    expect((await app().executeRemittance.execute(t.student, { remittanceId: small.id, idempotencyKey: "vc9-5-key-0002" })).outcome).toBe("SENT");
+    const after = await app().caseView.execute(t.payer);
+    expect(after.mandateUsed?.toDecimalString()).toBe("576.00");
+    const third = await app().prepareRemittance.execute(t.student, { net: cny("500.00"), targetArrivalHours: 48 });
+    expect(third.status).toBe("APPROVAL_REQUESTED");
+    expect(third.reasons).toEqual(["EXCEEDS_MANDATE_PERIOD_LIMIT"]);
+    expect(count(await eventTypes(t.workspaceId), "REMITTANCE_EXECUTED_UNDER_MANDATE")).toBe(1);
+  });
+
   it("N18: con la cuenta local sin abrir (escenario base), RECIPIENT_ACCOUNT_NOT_OPEN y ningún intento", async () => {
     const t = await newWorkspace("base");
     const prepared = await app().prepareRemittance.execute(t.student, { net: cny("2000.00"), targetArrivalHours: 48 });

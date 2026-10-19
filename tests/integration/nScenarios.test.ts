@@ -37,6 +37,17 @@ describe("Escenarios normales (BUILD_PROMPT 16.2)", () => {
     expect(ledger.credited.toDecimalString()).toBe(receipt?.net.toDecimalString());
   });
 
+  it("VC9-6: en los escenarios con la matrícula ya pagada, el caso muestra CREDITED y ninguna acción, no 'datos por confirmar'", async () => {
+    for (const scenario of ["arrival_remittance", "overpayment_refund"]) {
+      const t = await newWorkspace(scenario);
+      for (const actor of [t.student, t.payer]) {
+        const view = await app().caseView.execute(actor);
+        expect(view.obligation.status).toBe("CREDITED");
+        expect([scenario, view.visible]).toEqual([scenario, { status: "CREDITED", nextAction: "NONE" }]);
+      }
+    }
+  });
+
   it("N09: comparar: A por plazo, C por neto y E por receptor", async () => {
     const t = await newWorkspace("base");
     const result = await app().compareRoutes.tuition(t.student, { targetArrivalHours: 48 });

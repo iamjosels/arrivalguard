@@ -36,6 +36,7 @@ export const DOMAIN_EVENT_TYPES = [
   "CLOCK_ADVANCED",
   "FAULT_INJECTED",
   "DUPLICATE_EVENT_IGNORED",
+  "SCRIPTED_TASKS_RUN",
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 

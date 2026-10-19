@@ -102,7 +102,8 @@ export class ChatTurnUseCase {
     for (const t of history) {
       // El texto pasado también se escapa: no puede abrir un <case_state> falso en turnos siguientes (VC8-2).
       messages.push({ role: "user", content: escapeUserText(t.userText) });
-      messages.push({ role: "assistant", content: t.assistantText || "(no reply)" });
+      // El texto pasado del asistente también se escapa (VC9-3): si el modelo repitió una etiqueta, no vuelve como tal.
+      messages.push({ role: "assistant", content: escapeUserText(t.assistantText) || "(no reply)" });
     }
     messages.push({ role: "user", content: `<case_state>${JSON.stringify(caseState)}</case_state>\n<user_message>${escapeUserText(message)}</user_message>` });
 
@@ -121,10 +122,11 @@ export class ChatTurnUseCase {
       while (modelCalls < this.config.maxModelCalls) {
         if (Date.now() - started > this.config.turnDeadlineMs) break;
         const estimate = this.estimate(messages);
-        // Reserva atómica contra los dos topes: turnos simultáneos no pueden superarlos (VC8-1).
+        // Reserva atómica contra los tres topes: turnos simultáneos no pueden superarlos (VC8-1, VC9-7).
         const reservation = await this.usage.reserve(actor.workspaceId, this.model.model, estimate, {
           workspace: this.config.budgetPerWorkspaceMicros,
           daily: this.config.budgetDailyMicros,
+          perOriginDaily: this.config.budgetPerOriginDailyMicros,
           since: startOfUtcDay(new Date()),
         });
         if (!reservation) {

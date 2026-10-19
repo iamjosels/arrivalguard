@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { AiUsageRow, AiUsageStorePort, ConversationStorePort, StoredTurn } from "@/application/ports/AgentPorts";
 import type { ActorRole } from "@/domain/events/DomainEvent";
 import { getDb } from "../client";
-import { aiUsage, conversations, conversationTurns } from "../schema";
+import { aiUsage, conversations, conversationTurns, workspaces } from "../schema";
 
 // Conversaciones (una activa por rol y espacio) y uso de IA con reserva previa (BUILD_PROMPT 13.5 y 13.6).
 
@@ -63,10 +63,13 @@ export class DrizzleConversationStore implements ConversationStorePort {
 const COUNTED = ["RESERVED", "OK", "TIMEOUT"];
 
 export class DrizzleAiUsageStore implements AiUsageStorePort {
-  async reserve(workspaceId: string, model: string, estimateMicros: bigint, limits: { workspace: bigint; daily: bigint; since: Date }): Promise<string | null> {
+  async reserve(workspaceId: string, model: string, estimateMicros: bigint, limits: { workspace: bigint; daily: bigint; perOriginDaily: bigint; since: Date }): Promise<string | null> {
     return getDb().transaction(async (tx) => {
-      // Mismo orden de bloqueo siempre: primero el global del día, después el del espacio (VC8-1).
+      const [owner] = await tx.select({ origin: workspaces.createdByIpHash }).from(workspaces).where(eq(workspaces.id, workspaceId));
+      const origin = owner?.origin ?? null;
+      // Mismo orden de bloqueo siempre: el global del día, el del origen y el del espacio (VC8-1, VC9-7).
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('ai-budget:daily'))`);
+      if (origin) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-budget:origin:${origin}`}))`);
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-budget:ws:${workspaceId}`}))`);
       const [ws] = await tx
         .select({ total: sql<string | null>`sum(${aiUsage.costUsdMicros})::text` })
@@ -78,6 +81,14 @@ export class DrizzleAiUsageStore implements AiUsageStorePort {
         .where(and(gte(aiUsage.createdAt, limits.since), inArray(aiUsage.status, COUNTED)));
       if (BigInt(ws?.total ?? "0") + estimateMicros > limits.workspace) return null;
       if (BigInt(day?.total ?? "0") + estimateMicros > limits.daily) return null;
+      if (origin) {
+        const [fromOrigin] = await tx
+          .select({ total: sql<string | null>`sum(${aiUsage.costUsdMicros})::text` })
+          .from(aiUsage)
+          .innerJoin(workspaces, eq(workspaces.id, aiUsage.workspaceId))
+          .where(and(eq(workspaces.createdByIpHash, origin), gte(aiUsage.createdAt, limits.since), inArray(aiUsage.status, COUNTED)));
+        if (BigInt(fromOrigin?.total ?? "0") + estimateMicros > limits.perOriginDaily) return null;
+      }
       const id = randomUUID();
       await tx.insert(aiUsage).values({ id, workspaceId, category: "CHAT", model, status: "RESERVED", costUsdMicros: estimateMicros });
       return id;

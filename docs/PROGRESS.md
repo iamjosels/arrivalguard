@@ -2,10 +2,10 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 22:36.
-- **Fase:** 7 Seguridad completa (en curso desde las 22:36). Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
-- **Subtarea en curso:** 7.1 S01 a S16 con su categoría oficial, a nivel API y agente.
-- **Siguiente paso exacto:** suite de seguridad S01 a S16 (`tests/security`), revisión VC9 con `auditor-seguridad`, correcciones con regresión, `pnpm verify`, merge y smoke.
+- **Hora (Lima):** domingo 18 de octubre, 22:58.
+- **Fase:** 7 Seguridad completa (en curso desde las 22:36; VC9 corriendo) y 8 Evaluación y documentos adelantada en paralelo. Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
+- **Subtarea en curso:** 7.4 revisión VC9 (auditor en segundo plano); 8.1 primera corrida de `eval:agent` con el modelo real contra la rama dev; 8.4 documentos de entrega (agente en segundo plano).
+- **Siguiente paso exacto:** revisar la corrida de `eval:agent`; corregir con regresión lo que reporte VC9; `pnpm verify`, merge a `main` y smoke (cierre de la Fase 7 y G3); después las corridas oficiales de la Fase 8 sobre el commit final y `results:report`.
 - **Último `pnpm verify`:** 22:18 a 22:25, exit 0 (34 archivos y 509 pruebas, más `secrets-scan`).
 - **URL de producción:** https://arrivalguard.vercel.app (commit b3e351c, smoke con T1 CREDITED y T1 por chat CREDITED a las 22:34).
 - **Bloqueos abiertos:** ninguno.
@@ -189,7 +189,7 @@ Adelantado de la Fase 7: CSP con nonce (`src/proxy.ts`, DEC-017) y `scripts/secr
 Inicio: domingo 18, 22:36. Secciones: BUILD_PROMPT 14.1 y 14.2 (S01 a S16), AUTONOMIA 6 (VC9).
 
 Subtareas:
-- [ ] 7.1 S01 a S16 con su categoría oficial y efectos en la base, a nivel API (y herramienta del agente donde corresponde), en `tests/security`.
+- [x] 7.1 S01 a S16 con su categoría oficial y efectos en la base, a nivel API (y herramienta del agente donde corresponde), en `tests/security` (`officialSuite.test.ts` con S01, S02, S04, S05 y S10 a S16; S03 y S06 a S09 en `apiSecurity.test.ts`), commit `31c3952`.
 - [x] 7.2 Encabezados: CSP con nonce (DEC-017), `frame-ancestors 'none'`, nosniff, Referrer-Policy, X-Frame-Options y Permissions-Policy.
 - [x] 7.3 `secrets-scan` en `pnpm verify`.
 - [ ] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección.

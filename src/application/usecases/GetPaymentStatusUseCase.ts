@@ -47,7 +47,7 @@ export class GetPaymentStatusUseCase {
     return {
       attempt,
       plan: currentPlan,
-      visible: visibleTuitionStatus(currentPlan?.plan ?? null, attemptForView?.attempt ?? null),
+      visible: visibleTuitionStatus(currentPlan?.plan ?? null, attemptForView?.attempt ?? null, obligation),
       observation: attempt ? await this.processor.observe(actor.workspaceId, attempt.attempt.id) : null,
     };
   }

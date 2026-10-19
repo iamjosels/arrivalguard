@@ -1,3 +1,4 @@
+import type { ObligationStatus } from "../policy/PolicyEngine";
 import type { AttemptStatus } from "./PaymentAttempt";
 import type { PlanStatus } from "./PaymentPlan";
 
@@ -56,9 +57,14 @@ const BY_PLAN: Record<PlanStatus, VisibleState> = {
 
 /**
  * Proyecta plan e intento a un estado visible con su siguiente acción. El intento manda cuando existe.
- * "Credited" solo aparece con un intento CREDITED (respaldado por recibo de la institución).
+ * "Credited" solo aparece con un intento CREDITED (respaldado por recibo de la institución) o con la obligación que
+ * la institución ya acreditó antes de este espacio.
  */
-export function visibleTuitionStatus(plan: { status: PlanStatus } | null, attempt: { status: AttemptStatus } | null): VisibleState {
+export function visibleTuitionStatus(
+  plan: { status: PlanStatus } | null,
+  attempt: { status: AttemptStatus } | null,
+  obligation: { status: ObligationStatus } | null = null,
+): VisibleState {
   if (attempt) {
     const fromAttempt = BY_ATTEMPT[attempt.status];
     if (fromAttempt) return fromAttempt;
@@ -66,6 +72,8 @@ export function visibleTuitionStatus(plan: { status: PlanStatus } | null, attemp
       return { status: "FAILED_NO_DEBIT", nextAction: plan?.status === "APPROVED" ? "SEND_PAYMENT" : "REQUEST_APPROVAL" };
     }
   }
+  // La institución ya la acreditó (con recibo en su libro) antes de este espacio: no hay nada que planificar (VC9-6).
+  if (!plan && obligation?.status === "CREDITED") return { status: "CREDITED", nextAction: "NONE" };
   if (!plan) return { status: "DETAILS_NEEDED", nextAction: "PLAN_PAYMENT" };
   return BY_PLAN[plan.status];
 }

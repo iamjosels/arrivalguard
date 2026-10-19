@@ -125,3 +125,20 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Decisión:** `src/proxy.ts` genera un nonce por petición. `script-src 'self' 'nonce-…' 'strict-dynamic'` (con `'unsafe-eval'` solo en desarrollo), `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `connect-src 'self'` y `upgrade-insecure-requests` fuera de localhost. El único script en línea (el del tema) lleva el nonce.
 - **Excepción:** `style-src 'self' 'unsafe-inline'`. Los componentes usan atributos `style` para anchos y tamaños calculados (barras, sello) y el aviso de sonner inserta estilos; un nonce no cubre atributos `style`. Los estilos no ejecutan código; el riesgo que queda (inyección de CSS) no alcanza a los scripts ni a los datos de la API.
 - **Efecto:** todas las páginas se renderizan en el servidor por petición (el nonce lo exige). `pnpm ui:check` vigila la consola del navegador y falla ante cualquier violación de la CSP.
+
+## DEC-018. Una remesa con aprobación puntual no consume el tope del permiso permanente
+
+- **Fecha:** domingo 18 de octubre, 23:45 (Lima), durante las correcciones de VC9 (hallazgo VC9-5). **Fuente:** BUILD_PROMPT A1 y 6.2 ("tope por período"; "por encima del tope se crea una solicitud de aprobación puntual"). El spec no dice si lo aprobado aparte cuenta para el período.
+- **Decisión:** el tope del mandato limita lo que sale **sin** que Carlos intervenga. Una remesa que Carlos aprobó en su pantalla fija, con huella, es una autorización suya y no se descuenta del período. El uso autónomo dentro de cada período sigue siendo como máximo USD 600.00 y cada remesa aprobada queda en la actividad del pagador.
+- **Prueba:** "VC9-5 (DEC-018): una remesa con aprobación puntual no consume el tope del permiso; el uso autónomo sigue ≤ USD 600.00" en `tests/integration/remittanceRefund.test.ts`.
+
+## DEC-019. Tope diario de IA por origen
+
+- **Fecha:** domingo 18 de octubre, 23:50 (Lima), corrección del hallazgo VC9-7. **Fuente:** BUILD_PROMPT 13.6 (topes por espacio y diario) y la revisión VC9.
+- **Decisión:** además de los topes del spec (USD 3.00 por espacio y USD 15.00 por día), `AI_BUDGET_PER_ORIGIN_DAILY_USD` (USD 7.50 por defecto) limita el gasto del día de todos los espacios abiertos desde el mismo hash de IP. Así un solo origen con el código no deja al resto del jurado en modo estructurado. La reserva sigue siendo atómica, con bloqueos en orden fijo: el del día, el del origen y el del espacio.
+- **Límite:** jurados detrás de la misma IP comparten ese tope; USD 7.50 son cientos de turnos con los precios de DEC-008.
+
+## DEC-020. "Run T1 to T8" corre en el servidor, en espacios nuevos
+
+- **Fecha:** domingo 18 de octubre, 23:10 (Lima). **Fuente:** UI_UX 11.5 y DESIGN_PLAN (`ScriptedTasks`), deuda de VC7.
+- **Decisión:** `POST /api/evaluation/scripted-tasks` (solo el evaluador) corre T1 a T8 con los mismos casos de uso que la API, cada tarea en un espacio sintético nuevo, y las juzga por el estado del servidor, como `pnpm tasks:run`. El espacio del evaluador solo recibe el evento `SCRIPTED_TASKS_RUN` con el resumen. T8 usa el modelo real con los topes de siempre. Límites en configuración: 3 corridas por espacio y hora y 30 por día (`SCRIPTED_TASKS_PER_WORKSPACE_HOUR`, `SCRIPTED_TASKS_PER_DAY`).

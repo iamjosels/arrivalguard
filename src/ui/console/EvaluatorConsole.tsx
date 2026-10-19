@@ -15,6 +15,7 @@ import { useResource } from "@/ui/lib/useResource";
 import { useActionState } from "@/ui/workspace/actions";
 import { FAULT_OPTIONS, SCENARIO_OPTIONS, actorName, eventDetail, eventGroup, eventTitle, faultLabel, securityCategory, type EventGroup } from "@/ui/workspace/copy";
 import { ProblemNotice } from "@/ui/workspace/ProblemNotice";
+import { ScriptedTasks } from "./ScriptedTasks";
 
 // Consola del evaluador (UI_UX 11.5, DESIGN_PLAN 5.6). Siempre en tema oscuro. Solo el evaluador avanza el reloj,
 // activa fallas y cambia de escenario; el servidor lo exige por rol.
@@ -191,6 +192,7 @@ export function EvaluatorConsole({
               <p className="text-[14px] text-ink-2">Loading usage</p>
             )}
           </Panel>
+          <ScriptedTasks actions={actions} />
           <ProblemNotice problem={actions.problem} />
         </div>
 

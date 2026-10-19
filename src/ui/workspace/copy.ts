@@ -79,6 +79,7 @@ const EVENT_TITLES: Readonly<Record<string, string>> = {
   CLOCK_ADVANCED: "Virtual time moved",
   FAULT_INJECTED: "Fault injected",
   DUPLICATE_EVENT_IGNORED: "Duplicate event ignored",
+  SCRIPTED_TASKS_RUN: "Scripted tasks run",
 };
 
 export function eventTitle(type: string): string {
@@ -90,7 +91,7 @@ export type EventGroup = "payments" | "approvals" | "security" | "clock";
 export function eventGroup(type: string): EventGroup {
   if (type === "SECURITY_BLOCK" || type === "EXECUTION_BLOCKED") return "security";
   if (type.startsWith("APPROVAL_") || type === "POLICY_CHANGED" || type.startsWith("MANDATE_") || type === "AUTO_REQUOTE_WITHIN_APPROVAL") return "approvals";
-  if (type === "CLOCK_ADVANCED" || type === "FAULT_INJECTED" || type === "WORKSPACE_CREATED" || type === "AI_FALLBACK_ACTIVATED") return "clock";
+  if (type === "CLOCK_ADVANCED" || type === "FAULT_INJECTED" || type === "SCRIPTED_TASKS_RUN" || type === "WORKSPACE_CREATED" || type === "AI_FALLBACK_ACTIVATED") return "clock";
   return "payments";
 }
 
@@ -129,6 +130,7 @@ export function eventDetail(type: string, payload: Readonly<Record<string, unkno
   if (typeof payload.reason === "string" && type !== "SECURITY_BLOCK") parts.push(humanize(payload.reason));
   if (Array.isArray(payload.reasons)) parts.push(payload.reasons.map((r) => humanize(String(r))).join(", "));
   if (typeof payload.outcome === "string") parts.push(humanize(payload.outcome));
+  if (type === "SCRIPTED_TASKS_RUN" && typeof payload.passed === "number" && typeof payload.total === "number") parts.push(`${payload.passed} of ${payload.total} passed`);
   return parts.join(". ");
 }
 

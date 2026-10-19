@@ -38,6 +38,7 @@ export const say = (text: string) => ({ text });
 export const CONFIG: AgentConfig = {
   budgetPerWorkspaceMicros: 3_000_000n,
   budgetDailyMicros: 10_000_000_000n,
+  budgetPerOriginDailyMicros: 10_000_000_000n,
   turnsPerMinute: 1000,
   turnsPerDay: 100000,
   rateLimitPrefix: "test",

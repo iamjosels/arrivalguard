@@ -33,6 +33,7 @@ import { AnthropicAgentModel } from "./ai/AnthropicAgentModel";
 import { DrizzleAiUsageStore, DrizzleConversationStore } from "./db/repositories/aiRepositories";
 import { ReconcilePaymentUseCase } from "@/application/usecases/ReconcilePaymentUseCase";
 import { RequestPayerApprovalUseCase } from "@/application/usecases/RequestPayerApprovalUseCase";
+import { RunScriptedTasksUseCase } from "@/application/usecases/RunScriptedTasksUseCase";
 import { NodeHasher } from "./crypto/NodeHasher";
 import { getDb } from "./db/client";
 import { DrizzleUnitOfWork } from "./db/DrizzleUnitOfWork";
@@ -126,6 +127,7 @@ function buildChat(core: CoreContainer): ChatTurnUseCase {
   return new ChatTurnUseCase(core.deps, core.caseView, agentModel(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL), new ToolExecutor(() => getContainer()), new DrizzleConversationStore(), new DrizzleAiUsageStore(), core.limiter, {
     budgetPerWorkspaceMicros: usdToMicros(env.AI_BUDGET_PER_WORKSPACE_USD),
     budgetDailyMicros: usdToMicros(env.AI_BUDGET_DAILY_USD),
+    budgetPerOriginDailyMicros: usdToMicros(env.AI_BUDGET_PER_ORIGIN_DAILY_USD),
     turnsPerMinute: env.AI_TURNS_PER_MINUTE,
     turnsPerDay: env.AI_TURNS_PER_DAY,
     rateLimitPrefix: env.RATE_LIMIT_PREFIX,
@@ -143,14 +145,20 @@ function buildChat(core: CoreContainer): ChatTurnUseCase {
   });
 }
 
-export type Container = CoreContainer & { readonly chat: ChatTurnUseCase };
+export type Container = CoreContainer & { readonly chat: ChatTurnUseCase; readonly scriptedTasks: RunScriptedTasksUseCase };
 
 let container: Container | undefined;
 
 export function getContainer(): Container {
   if (!container) {
     const core = buildContainer();
-    container = Object.assign(core, { chat: buildChat(core) });
+    const env = getServerEnv();
+    const scriptedTasks = new RunScriptedTasksUseCase(core.deps, () => getContainer(), core.limiter, {
+      keyPrefix: env.RATE_LIMIT_PREFIX,
+      perWorkspacePerHour: env.SCRIPTED_TASKS_PER_WORKSPACE_HOUR,
+      perDay: env.SCRIPTED_TASKS_PER_DAY,
+    });
+    container = Object.assign(core, { chat: buildChat(core), scriptedTasks });
   }
   return container;
 }

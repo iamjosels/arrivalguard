@@ -204,6 +204,14 @@ describe("Estado visible para el usuario (BUILD_PROMPT 8.5, UI_UX 9.4)", () => {
   it("nunca muestra acreditado sin un intento CREDITED", () => {
     for (const status of PLAN_STATUSES) {
       expect(visibleTuitionStatus(plan(status), null).status).not.toBe("CREDITED");
+      expect(visibleTuitionStatus(plan(status), null, { status: "PENDING" }).status).not.toBe("CREDITED");
     }
+  });
+
+  it("VC9-6: una matrícula que la institución ya acreditó (sin plan ni intento aquí) se ve acreditada y sin acción", () => {
+    expect(visibleTuitionStatus(null, null, { status: "CREDITED" })).toEqual({ status: "CREDITED", nextAction: "NONE" });
+    expect(visibleTuitionStatus(null, null, { status: "PENDING" })).toEqual({ status: "DETAILS_NEEDED", nextAction: "PLAN_PAYMENT" });
+    // Un intento en curso sigue mandando.
+    expect(visibleTuitionStatus(plan("EXECUTING"), attempt("TUITION", "UNKNOWN"), { status: "CREDITED" })).toEqual({ status: "UNCERTAIN", nextAction: "CHECK_PAYMENT" });
   });
 });

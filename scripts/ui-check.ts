@@ -139,6 +139,17 @@ runMain(async () => {
     });
     await capture(browser, baseUrl, context, "console", `${workspacePath}?as=evaluator`, shots, axe, ["dark"]);
 
+    // Run T1 to T8 (UI_UX 11.5): el servidor corre las ocho tareas en espacios nuevos; T8 usa el modelo real.
+    await step("El evaluador corre T1 a T8 desde la consola: 8 de 8", async () => {
+      await page.getByRole("button", { name: "Run T1 to T8" }).click();
+      await page.locator("[data-sonner-toast]", { hasText: "Scripted tasks: 8 of 8 passed" }).first().waitFor({ timeout: 90_000 });
+      if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, "console-scripted-tasks-desktop-dark.png"), fullPage: true });
+      const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+      const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      axe.push({ screen: "console-scripted-tasks-desktop-dark", horizontalOverflowPx: overflow, serious: bad.filter((v) => v.impact === "serious").length, critical: bad.filter((v) => v.impact === "critical").length, ids: bad.map((v) => v.id) });
+    });
+
     await step("Sofía ve CREDITED con el recibo de la universidad", async () => {
       await page.getByRole("tab", { name: /Sofía, student/ }).click();
       await page.waitForURL(/as=student/);

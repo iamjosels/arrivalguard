@@ -126,7 +126,7 @@ export class GetCaseViewUseCase {
       plan: current,
       planApprovals,
       attempt,
-      visible: visibleTuitionStatus(current?.plan ?? null, attemptForView?.attempt ?? null),
+      visible: visibleTuitionStatus(current?.plan ?? null, attemptForView?.attempt ?? null, obligation),
       observation: attempt ? await this.processor.observe(ws, attempt.attempt.id) : null,
       mandate,
       mandateUsed,

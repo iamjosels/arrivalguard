@@ -9,10 +9,13 @@ import { runMain } from "./lib/args";
 // Salida: docs/results/deterministic-<timestamp>.json
 
 const ID = /\b(N\d{2}|O\d{2}[ab]?|S\d{2})\b/g;
+// Un describe cuyo título EMPIEZA con un id ("N01: …") es ese escenario; las pruebas sin id propio lo heredan.
+const LEADING_ID = /^(N\d{2}|O\d{2}[ab]?|S\d{2}):/;
 
 interface AssertionResult {
   readonly fullName: string;
   readonly title: string;
+  readonly ancestorTitles?: readonly string[];
   readonly status: string;
   readonly duration?: number;
 }
@@ -39,7 +42,9 @@ runMain(async () => {
   const scenarios = new Map<string, { id: string; tests: { test: string; file: string; status: string; durationMs: number }[] }>();
   for (const file of report.testResults) {
     for (const a of file.assertionResults) {
-      for (const id of new Set(a.title.match(ID) ?? [])) {
+      const own = a.title.match(ID) ?? [];
+      const inherited = (a.ancestorTitles ?? []).map((t) => LEADING_ID.exec(t)?.[1]).filter((id): id is string => Boolean(id));
+      for (const id of new Set(own.length > 0 ? own : inherited)) {
         const entry = scenarios.get(id) ?? { id, tests: [] };
         entry.tests.push({ test: a.fullName, file: path.relative(root, file.name).replace(/\\/g, "/"), status: a.status, durationMs: Math.round(a.duration ?? 0) });
         scenarios.set(id, entry);
