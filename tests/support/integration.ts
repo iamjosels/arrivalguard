@@ -1,5 +1,8 @@
 import type { ActorContext } from "@/application/ActorContext";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getContainer } from "@/infrastructure/container";
+import { getDb } from "@/infrastructure/db/client";
+import { simInstitutionLedger, simProviderTransfers } from "@/infrastructure/db/schema";
 
 // Ayudantes de integración: cada prueba crea su propio espacio en la rama dev de Neon (aislamiento por workspace_id).
 
@@ -57,3 +60,18 @@ export async function eventTypes(workspaceId: string): Promise<string[]> {
 }
 
 export const count = (items: readonly string[], value: string) => items.filter((i) => i === value).length;
+
+/** Transferencias del proveedor simulado en el espacio (el lado del proveedor, VC4-5). */
+export async function providerTransfers(workspaceId: string): Promise<{ idempotencyKey: string; id: string }[]> {
+  const rows = await getDb().select().from(simProviderTransfers).where(eq(simProviderTransfers.workspaceId, workspaceId));
+  return rows.map((r) => ({ idempotencyKey: r.idempotencyKey, id: r.id }));
+}
+
+/** Entradas del libro de la universidad para transferencias (no las históricas sembradas). */
+export async function ledgerRows(workspaceId: string): Promise<number> {
+  const rows = await getDb()
+    .select()
+    .from(simInstitutionLedger)
+    .where(and(eq(simInstitutionLedger.workspaceId, workspaceId), isNotNull(simInstitutionLedger.transferId)));
+  return rows.length;
+}

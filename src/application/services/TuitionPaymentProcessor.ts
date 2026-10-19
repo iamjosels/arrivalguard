@@ -10,8 +10,10 @@ import {
 import type { AttemptRecord, Repositories } from "@/domain/ports/Repositories";
 import type { VirtualInstant } from "@/domain/time/Instant";
 import type { AppDeps } from "../AppDeps";
-import { NotFoundError } from "../errors/ApplicationError";
+import { NotFoundError, ProviderUnavailableError } from "../errors/ApplicationError";
 import { event } from "./events";
+
+const SUBMIT_LEASE_SECONDS = 30;
 
 export interface Observation {
   /** De dónde viene el estado observado. */
@@ -29,22 +31,32 @@ export interface Observation {
 export class TuitionPaymentProcessor {
   constructor(private readonly deps: Pick<AppDeps, "uow" | "provider" | "institution">) {}
 
-  /** Envía al proveedor. Si la respuesta se pierde, el intento queda UNKNOWN. */
+  /**
+   * Envía al proveedor con la clave de idempotencia del intento, bajo un permiso de envío de 30 s: si otro envío
+   * del mismo intento está en curso, no se reenvía (VC4-2). Solo un timeout deja el intento UNKNOWN; cualquier
+   * otro error lo deja como estaba y se recupera conciliando (misma clave, sin pago nuevo).
+   */
   async submit(workspaceId: string, attemptId: string, actorRole: ActorRole | "system"): Promise<void> {
     const { record, ctx, payload } = await this.loadForSubmit(workspaceId, attemptId);
-    if (record.attempt.status !== "SUBMITTING") return;
+    if (record.attempt.status !== "SUBMITTING" && record.attempt.status !== "UNKNOWN") return;
+    if (!(await this.deps.uow.read.attempts.acquireSubmitLease(workspaceId, attemptId, SUBMIT_LEASE_SECONDS))) return;
+    const via: TransitionSource = record.attempt.status === "UNKNOWN" ? "RECONCILIATION" : "SUBMISSION";
     let result;
     try {
       result = await this.deps.provider.submitTransfer(ctx, record.attempt.idempotencyKey, payload);
     } catch (error) {
-      if (error instanceof ProviderTimeoutError || !(error instanceof ProviderIdempotencyConflictError)) {
-        await this.markUnknown(workspaceId, attemptId, actorRole, error instanceof ProviderTimeoutError ? "TIMEOUT" : "PROVIDER_ERROR");
+      if (error instanceof ProviderTimeoutError) {
+        // Tras un timeout el envío podría seguir en vuelo: el permiso se conserva hasta que venza.
+        await this.markUnknown(workspaceId, attemptId, actorRole, "TIMEOUT");
         return;
       }
-      throw error;
+      // La llamada terminó con un error definido: conciliar puede reintentar ya con la misma clave.
+      await this.deps.uow.read.attempts.releaseSubmitLease(workspaceId, attemptId);
+      if (error instanceof ProviderIdempotencyConflictError) throw error;
+      throw new ProviderUnavailableError();
     }
-    if (result.status === "ACCEPTED") await this.settleAccepted(workspaceId, attemptId, result.transferId, "SUBMISSION", actorRole);
-    else await this.settleFailed(workspaceId, attemptId, "SUBMISSION", actorRole, result.code);
+    if (result.status === "ACCEPTED") await this.settleAccepted(workspaceId, attemptId, result.transferId, via, actorRole);
+    else await this.settleFailed(workspaceId, attemptId, via, actorRole, result.code);
   }
 
   /** Concilia el mismo intento: consulta al proveedor por su clave y a la institución por la referencia. */
@@ -57,9 +69,9 @@ export class TuitionPaymentProcessor {
       const transfer = await this.deps.provider.getTransfer(ctx, record.attempt.idempotencyKey);
       if (transfer?.status === "ACCEPTED") await this.settleAccepted(workspaceId, attemptId, transfer.transferId, "RECONCILIATION", actorRole);
       else if (transfer?.status === "FAILED") await this.settleFailed(workspaceId, attemptId, "RECONCILIATION", actorRole, "REJECTED_BY_PROVIDER");
-      else if (status === "SUBMITTING") await this.submit(workspaceId, attemptId, actorRole);
-      // El proveedor confirma que nunca recibió el envío: falla confirmada sin débito.
-      else await this.settleFailed(workspaceId, attemptId, "RECONCILIATION", actorRole, "NOT_RECEIVED_BY_PROVIDER");
+      // El proveedor no tiene registro: se reenvía con la MISMA clave (idempotente) si nadie está enviando.
+      // Nunca se da por fallido un envío que podría seguir en vuelo.
+      else await this.submit(workspaceId, attemptId, actorRole);
     } else if (status === "PROVIDER_ACCEPTED" || status === "PENDING_UNIVERSITY") {
       await this.settleAccepted(workspaceId, attemptId, record.attempt.providerTransferId ?? "", "PROVIDER", actorRole);
     }
@@ -100,6 +112,7 @@ export class TuitionPaymentProcessor {
       await r.attempts.save({ ...record, statusChangedAt: now });
       const subject = { type: "PaymentAttempt", id: attemptId };
       await r.events.append(workspaceId, [
+        event("PROVIDER_SUBMIT_SENT", actorRole, subject, now, { attemptId, outcome: "NO_RESPONSE" }),
         event("PROVIDER_RESPONSE_LOST", actorRole, subject, now, { attemptId, cause }),
         event("ATTEMPT_UNKNOWN", actorRole, subject, now, { attemptId, nextStep: "RECONCILE_SAME_ATTEMPT" }),
       ]);
@@ -114,7 +127,8 @@ export class TuitionPaymentProcessor {
       if (status !== "SUBMITTING" && status !== "UNKNOWN") return;
       const events: DomainEventDraft[] = [];
       const subject = { type: "PaymentAttempt", id: attemptId };
-      record.attempt.transitionTo("FAILED_CONFIRMED", via);
+      if (via === "SUBMISSION") events.push(event("PROVIDER_SUBMIT_SENT", actorRole, subject, now, { attemptId, outcome: "FAILED" }));
+      record.attempt.transitionTo("FAILED_CONFIRMED", status === "UNKNOWN" ? "RECONCILIATION" : via);
       await r.attempts.save({ ...record, statusChangedAt: now });
       events.push(event("PROVIDER_FAILED_CONFIRMED", actorRole, subject, now, { attemptId, code, via, debited: false }));
       if (account.releaseHold(attemptId) === "RELEASED") {
@@ -150,8 +164,9 @@ export class TuitionPaymentProcessor {
       const attempt = record.attempt;
       let changedAt = record.statusChangedAt;
 
+      if (via === "SUBMISSION") events.push(event("PROVIDER_SUBMIT_SENT", actorRole, subject, now, { attemptId, outcome: "ACCEPTED" }));
       if (attempt.status === "SUBMITTING" || attempt.status === "UNKNOWN") {
-        attempt.transitionTo("PROVIDER_ACCEPTED", via);
+        attempt.transitionTo("PROVIDER_ACCEPTED", attempt.status === "UNKNOWN" ? "RECONCILIATION" : via);
         attempt.recordProviderTransfer(effectiveTransferId);
         changedAt = now;
         events.push(event("PROVIDER_ACCEPTED", actorRole, subject, now, { attemptId, transferId: effectiveTransferId, via }));

@@ -104,3 +104,10 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Fecha:** domingo 18 de octubre, 19:20 (Lima). **Fuente:** medición local (`select 1` y cada caso de uso de T1 contra Neon `dev`).
 - **Medición:** desde Lima cada viaje de ida y vuelta a Neon (región `us-east-1`) tarda unos 100 ms. Un flujo T1 completo (crear espacio, planificar, pedir aprobación, ver, aprobar, ejecutar, consultar y avanzar el reloj) tarda unos 23 s; ejecutar un pago, unos 7 s (unos 70 viajes).
 - **Decisión:** el proyecto `integration` de Vitest usa 120 s por prueba. No tapa carreras: las pruebas de concurrencia (O04) corren de verdad en paralelo contra la base y verifican un solo efecto. Producción corre en `iad1` (fijado en `vercel.json`), la misma región que Neon, así que allí cada viaje tarda pocos milisegundos.
+
+## DEC-015. Un intento acreditado no bloquea por sí solo: decide el estado de la obligación
+
+- **Fecha:** domingo 18 de octubre, 19:41 (Lima), durante las correcciones de VC4. **Fuente:** BUILD_PROMPT 10 ("una obligación CREDITED no admite intentos nuevos, verifícalo además en el dominio") y 14.2 (S03).
+- **Antes:** `newAttemptBlockers` devolvía `OBLIGATION_NOT_PENDING` si existía cualquier intento CREDITED. Era una interpretación más amplia que el spec, que habla del estado de la OBLIGACIÓN.
+- **Ahora:** la obligación acreditada se bloquea por su estado (`checkTuitionExecution` devuelve `OBLIGATION_NOT_PENDING`, con prueba unitaria y una de integración tras N01). Un pago parcial ya acreditado con la obligación todavía pendiente no bloquea: su débito cuenta para el máximo acumulado, que es lo que pide S03 ("USD 1,500.00 ya debitados y un nuevo cargo de 1,500.00 con máximo de 2,900.00": `EXCEEDS_PAYER_MAX`).
+- **Prueba cambiada:** el caso unitario que exigía `OBLIGATION_NOT_PENDING` para `newAttemptBlockers(["CREDITED"])` se reemplazó por uno que fija la regla nueva. No se relajó ningún control: los dos bloqueos (estado de la obligación y máximo acumulado) siguen probados.

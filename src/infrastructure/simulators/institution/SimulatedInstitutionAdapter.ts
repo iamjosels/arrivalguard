@@ -42,7 +42,7 @@ export class SimulatedInstitutionAdapter implements InstitutionPort {
       owedMinor: input.owed.minor,
       status: "PENDING",
       expectedCreditAtVirtual: input.expectedCreditAt.toDate(),
-    });
+    }).onConflictDoNothing();
   }
 
   /** Carga histórica al crear un espacio (matrícula ya acreditada o sobrepagada). */

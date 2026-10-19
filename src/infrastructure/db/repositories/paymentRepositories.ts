@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Approval, type ApprovalStatus, type ApprovalSubjectType } from "@/domain/consent/Approval";
 import { StandingMandate, type MandatePurpose, type MandateStatus } from "@/domain/consent/StandingMandate";
 import { Money, type Currency } from "@/domain/money/Money";
 import { ACTIVE_ATTEMPT_STATUSES, PaymentAttempt, type AttemptKind, type AttemptStatus } from "@/domain/payment/PaymentAttempt";
 import { PaymentPlan, type PlanStatus } from "@/domain/payment/PaymentPlan";
+import { DuplicateRecordError, isUniqueViolation } from "@/domain/ports/Repositories";
 import type {
   ApprovalRepository,
   AttemptRecord,
@@ -265,7 +266,35 @@ export class DrizzleAttemptRepository implements AttemptRepository {
   }
 
   async insert(record: AttemptRecord): Promise<void> {
-    await this.db.insert(paymentAttempts).values(toAttemptRow(record));
+    try {
+      await this.db.insert(paymentAttempts).values(toAttemptRow(record));
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new DuplicateRecordError("Intento duplicado (clave de idempotencia o intento activo)");
+      throw error;
+    }
+  }
+
+  async acquireSubmitLease(workspaceId: string, id: string, seconds: number): Promise<boolean> {
+    const rows = await this.db
+      .update(paymentAttempts)
+      .set({ submitLeaseUntil: sql`now() + make_interval(secs => ${seconds})` })
+      .where(
+        and(
+          eq(paymentAttempts.workspaceId, workspaceId),
+          eq(paymentAttempts.id, id),
+          inArray(paymentAttempts.status, ["SUBMITTING", "UNKNOWN"]),
+          or(isNull(paymentAttempts.submitLeaseUntil), lt(paymentAttempts.submitLeaseUntil, sql`now()`)),
+        ),
+      )
+      .returning({ id: paymentAttempts.id });
+    return rows.length > 0;
+  }
+
+  async releaseSubmitLease(workspaceId: string, id: string): Promise<void> {
+    await this.db
+      .update(paymentAttempts)
+      .set({ submitLeaseUntil: null })
+      .where(and(eq(paymentAttempts.workspaceId, workspaceId), eq(paymentAttempts.id, id)));
   }
 
   async save(record: AttemptRecord): Promise<void> {

@@ -12,15 +12,18 @@ import { normalizeSslMode } from "@/infrastructure/db/connection";
 
 const folder = path.join(process.cwd(), "drizzle");
 const journal = JSON.parse(fs.readFileSync(path.join(folder, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-const statements = journal.entries.flatMap((entry) =>
-  fs
-    .readFileSync(path.join(folder, `${entry.tag}.sql`), "utf8")
-    .split("--> statement-breakpoint")
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
+const statementsOf = (entries: { tag: string }[]) =>
+  entries.flatMap((entry) =>
+    fs
+      .readFileSync(path.join(folder, `${entry.tag}.sql`), "utf8")
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+const statements = statementsOf(journal.entries);
 
 const schema = `vc5_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+const seeded = `vc5s_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 let client: Client;
 
 beforeAll(async () => {
@@ -30,6 +33,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await client.query(`drop schema if exists "${schema}" cascade`);
+  await client.query(`drop schema if exists "${seeded}" cascade`);
   await client.end();
 });
 
@@ -52,20 +56,54 @@ describe("VC5: migraciones", { concurrent: false }, () => {
       "conversations_one_active_uq",
       "payment_attempts_one_active_per_subject_uq",
       "payment_attempts_one_credited_per_obligation_uq",
+      "sim_institution_ledger_transfer_uq",
     ]);
     await client.query("set search_path to public");
   });
 
-  it("se vuelve a aplicar sobre la base existente sin perder datos", async () => {
-    const before = await client.query<{ workspaces: string; events: string }>(
-      "select (select count(*) from public.workspaces)::text as workspaces, (select count(*) from public.domain_events)::text as events",
+  it("la última migración se aplica sobre un esquema sembrado en la versión anterior sin perder filas", async () => {
+    const inSchema = (sql: string) => sql.replaceAll('"public".', `"${seeded}".`);
+    await client.query(`create schema "${seeded}"`);
+    await client.query(`set search_path to "${seeded}"`);
+    for (const sql of statementsOf(journal.entries.slice(0, -1))) await client.query(inSchema(sql));
+    const ws = randomUUID();
+    await client.query("insert into workspaces (id, scenario, virtual_now, virtual_start, expires_at) values ($1, 'base', now(), now(), now() + interval '1 day')", [ws]);
+    await client.query(
+      `insert into sim_institution_ledger (id, workspace_id, reference, transfer_id, currency, net_minor, owed_minor, status, expected_credit_at_virtual)
+       values ('l-hist', $1, 'AG-STUDENT-01', null, 'CNY', 1000, 1000, 'CREDITED', now()),
+              ('l-hist-2', $1, 'AG-STUDENT-01', null, 'CNY', 2000, 2000, 'CREDITED', now()),
+              ('l-tr', $1, 'AG-STUDENT-01', 'tr_1', 'CNY', 2000000, 2000000, 'PENDING', now())`,
+      [ws],
     );
+    const tables = (await client.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = $1 order by table_name", [seeded])).rows.map((r) => r.table_name);
+    const countAll = async () => {
+      const out: Record<string, string> = {};
+      for (const t of tables) out[t] = (await client.query<{ n: string }>(`select count(*)::text as n from "${seeded}"."${t}"`)).rows[0]!.n;
+      return out;
+    };
+    const before = await countAll();
+    for (const sql of statementsOf(journal.entries.slice(-1))) await client.query(inSchema(sql));
+    expect(await countAll()).toEqual(before);
+    expect(before.workspaces).toBe("1");
+    expect(before.sim_institution_ledger).toBe("3");
+    const column = await client.query("select 1 from information_schema.columns where table_schema = $1 and table_name = 'payment_attempts' and column_name = 'submit_lease_until'", [seeded]);
+    expect(column.rowCount).toBe(1);
+    await client.query("set search_path to public");
+  });
+
+  it("se vuelve a aplicar sobre la base existente sin perder datos en ninguna tabla", async () => {
+    const tables = (await client.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'public' order by table_name")).rows.map((r) => r.table_name);
+    expect(tables).toHaveLength(29);
+    const countAll = async () => {
+      const out: Record<string, bigint> = {};
+      for (const t of tables) out[t] = BigInt((await client.query<{ n: string }>(`select count(*)::text as n from public."${t}"`)).rows[0]!.n);
+      return out;
+    };
+    const before = await countAll();
     await migrate(drizzle(client), { migrationsFolder: folder });
-    const after = await client.query<{ workspaces: string; events: string }>(
-      "select (select count(*) from public.workspaces)::text as workspaces, (select count(*) from public.domain_events)::text as events",
-    );
-    expect(BigInt(after.rows[0]!.workspaces)).toBeGreaterThanOrEqual(BigInt(before.rows[0]!.workspaces));
-    expect(BigInt(after.rows[0]!.events)).toBeGreaterThanOrEqual(BigInt(before.rows[0]!.events));
+    const after = await countAll();
+    // Otras pruebas pueden agregar filas en paralelo; ninguna tabla puede perderlas.
+    for (const t of tables) expect(after[t]! >= before[t]!, t).toBe(true);
     const applied = await client.query<{ count: string }>("select count(*)::text as count from drizzle.__drizzle_migrations");
     expect(applied.rows[0]?.count).toBe(String(journal.entries.length));
   });

@@ -35,6 +35,21 @@ export const FAULT_NAMES: readonly FaultName[] = [
   "AI_UNAVAILABLE",
 ];
 
+/** Un índice único rechazó la escritura (por ejemplo, la misma clave de idempotencia en una carrera). */
+export class DuplicateRecordError extends Error {
+  readonly code = "DUPLICATE_RECORD";
+}
+
+/** Lee el código de Postgres aunque el driver o el ORM lo envuelvan (Drizzle lo deja en `cause`). */
+export function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth++) {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 export interface LockOptions {
   readonly forUpdate?: boolean;
 }
@@ -187,8 +202,13 @@ export interface AttemptRepository {
   listForSubject(workspaceId: string, subjectId: string): Promise<AttemptRecord[]>;
   listActive(workspaceId: string): Promise<AttemptRecord[]>;
   listAll(workspaceId: string): Promise<AttemptRecord[]>;
+  /** Lanza DuplicateRecordError si un índice único lo rechaza. */
   insert(record: AttemptRecord): Promise<void>;
   save(record: AttemptRecord): Promise<void>;
+  /** Toma el permiso de envío por `seconds` (hora real) si nadie lo tiene; false si otro envío está en curso. */
+  acquireSubmitLease(workspaceId: string, id: string, seconds: number): Promise<boolean>;
+  /** Suelta el permiso cuando la llamada al proveedor ya terminó sin dejar nada en vuelo. */
+  releaseSubmitLease(workspaceId: string, id: string): Promise<void>;
 }
 
 export interface MandateRepository {

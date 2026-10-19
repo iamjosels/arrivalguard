@@ -25,6 +25,28 @@ describe("Redacción de payloads (BUILD_PROMPT 14.1)", () => {
     });
   });
 
+  it("no altera identificadores, huellas ni claves de idempotencia (VC4-4)", () => {
+    const ids = {
+      attemptId: "095d1e7d-43dd-4e35-8137-766298cdcd51",
+      subjectId: "12345678-9012-4abc-8def-abcdefabcdef",
+      fingerprint: "1234567890123456789012345678901234567890123456789012345678901234",
+      idempotencyKey: "tuition:095d1e7d-43dd-4e35-8137-766298cdcd51:v1:12345678-9012-4abc-8def-abcdefabcdef",
+      transferId: "tr_1234567890-1234-4abc-8def-1234567890ab",
+      note: "plan 095d1e7d-43dd-4e35-8137-766298cdcd51 and card 6222 0201 8800 4471",
+    };
+    const out = redact(ids);
+    expect(out.attemptId).toBe(ids.attemptId);
+    expect(out.subjectId).toBe(ids.subjectId);
+    expect(out.fingerprint).toBe(ids.fingerprint);
+    expect(out.idempotencyKey).toBe(ids.idempotencyKey);
+    expect(out.transferId).toBe(ids.transferId);
+    expect(out.note).toBe("plan 095d1e7d-43dd-4e35-8137-766298cdcd51 and card •••• 4471");
+  });
+
+  it("un secreto dentro de un campo con nombre de identificador igual se borra", () => {
+    expect(redact({ requestId: "sk-ant-api03-zzzz" })).toEqual({ requestId: "[redacted]" });
+  });
+
   it("no toca las unidades menores de dinero aunque sean números largos", () => {
     expect(redact({ debit: { currency: "USD", minor: "123456789012" } })).toEqual({ debit: { currency: "USD", minor: "123456789012" } });
   });

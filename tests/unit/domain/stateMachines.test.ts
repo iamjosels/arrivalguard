@@ -145,10 +145,16 @@ describe("PaymentAttempt: transiciones de matrícula y de remesa", () => {
     expect(newAttemptBlockers(["FAILED_CONFIRMED", "UNKNOWN"])).toEqual(["ACTIVE_ATTEMPT_EXISTS"]);
   });
 
-  it("tras FAILED_CONFIRMED se puede intentar de nuevo (con revalidación y aprobación nueva); tras CREDITED no", () => {
+  it("tras FAILED_CONFIRMED se puede intentar de nuevo (con revalidación y aprobación nueva)", () => {
     expect(newAttemptBlockers(["FAILED_CONFIRMED"])).toEqual([]);
     expect(newAttemptBlockers([])).toEqual([]);
-    expect(newAttemptBlockers(["CREDITED"])).toEqual(["OBLIGATION_NOT_PENDING"]);
+  });
+
+  it("un intento acreditado no decide solo: manda el estado de la obligación y el máximo acumulado (DEC-015)", () => {
+    // Con la obligación acreditada el guard devuelve OBLIGATION_NOT_PENDING (executionGuard.test.ts);
+    // con un pago parcial acreditado y la obligación pendiente, lo ya debitado cuenta para el máximo (S03).
+    expect(newAttemptBlockers(["CREDITED"])).toEqual([]);
+    expect(newAttemptBlockers(["CREDITED", "UNKNOWN"])).toEqual(["ACTIVE_ATTEMPT_EXISTS"]);
   });
 });
 

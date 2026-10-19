@@ -81,50 +81,48 @@ export class SimulatedProviderAdapter implements PaymentProviderPort {
 
   async submitTransfer(ctx: SimulationContext, idempotencyKey: string, payload: TransferPayload): Promise<SubmitResult> {
     const payloadHash = this.hasher.sha256Hex(canonicalJson(payload));
+    const debit = Money.fromJSON(payload.debit);
     const outcome = await this.db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(simProviderTransfers)
-        .where(and(eq(simProviderTransfers.workspaceId, ctx.workspaceId), eq(simProviderTransfers.idempotencyKey, idempotencyKey)))
-        .for("update");
-      if (existing) {
-        if (existing.payloadHash !== payloadHash) throw new ProviderIdempotencyConflictError("Misma clave de idempotencia con otro contenido");
-        return { result: toSubmitResult(existing), lose: false };
-      }
+      // Acepta una sola vez por clave, también bajo concurrencia: el primero inserta; un envío repetido o
+      // simultáneo choca con el índice único, espera, relee la fila y devuelve lo existente sin efectos nuevos.
       const transferId = `tr_${randomUUID()}`;
-      const debit = Money.fromJSON(payload.debit);
-      if (await consumeFault(tx, ctx.workspaceId, "FAIL_NEXT_TRANSFER")) {
-        await tx.insert(simProviderTransfers).values({
+      const inserted = await tx
+        .insert(simProviderTransfers)
+        .values({
           id: transferId,
           workspaceId: ctx.workspaceId,
           idempotencyKey,
           payloadHash,
           payload,
-          status: "FAILED",
-          failureCode: "REJECTED_BY_PROVIDER",
+          status: "PROCESSING",
           debitCurrency: debit.currency,
           debitMinor: debit.minor,
-        });
-        return { result: { status: "FAILED", transferId, code: "REJECTED_BY_PROVIDER" } as SubmitResult, lose: false };
+        })
+        .onConflictDoNothing()
+        .returning({ id: simProviderTransfers.id });
+      if (inserted.length === 0) {
+        const [existing] = await tx
+          .select()
+          .from(simProviderTransfers)
+          .where(and(eq(simProviderTransfers.workspaceId, ctx.workspaceId), eq(simProviderTransfers.idempotencyKey, idempotencyKey)));
+        if (!existing) throw new ProviderIdempotencyConflictError("Transferencia no encontrada tras el conflicto");
+        if (existing.payloadHash !== payloadHash) throw new ProviderIdempotencyConflictError("Misma clave de idempotencia con otro contenido");
+        return { result: toSubmitResult(existing), created: false, lose: false };
+      }
+      const where = and(eq(simProviderTransfers.workspaceId, ctx.workspaceId), eq(simProviderTransfers.id, transferId));
+      if (await consumeFault(tx, ctx.workspaceId, "FAIL_NEXT_TRANSFER")) {
+        await tx.update(simProviderTransfers).set({ status: "FAILED", failureCode: "REJECTED_BY_PROVIDER" }).where(where);
+        return { result: { status: "FAILED", transferId, code: "REJECTED_BY_PROVIDER" } as SubmitResult, created: true, lose: false };
       }
       const expectedArrivalAt = ctx.now.plusMinutes(payload.arrivalMinutes);
-      await tx.insert(simProviderTransfers).values({
-        id: transferId,
-        workspaceId: ctx.workspaceId,
-        idempotencyKey,
-        payloadHash,
-        payload,
-        status: "ACCEPTED",
-        debitCurrency: debit.currency,
-        debitMinor: debit.minor,
-        acceptedAtVirtual: ctx.now.toDate(),
-        expectedArrivalAtVirtual: expectedArrivalAt.toDate(),
-      });
+      await tx
+        .update(simProviderTransfers)
+        .set({ status: "ACCEPTED", acceptedAtVirtual: ctx.now.toDate(), expectedArrivalAtVirtual: expectedArrivalAt.toDate() })
+        .where(where);
       // El proveedor acepta y debita: emite el evento de débito (dos veces con DUPLICATE_NEXT_EVENT).
       const duplicate = await consumeFault(tx, ctx.workspaceId, "DUPLICATE_NEXT_EVENT");
       const providerEventId = `ev_${transferId}_debit`;
-      const copies = duplicate ? 2 : 1;
-      for (let i = 0; i < copies; i++) {
+      for (let i = 0; i < (duplicate ? 2 : 1); i++) {
         await tx.insert(simProviderEvents).values({
           id: randomUUID(),
           workspaceId: ctx.workspaceId,
@@ -137,13 +135,11 @@ export class SimulatedProviderAdapter implements PaymentProviderPort {
         });
       }
       const lose = await consumeFault(tx, ctx.workspaceId, "LOSE_NEXT_PROVIDER_RESPONSE");
-      return {
-        result: { status: "ACCEPTED", transferId, acceptedAt: ctx.now, expectedArrivalAt } as SubmitResult,
-        lose,
-      };
+      return { result: { status: "ACCEPTED", transferId, acceptedAt: ctx.now, expectedArrivalAt } as SubmitResult, created: true, lose };
     });
 
-    if (outcome.result.status === "ACCEPTED" && payload.kind === "TUITION") {
+    // Solo la transferencia recién aceptada se entrega a la universidad: una repetición no duplica el libro (VC4-1).
+    if (outcome.created && outcome.result.status === "ACCEPTED" && payload.kind === "TUITION") {
       await this.deliverToInstitution(ctx, outcome.result.transferId, payload, outcome.result.expectedArrivalAt);
     }
     if (outcome.lose) throw new ProviderTimeoutError("El proveedor no respondió a tiempo");
@@ -155,7 +151,7 @@ export class SimulatedProviderAdapter implements PaymentProviderPort {
       .select()
       .from(simProviderTransfers)
       .where(and(eq(simProviderTransfers.workspaceId, ctx.workspaceId), eq(simProviderTransfers.idempotencyKey, idempotencyKey)));
-    if (!row) return null;
+    if (!row || row.status === "PROCESSING") return null;
     return {
       transferId: row.id,
       idempotencyKey: row.idempotencyKey,
@@ -234,6 +230,7 @@ async function consumeFault(db: DbExecutor, workspaceId: string, fault: string):
 }
 
 function toSubmitResult(row: typeof simProviderTransfers.$inferSelect): SubmitResult {
+  if (row.status === "PROCESSING") throw new ProviderTimeoutError("La transferencia sigue en proceso");
   if (row.status === "FAILED") return { status: "FAILED", transferId: row.id, code: row.failureCode ?? "REJECTED_BY_PROVIDER" };
   return {
     status: "ACCEPTED",

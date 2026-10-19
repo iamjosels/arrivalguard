@@ -6,7 +6,7 @@ import { checkTuitionExecution } from "@/domain/payment/ExecutionGuard";
 import { ACTIVE_ATTEMPT_STATUSES, PaymentAttempt, type AttemptStatus } from "@/domain/payment/PaymentAttempt";
 import type { ReasonCode } from "@/domain/policy/ReasonCode";
 import { isQuoteExpired, type RouteQuote } from "@/domain/policy/RouteQuote";
-import type { AttemptRecord } from "@/domain/ports/Repositories";
+import { DuplicateRecordError, type AttemptRecord } from "@/domain/ports/Repositories";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
 import { ActiveAttemptExistsError, IdempotencyConflictError, NotFoundError } from "../errors/ApplicationError";
@@ -25,8 +25,6 @@ export interface ExecuteTuitionResult {
   /** true si la misma clave y el mismo contenido devolvieron un intento existente. */
   readonly replayed: boolean;
 }
-
-const isUniqueViolation = (error: unknown) => typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
 
 /**
  * Ejecutor transaccional e idempotente de la matrícula (BUILD_PROMPT 8.3, 10 y 11):
@@ -190,14 +188,13 @@ export class ExecuteTuitionPaymentUseCase {
             debit: quote.debit.toJSON(),
           }),
           event("HOLD_PLACED", "system", attemptSubject, ctx.now, { attemptId, amount: quote.debit.toJSON() }),
-          event("PROVIDER_SUBMIT_SENT", "system", attemptSubject, ctx.now, { attemptId, idempotencyKey: key }),
         );
         await r.events.append(ws, events);
         return { kind: "CREATED" as const, record: attemptRecord };
       });
     } catch (error) {
       // Carrera con la misma clave o con otro intento activo: el índice único es la red de seguridad.
-      if (isUniqueViolation(error)) {
+      if (error instanceof DuplicateRecordError) {
         const byKey = await this.deps.uow.read.attempts.findByKey(ws, key);
         if (byKey) return this.replay(byKey, requestHash);
         const active = (await this.deps.uow.read.attempts.listActive(ws))[0];

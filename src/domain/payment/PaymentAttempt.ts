@@ -110,11 +110,12 @@ export class PaymentAttempt {
 }
 
 /**
- * ¿Se puede crear un intento nuevo para este sujeto? UNKNOWN nunca habilita otro pago;
- * tras FAILED_CONFIRMED sí, con revalidación y aprobación nueva; tras CREDITED, nunca.
+ * ¿Se puede crear un intento nuevo para esta obligación? UNKNOWN (y todo estado activo) nunca habilita otro
+ * pago; tras FAILED_CONFIRMED sí, con revalidación y aprobación nueva. Que la OBLIGACIÓN esté acreditada lo
+ * decide su estado (OBLIGATION_NOT_PENDING en el guard), y los intentos ya debitados cuentan para el máximo
+ * acumulado (DEC-015).
  */
 export function newAttemptBlockers(existing: readonly AttemptStatus[]): ReasonCode[] {
   if (existing.some((s) => (ACTIVE_ATTEMPT_STATUSES as readonly AttemptStatus[]).includes(s))) return ["ACTIVE_ATTEMPT_EXISTS"];
-  if (existing.includes("CREDITED")) return ["OBLIGATION_NOT_PENDING"];
   return [];
 }

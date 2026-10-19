@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { ActiveAttemptExistsError, IdempotencyConflictError, RoleNotAllowedError, VersionConflictError } from "@/application/errors/ApplicationError";
 import { PolicyViolationError } from "@/domain/errors/DomainError";
 import { closeDb } from "@/infrastructure/db/client";
-import { app, count, eventTypes, newWorkspace, payerBalance, payerFunds, planAndApprove } from "../support/integration";
+import { app, count, eventTypes, ledgerRows, newWorkspace, payerBalance, payerFunds, planAndApprove, providerTransfers } from "../support/integration";
 
 afterAll(async () => {
   await closeDb();
@@ -43,6 +43,14 @@ describe("N01: matrícula con objetivo de 48 h de punta a punta (T1, puerta G1)"
     }
     const events = await app().deps.uow.read.events.list(t.workspaceId);
     expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i + 1));
+    // Los ids de la bitácora se conservan sin enmascarar (VC4-4).
+    for (const e of events.filter((ev) => ev.subjectType === "PaymentAttempt" && typeof ev.payload.attemptId === "string")) {
+      expect(e.payload.attemptId).toBe(e.subjectId);
+    }
+
+    // Una obligación acreditada no admite otro pago, ni con una clave nueva (VC4-6).
+    await expect(app().executeTuition.execute(t.student, { planId, idempotencyKey: "n01-after-credit" })).rejects.toMatchObject({ reasons: ["OBLIGATION_NOT_PENDING"] });
+    expect(await app().deps.uow.read.attempts.listAll(t.workspaceId)).toHaveLength(1);
   });
 
   it("idempotencia: misma clave y mismo contenido devuelve lo existente; con otro contenido, 409", async () => {
@@ -85,6 +93,10 @@ describe("Recuperación operativa (BUILD_PROMPT 16.3)", () => {
     expect(types).toContain("ATTEMPT_UNKNOWN");
     expect(count(types, "DEBIT_CONFIRMED")).toBe(1);
     expect(count(types, "ATTEMPT_CREATED")).toBe(1);
+    // Del lado del proveedor: una sola transferencia, con la clave del intento, y una sola entrada en el libro (VC4-5).
+    const transfers = await providerTransfers(t.workspaceId);
+    expect(transfers).toEqual([{ idempotencyKey: "o03-key", id: reconciled.attempt.attempt.providerTransferId }]);
+    expect(await ledgerRows(t.workspaceId)).toBe(1);
   });
 
   it("O04: dos ejecuciones concurrentes reales producen un solo efecto financiero", async () => {
@@ -99,10 +111,14 @@ describe("Recuperación operativa (BUILD_PROMPT 16.3)", () => {
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
     expect(rejected[0]!.reason).toBeInstanceOf(ActiveAttemptExistsError);
+    const winner = (fulfilled[0] as PromiseFulfilledResult<Awaited<ReturnType<ReturnType<typeof app>["executeTuition"]["execute"]>>>).value;
+    expect((rejected[0]!.reason as ActiveAttemptExistsError).existingAttemptId).toBe(winner.attempt.attempt.id);
     expect(await payerBalance(t.workspaceId)).toBe("2140.00");
     const attempts = await app().deps.uow.read.attempts.listAll(t.workspaceId);
     expect(attempts).toHaveLength(1);
     expect(count(await eventTypes(t.workspaceId), "DEBIT_CONFIRMED")).toBe(1);
+    expect(await providerTransfers(t.workspaceId)).toHaveLength(1);
+    expect(await ledgerRows(t.workspaceId)).toBe(1);
   });
 
   it("O04: la misma clave en paralelo devuelve el mismo intento", async () => {
@@ -128,6 +144,8 @@ describe("Recuperación operativa (BUILD_PROMPT 16.3)", () => {
     const types = await eventTypes(t.workspaceId);
     expect(count(types, "DUPLICATE_EVENT_IGNORED")).toBe(1);
     expect(count(types, "DEBIT_CONFIRMED")).toBe(1);
+    expect(await providerTransfers(t.workspaceId)).toHaveLength(1);
+    expect(await ledgerRows(t.workspaceId)).toBe(1);
   });
 
   it("O07: falla confirmada sin débito: retención liberada una vez; reintentar exige aprobación nueva", async () => {

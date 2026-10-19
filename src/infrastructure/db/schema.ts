@@ -252,6 +252,8 @@ export const paymentAttempts = pgTable(
     quoteSnapshot: jsonb("quote_snapshot").notNull(),
     createdAtVirtual: ts("created_at_virtual").notNull(),
     statusChangedAtVirtual: ts("status_changed_at_virtual").notNull(),
+    /** Hora real hasta la que un envío al proveedor está en curso: evita reenvíos simultáneos (VC4-2). */
+    submitLeaseUntil: ts("submit_lease_until"),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
@@ -473,7 +475,11 @@ export const simInstitutionLedger = pgTable(
     notice: text("notice"),
     createdAt: createdAt(),
   },
-  (t) => [index("sim_institution_ledger_reference_idx").on(t.workspaceId, t.reference)],
+  (t) => [
+    index("sim_institution_ledger_reference_idx").on(t.workspaceId, t.reference),
+    // Una transferencia se acredita una sola vez en el libro (VC4-1).
+    uniqueIndex("sim_institution_ledger_transfer_uq").on(t.workspaceId, t.transferId).where(sql`${t.transferId} is not null`),
+  ],
 );
 
 export const simInstitutionRefunds = pgTable(

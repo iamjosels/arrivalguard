@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 18:20.
-- **Fase:** 2 Persistencia y ejecución (en curso). Inicio 18:20. Fase 1 terminada a las 18:18; su revisión VC1 a VC3 está en curso.
-- **Subtarea en curso:** 2.1 esquema Drizzle y primera migración (VC5).
-- **Siguiente paso exacto:** escribir src/infrastructure/db/schema.ts, generar la migración, aplicarla en Neon dev y probarla en un esquema vacío.
-- **Último `pnpm verify`:** 18:37, exit 0 (380 pruebas; cierre de la Fase 1).
-- **URL de producción:** https://arrivalguard.vercel.app (commit cf4e5a1). El cierre de la Fase 1 se lleva a `main` al terminar su revisión.
+- **Hora (Lima):** domingo 18 de octubre, 19:48.
+- **Fase:** 2 cerrada (verify 19:46 exit 0, VC4 corregido y VC5 aprobado); se lleva a `main`. Fase 3 API, sesiones y acceso en curso: su código está fuera de este commit y se retoma enseguida. Fase 1 cerrada a las 18:38.
+- **Subtarea en curso:** 2.9 merge a `main`, despliegue (aplica la migración `0001` en `production`) y smoke.
+- **Siguiente paso exacto:** retomar la Fase 3 (sesiones, acceso del jurado, rutas de la sección 11, pruebas S03 y S06 a S09, smoke con T1 por HTTP hasta CREDITED y revisión VC6).
+- **Último `pnpm verify`:** 19:43 a 19:46, exit 0 (17 archivos y 411 pruebas, unitarias e integración contra Neon dev).
+- **URL de producción:** https://arrivalguard.vercel.app (commit ae1fc7b, smoke OK 18:39; pasa a la Fase 2 con este cierre).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
 
@@ -17,8 +17,8 @@
 |---|---|---|---|---|---|
 | 0 Arranque | cerrada | dom 18:00 | dom 18:01 | 17:57 exit 0 | sin VC |
 | 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
-| 2 Persistencia y ejecución (G1) | en curso | dom 23:00 | | | VC4, VC5 |
-| 3 API, sesiones y acceso | pendiente | lun 00:30 | | | VC6 |
+| 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
+| 3 API, sesiones y acceso | en curso | lun 00:30 | | | VC6 |
 | 4 Interfaz | pendiente | lun 03:00 | | | VC7 |
 | 5 Agente (G2) | pendiente | lun 05:00 | | | VC8 |
 | 6 Capacidades P1 | pendiente | lun 09:30 | | | |
@@ -79,15 +79,37 @@ Evidencia (18:17): `pnpm verify` exit 0: typecheck, lint, 12 archivos y 359 prue
 Inicio: domingo 18, 18:20. Secciones: BUILD_PROMPT 8.3 a 8.6, 10, 11 (idempotencia), 12, 16.2 (N01), 16.3 (O01 a O08).
 
 Subtareas:
-- [ ] 2.1 Esquema Drizzle completo, migración generada y aplicada en Neon dev; VC5 (esquema vacío y existente).
-- [ ] 2.2 Puertos de repositorios y unidad de trabajo; repositorios Drizzle con bloqueo en orden cuenta, obligación (o remesa) y plan.
-- [ ] 2.3 Creación de espacios por escenario (actores, cuentas, reserva, política, destinatarios, obligación, beca, gastos, mandato e historial).
-- [ ] 2.4 Proveedor simulado (cotizaciones, recotización, envío idempotente, respuesta perdida, eventos) e institución simulada (acreditación, libro, devoluciones).
-- [ ] 2.5 Reloj virtual y fallas inyectables con evento FAULT_INJECTED.
-- [ ] 2.6 Casos de uso de T1: planificar, comparar, pedir aprobación, aprobar, ejecutar (transaccional e idempotente) y conciliar; estado con procedencia.
-- [ ] 2.7 Bitácora de eventos redactada y secuencia por espacio.
-- [ ] 2.8 Pruebas de integración N01 y O01 a O08 (O06 requiere el agente: se cubre en la Fase 5).
-- [ ] 2.9 `pnpm verify`, revisión VC4 (y VC5), merge a `main`, smoke.
+- [x] 2.1 Esquema Drizzle completo, migración generada y aplicada en Neon dev; VC5 (esquema vacío y existente).
+- [x] 2.2 Puertos de repositorios y unidad de trabajo; repositorios Drizzle con bloqueo en orden cuenta, obligación (o remesa) y plan.
+- [x] 2.3 Creación de espacios por escenario (actores, cuentas, reserva, política, destinatarios, obligación, beca, gastos, mandato e historial).
+- [x] 2.4 Proveedor simulado (cotizaciones, recotización, envío idempotente, respuesta perdida, eventos) e institución simulada (acreditación, libro, devoluciones).
+- [x] 2.5 Reloj virtual y fallas inyectables con evento FAULT_INJECTED.
+- [x] 2.6 Casos de uso de T1: planificar, comparar, pedir aprobación, aprobar, ejecutar (transaccional e idempotente) y conciliar; estado con procedencia.
+- [x] 2.7 Bitácora de eventos redactada y secuencia por espacio.
+- [x] 2.8 Pruebas de integración N01 y O01 a O08 (O06 requiere el agente: se cubre en la Fase 5).
+- [x] 2.9 `pnpm verify`, revisión VC4 y VC5, correcciones, merge a `main` y smoke.
+
+Revisión (19:06 a 19:21, subagente `revisor`, docs/reviews/VC4.md y VC5.md): VC4 requería correcciones. VC4-1 alto: el simulador volvía a entregar a la universidad ante un reenvío con la misma clave, y el libro quedaba duplicado. VC4-2 alto: conciliar un intento en SUBMITTING lo reenviaba durante el envío original y lo dejaba UNKNOWN sin motivo. VC4-3 a VC4-5 medios: la red de seguridad del índice único no veía el código envuelto por Drizzle, la redacción alteraba ids y O03 a O05 no miraban el lado del proveedor. VC4-6 y VC4-7 bajos. Sin críticos, así que no corresponde segunda ronda. VC5 aprobado con una observación baja. Todo se corrigió con pruebas: simulador idempotente con índice único del libro (migración `0001`), permiso de envío de 30 s, solo un timeout lleva a UNKNOWN, `DuplicateRecordError`, redacción que conserva identificadores, PROVIDER_SUBMIT_SENT registrado después del envío y migración probada sobre un esquema sembrado en la versión anterior. Decisión DEC-015: lo que bloquea un intento nuevo es el estado de la obligación, no un intento CREDITED (S03).
+
+Evidencia de cierre (19:46): `pnpm verify` exit 0: `OK typecheck`, `OK lint`, `OK test` (17 archivos y 411 pruebas), `OK db:seed-check` (5 escenarios válidos) y `OK build`, `verify: TODO EN VERDE`. Antes, solo la suite de integración: 9 archivos y 42 pruebas en verde (237 s). En la rama `dev` de Neon se borraron las 6 filas duplicadas del libro antes de migrar; `db:migrate` en `dev`: "OK, 2 migraciones registradas".
+
+Evidencia (19:05): `pnpm verify` exit 0 con 16 archivos y 403 pruebas. Integración contra Neon dev: N01 (B, débito USD 2,860.00 una sola vez, CREDITED con recibo, saldo USD 2,140.00), idempotencia (misma clave devuelve el mismo intento; misma clave con otro contenido da IDEMPOTENCY_CONFLICT), O01, O02a (USD 2,865.00 y saldo USD 2,135.00), O02b (EXCEEDS_PAYER_MAX, plan READY_FOR_APPROVAL, aprobación INVALIDATED, ningún intento), O03 (UNKNOWN, ActiveAttemptExists ante otro pago y un solo débito tras conciliar), O04 (dos ejecuciones concurrentes reales: un solo intento y un solo débito; misma clave en paralelo: mismo intento), O05 (DUPLICATE_EVENT_IGNORED, saldo intacto), O07 (HOLD_RELEASED una vez, reintento con aprobación nueva), O08 (PENDING_UNIVERSITY hasta 24 h más 36 h, sin recibo inventado), N02, N10, D05 (versión 2 con D, aprobación anterior invalidada, saldo final USD 2,120.00), el intento persistido antes de enviar (proveedor espía) y VC5 (29 tablas y 3 índices parciales sobre un esquema vacío; la base existente se vuelve a migrar sin perder datos). Puerta G1: T1 de punta a punta en modo estructurado, con respuesta perdida y concurrencia, demostrada a nivel de caso de uso. O06 (IA no disponible) se cubre en la Fase 5.
+
+Cambio de diseño por concurrencia: ninguna transacción consulta a los simuladores mientras retiene conexión y bloqueos (se consultan antes de abrirla). Las pruebas de integración corren en paralelo (cada una en su espacio): de 319 s a 71 s. Fijada la región `iad1` de Vercel, igual a la de Neon (`us-east-1`).
+
+## Fase 3: API, sesiones y acceso
+
+Inicio: domingo 18, 19:08. Secciones: BUILD_PROMPT 4.3, 9.3, 11, 13.6 (límites), 14.1 y 14.2 (S03, S06 a S09), A4.
+
+Subtareas:
+- [ ] 3.1 Sesiones: token de 256 bits, hash HMAC-SHA256 con pepper, 14 días, revocación; cookies ag_student, ag_payer y ag_evaluator (HttpOnly, Secure, SameSite=Strict).
+- [ ] 3.2 Acceso del jurado: código de evaluación, espacio con los tres roles, límites 20 por hora por IP con hash y 200 por día.
+- [ ] 3.3 Envoltorio HTTP: actor de sesión con x-ag-actor, Origin, Content-Type, Zod, requestId y httpErrorMapper único.
+- [ ] 3.4 DTO y Mapper de salida (CaseViewDTO, PlanDTO, ApprovalViewDTO, AttemptDTO, CashProjectionDTO, eventos).
+- [ ] 3.5 T6: cambio de política del pagador, cambios preparados con confirmación fija, revocación (N11, N12 en los dos órdenes).
+- [ ] 3.6 Rutas de la sección 11 para T1, T2, T5, T6 y la consola del evaluador.
+- [ ] 3.7 Pruebas de API: T1 completa por HTTP, S03, S06, S07, S08, S09, cookies, Origin y límites.
+- [ ] 3.8 `smoke` con T1 en modo estructurado y CREDITED; `pnpm verify`, revisión VC6, merge a `main` y smoke en producción.
 
 ## Deuda
 
