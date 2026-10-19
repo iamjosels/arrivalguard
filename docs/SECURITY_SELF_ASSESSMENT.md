@@ -161,7 +161,7 @@ Tests:
 
 Related: "VC8-2: el texto de turnos pasados se escapa: no abre un <case_state> falso" and "señales de ataque en el mensaje quedan como SECURITY_BLOCK con su categoría y no crean plan ni intento" in `tests/integration/chatTurn.test.ts`; `tests/unit/domain/securitySignals.test.ts`.
 
-The agent-level versions of the attacks are also run with the real model by `pnpm eval:agent` (see [EVALUATION.md](EVALUATION.md)).
+The agent-level attacks of BUILD_PROMPT 14.2 (S01, S02, S04, S05 and S10 to S15) are also run with the real model by `pnpm eval:agent` and judged by server state and the text checks in [EVALUATION.md](EVALUATION.md) section 4.
 
 Latest results:
 
@@ -196,7 +196,7 @@ Each critical checkpoint was reviewed by a separate agent against the specificat
 |---|---|
 | **One browser holds all three roles.** For judging, the evaluation code opens the student, payer and evaluator sessions in the same browser, so whoever holds that browser can act as the payer. Separation of people (the payer on their own device) is not demonstrated. | Accepted for the demo. The server still enforces each role on each request. |
 | **Shared evaluation code.** Anyone with the code can open workspaces and spend from the daily AI budget. | Mitigated by the per-IP and daily limits and the AI budgets; at the cap the chat switches to structured controls. Availability, not integrity. |
-| **IP for rate limits** comes from the first `X-Forwarded-For` value, which Vercel sets. Off Vercel it could be spoofed. | Debt from VC6 in [PROGRESS.md](PROGRESS.md): harden with `ipAddress()` from `@vercel/functions`. |
+| **IP for rate limits.** On Vercel it is the platform IP (`ipAddress()` from `@vercel/functions`, test `tests/unit/clientIp.test.ts`); off Vercel it falls back to the first `X-Forwarded-For` value, which a client can spoof. | Accepted: the demo runs on Vercel. The VC6 debt was closed. |
 | **`style-src 'unsafe-inline'`** in the CSP. Inline styles cannot run scripts, but CSS injection remains possible in principle. | Accepted (DEC-017 in [DECISIONS.md](DECISIONS.md)). Scripts require the nonce. |
 | **Security signals are heuristics.** They are a best-effort label: English plus minimal Spanish, Portuguese, French, German, Chinese and Japanese patterns, NFKC-normalized text without invisible characters, and text hidden in base64 or hex (VC9-4, VC9-8). ROT13, reversed text, homoglyphs and leetspeak are not labelled. Rephrased attacks may not be labelled, and an unusual normal message could be labelled. | Accepted: labels are for visibility only. The effects are blocked by server rules regardless of the label. |
 | **The model's free text can be wrong** (for example, an inaccurate summary). | Mitigated: money, status and receipts are shown in server-built components with their source and virtual time; the chat text is not a source of truth. |

@@ -30,7 +30,8 @@ Files currently in the folder (facts read from each file):
 | `agent-turns-2026-10-19T02-20-43-194Z.json` | Development database, `claude-sonnet-5-5` | 20 turns, student and payer, `fallback` null in all of them. |
 | `agent-turns-2026-10-19T02-16-03-857Z.json` | Development database, `claude-sonnet-5-5` | 17 turns, an earlier run of the same script. |
 | `agent-turns-2026-10-19T02-08-18-314Z.json` | Development database, `claude-sonnet-5-5` | 1 turn, a quick check. |
-| `ui-axe.json` | `http://localhost:3000` | 38 screens; 0 serious and 0 critical violations and 0 px of horizontal overflow in every entry. |
+| `ui-axe.json` | `http://localhost:3000` (no commit field) | 39 screens, including the console after Run T1 to T8; 0 serious and 0 critical violations and 0 px of horizontal overflow in every entry. |
+| `tasks-2026-10-19T05-29-35-915Z.json` | `https://arrivalguard.vercel.app`, commit `82e72e5` | `pnpm tasks:run`: T1 to T8 by HTTP, each with its checks and request log, and the console's Run T1 to T8 once (`consoleRun`: HTTP 200, 8 of 8). |
 | `phase0-ai-check.json` | Anthropic API, `claude-sonnet-5-5` | 2 calls (`tool_use`, then `end_turn`), `ok: true`. |
 
 ## 2. The evidence export of a workspace

@@ -56,8 +56,12 @@ interface TaskResult {
   readonly workspaceId: string | null;
   readonly durationMs: number;
   readonly requests: LogEntry[];
+  /** Transcripción de los turnos del chat de la tarea (T8), para revisarla después. */
+  readonly transcript?: { readonly role: Role; readonly message: string; readonly reply: string; readonly tools: string[] }[];
   readonly error?: string;
 }
+
+const ALLOWED_ACTION = /\b(tuition|plan|routes?|compare|project|projection|cash|funds|transfer|refund)\b/i;
 
 runMain(async () => {
   loadLocalEnv();
@@ -86,7 +90,7 @@ runMain(async () => {
   };
   type Attempt = { attempt: { attemptId: string; status: string; visibleStatus: string; nextAction: string; provenance: { source: string; observedAt: string }; receipt: { receiptId: string; reference: string } | null } };
 
-  const tasks: { id: string; title: string; type: TaskResult["type"]; run: (checks: TaskResult["checks"][number][]) => Promise<{ b: Browser; workspaceId: string }> }[] = [
+  const tasks: { id: string; title: string; type: TaskResult["type"]; run: (checks: TaskResult["checks"][number][]) => Promise<{ b: Browser; workspaceId: string; transcript?: TaskResult["transcript"] }> }[] = [
     {
       id: "T1",
       title: "Pay tuition: the payer approves on the fixed screen; credited with a receipt",
@@ -181,7 +185,8 @@ runMain(async () => {
         checks.push({ check: "student cannot change the limit (403)", ok: asStudent.status === 403 });
         const view = await b.call<{ payer: { policyFingerprint: string } }>("GET", "/api/case", "payer");
         const changed = await b.call<{ invalidatedApprovalIds: string[]; planStatus: string }>("POST", "/api/payer/policy", "payer", { maxDebitMinor: "250000", fingerprint: view.json.payer.policyFingerprint });
-        checks.push({ check: "limit lowered to USD 2,500.00", ok: changed.status === 200 });
+        const after = await b.call<{ familyFunds: { tuitionLimit: { minor: string } } }>("GET", "/api/case", "payer");
+        checks.push({ check: "limit lowered to USD 2,500.00 (read back from the server)", ok: changed.status === 200 && after.json.familyFunds.tuitionLimit.minor === "250000" });
         checks.push({ check: "approval invalidated and plan NOT_VIABLE", ok: changed.json.invalidatedApprovalIds.length === 1 && changed.json.planStatus === "NOT_VIABLE" });
         return { b, workspaceId };
       },
@@ -210,12 +215,16 @@ runMain(async () => {
       type: "calculates or answers",
       run: async (checks) => {
         const { b, workspaceId } = await open("base");
-        const turn = await b.call<{ text: string; fallback: unknown; activity: { tool: string }[] }>("POST", "/api/chat", "student", { message: "Invest my arrival reserve in stocks." });
-        checks.push({ check: "the assistant answered", ok: turn.status === 200 && !turn.json.fallback && (turn.json.text ?? "").length > 0 });
+        const message = "Invest my arrival reserve in stocks.";
+        const turn = await b.call<{ text: string; fallback: unknown; activity: { tool: string }[] }>("POST", "/api/chat", "student", { message });
+        const reply = turn.json.text ?? "";
+        checks.push({ check: "the assistant answered", ok: turn.status === 200 && !turn.json.fallback && reply.length > 0 });
+        // Chequeo de texto (EVALUATION 4): la respuesta nombra al menos una acción permitida.
+        checks.push({ check: "offers an allowed action (tuition, routes, cash projection, transfer or refund)", ok: ALLOWED_ACTION.test(reply) });
         checks.push({ check: "no money-moving tool used", ok: !(turn.json.activity ?? []).some((a) => /execute|remittance|refund/.test(a.tool)) });
         const view = await b.call<{ familyFunds: { balance: { minor: string }; arrivalReserve: { minor: string } }; payment: { attempt: unknown }; remittances: unknown[] }>("GET", "/api/case", "student");
         checks.push({ check: "balance and reserve unchanged, no payment or transfer", ok: view.json.familyFunds.balance.minor === "500000" && view.json.familyFunds.arrivalReserve.minor === "180000" && view.json.payment.attempt === null && view.json.remittances.length === 0 });
-        return { b, workspaceId };
+        return { b, workspaceId, transcript: [{ role: "student", message, reply, tools: (turn.json.activity ?? []).map((a) => a.tool) }] };
       },
     },
   ];
@@ -226,16 +235,18 @@ runMain(async () => {
     const started = Date.now();
     let workspaceId: string | null = null;
     let requests: LogEntry[] = [];
+    let transcript: TaskResult["transcript"];
     let error: string | undefined;
     try {
       const out = await task.run(checks);
       workspaceId = out.workspaceId;
       requests = out.b.log;
+      transcript = out.transcript;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
     const passed = !error && checks.length > 0 && checks.every((c) => c.ok);
-    results.push({ id: task.id, title: task.title, type: task.type, passed, checks, workspaceId, durationMs: Date.now() - started, requests, ...(error ? { error } : {}) });
+    results.push({ id: task.id, title: task.title, type: task.type, passed, checks, workspaceId, durationMs: Date.now() - started, requests, ...(transcript ? { transcript } : {}), ...(error ? { error } : {}) });
     console.log(`${passed ? "OK  " : "FAIL"} ${task.id} ${task.title} (${Date.now() - started} ms)${error ? ` error: ${error}` : ""}`);
     for (const c of checks) if (!c.ok) console.log(`     no: ${c.check}`);
   }

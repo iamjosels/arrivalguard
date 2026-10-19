@@ -31,6 +31,7 @@ interface AgentFile {
   readonly totals: { readonly scenarios: number; readonly passed: number; readonly failed: readonly string[] };
   readonly metrics: {
     readonly medianStudentTurnsToPrepareNormalCases: number | null;
+    readonly normalCasesMeasured?: string;
     readonly unnecessaryQuestionsInCompleteRequests: number;
     readonly completeRequests: number;
     readonly correctionsPreservingValidData: string;
@@ -112,7 +113,8 @@ runMain(async () => {
   const deterministicSection = (): string => {
     if (!det) return "Not run yet for this version (no `docs/results/deterministic-*.json`).";
     const d = det.data;
-    const rows = d.scenarios.map((s) => `| ${s.id} | ${mark(s.passed)} | ${s.tests.length} | ${cell([...new Set(s.tests.map((t) => t.file))].join(", "))} |`);
+    const key = (id: string) => `${"NOS".indexOf(id[0]!)}${id.slice(1, 3)}${id.slice(3)}`;
+    const rows = [...d.scenarios].sort((x, y) => key(x.id).localeCompare(key(y.id))).map((s) => `| ${s.id} | ${mark(s.passed)} | ${s.tests.length} | ${cell([...new Set(s.tests.map((t) => t.file))].join(", "))} |`);
     return [
       `Source: \`${det.file}\`. Commit \`${d.commit}\`${d.uncommittedChanges ? " (with uncommitted changes)" : ""}, ${d.generatedAt}. Command \`${d.command}\` against the ${d.database}, no AI, 1 run, ${d.durationSeconds} s.`,
       "",
@@ -130,9 +132,9 @@ runMain(async () => {
     if (names.length < 2) return [];
     const rows = names.map((name) => {
       const r = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")) as AgentFile;
-      return `| \`docs/results/${name}\` | \`${r.commit}\` | ${r.generatedAt} | ${r.totals.passed} of ${r.totals.scenarios} | ${r.totals.failed.length ? r.totals.failed.join(", ") : "none"} | ${usd(r.metrics.totalCostUsdMicros)} |`;
+      return `| \`docs/results/${name}\` | \`${r.commit}\` | ${r.generatedAt} | ${r.totals.passed} of ${r.totals.scenarios} | ${r.totals.failed.length ? r.totals.failed.join(", ") : "none"} | ${r.metrics.unnecessaryQuestionsInCompleteRequests} of ${r.metrics.completeRequests} | ${usd(r.metrics.totalCostUsdMicros)} |`;
     });
-    return ["", "Every agent run kept in `docs/results/`, oldest first (the table above is the latest):", "", "| File | Commit | Date | Passed | Failing | Cost |", "| --- | --- | --- | --- | --- | --- |", ...rows];
+    return ["", "Every agent run kept in `docs/results/`, oldest first (the table above is the latest):", "", "| File | Commit | Date | Passed | Failing | Unnecessary questions | Cost |", "| --- | --- | --- | --- | --- | --- | --- |", ...rows];
   };
 
   const agentSection = (): string => {
@@ -145,13 +147,13 @@ runMain(async () => {
       return `| ${s.id}${a.repeat > 1 ? ` #${s.run}` : ""} | ${cell(s.title)} | ${mark(s.passed)} | ${s.studentTurns} | ${usd(s.costUsdMicros)} | ${cell(note)} |`;
     });
     return [
-      `Source: \`${agent.file}\`. Commit \`${a.commit}\`, ${a.generatedAt}. Model \`${a.model}\`, effort \`${a.effort}\`, thinking \`${a.thinking}\`, ${a.repeat} run(s) per scenario, against the ${a.database}, ${a.durationSeconds} s. Each scenario is judged by server state (plans, attempts, approvals, transfers, claims, events), not by the model's words.`,
+      `Source: \`${agent.file}\`. Commit \`${a.commit}\`, ${a.generatedAt}. Model \`${a.model}\`, effort \`${a.effort}\`, thinking \`${a.thinking}\`, ${a.repeat} run(s) per scenario, against the ${a.database}, ${a.durationSeconds} s. Each scenario is judged mainly by server state (plans, attempts, approvals, transfers, claims, events), plus the text checks listed in EVALUATION section 4.`,
       "",
       `Scenarios: ${a.totals.passed} of ${a.totals.scenarios} passed${a.totals.failed.length ? `; failing: ${a.totals.failed.join(", ")}` : ""}.`,
       "",
       "| Metric | Value |",
       "| --- | --- |",
-      `| Median student turns to prepare normal cases | ${m.medianStudentTurnsToPrepareNormalCases ?? "n/a"} |`,
+      `| Median student turns until the server shows a normal case prepared (passing cases) | ${m.medianStudentTurnsToPrepareNormalCases ?? "n/a"}${m.normalCasesMeasured ? ` (${m.normalCasesMeasured} cases measured)` : ""} |`,
       `| Unnecessary questions in complete requests | ${m.unnecessaryQuestionsInCompleteRequests} of ${m.completeRequests} |`,
       `| Corrections that keep valid data (D05, D06, D08) | ${m.correctionsPreservingValidData} |`,
       `| Model turns | ${m.turns} |`,
@@ -176,7 +178,7 @@ runMain(async () => {
       return `| ${x.id} | ${cell(x.title)} | ${x.type} | ${mark(x.passed)} | ${seconds(x.durationMs)} | ${cell([...failed, ...(x.error ? [`error: ${x.error}`] : [])].join("; "))} |`;
     });
     return [
-      `Source: \`${tasks.file}\`. Base URL ${t.baseUrl}, deployed commit \`${t.commit ?? "unknown"}\`, ${t.generatedAt}. HTTP only, no AI, 1 run.`,
+      `Source: \`${tasks.file}\`. Base URL ${t.baseUrl}, deployed commit \`${t.commit ?? "unknown"}\`, ${t.generatedAt}. HTTP only, 1 run; T8 calls the deployed assistant (real model), the other tasks use no AI.`,
       "",
       `Tasks: ${passed} of ${t.tasks.length} passed.`,
       "",
@@ -200,7 +202,7 @@ runMain(async () => {
       return `| ${id} | ${dText} | ${aText} |`;
     });
     const sources = [det ? `deterministic \`${det.file}\` (commit \`${det.data.commit}\`, ${det.data.generatedAt})` : "deterministic: not run", agent ? `agent \`${agent.file}\` (commit \`${agent.data.commit}\`, ${agent.data.generatedAt}, model \`${agent.data.model}\`, effort \`${agent.data.effort}\`)` : "agent: not run"];
-    return [`${cat.title}. Sources: ${sources.join("; ")}.`, "", "| Case | Server, no AI | Real model, judged by server state |", "| --- | --- | --- |", ...rows].join("\n");
+    return [`${cat.title}. Sources: ${sources.join("; ")}.`, "", "| Case | Server, no AI | Real model, judged by server state and text checks |", "| --- | --- | --- |", ...rows].join("\n");
   };
 
   const fill = (file: string, key: string, body: string) => {

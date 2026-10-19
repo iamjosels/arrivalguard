@@ -220,7 +220,7 @@ The payer tools only **prepare** a change; Carlos confirms it on a fixed screen 
 
 ### 4.3 Turn loop
 
-`ChatTurnUseCase.turn` (`src/application/usecases/ChatTurnUseCase.ts`), configured in `src/infrastructure/container.ts`:
+`ChatTurnUseCase.execute` (`src/application/usecases/ChatTurnUseCase.ts`), configured in `src/infrastructure/container.ts`:
 
 1. Rate limits first: 10 turns per minute and 60 per day per workspace (`AI_TURNS_PER_MINUTE`, `AI_TURNS_PER_DAY`), 429 otherwise.
 2. Message length 1 to 2,000 characters.
@@ -275,7 +275,7 @@ All SQL goes through Drizzle with parameters.
 - The virtual clock controls due dates, quote validity, arrivals, credits and mandate periods; only the evaluator moves it. Sessions, rate limits and budgets use real time.
 - One family per workspace: one student, one payer, one tuition obligation.
 - `style-src` allows `'unsafe-inline'` because components use computed `style` attributes and the toast library inserts styles (DEC-017).
-- The IP used for rate limits is the first `X-Forwarded-For` value, which Vercel sets (debt from VC6 in [PROGRESS.md](PROGRESS.md)).
+- The IP used for rate limits is the platform IP on Vercel (`ipAddress()` from `@vercel/functions`); off Vercel it falls back to the first `X-Forwarded-For` value.
 - Known and residual risks: [SECURITY_SELF_ASSESSMENT.md](SECURITY_SELF_ASSESSMENT.md).
 
 **The seal is a visual representation of the fingerprint; security comes from server verification.**
