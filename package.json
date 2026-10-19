@@ -29,7 +29,8 @@
     "eval:deterministic": "tsx scripts/eval-deterministic.ts",
     "tasks:run": "tsx scripts/tasks-run.ts",
     "eval:agent": "tsx scripts/eval-agent.ts",
-    "results:report": "tsx scripts/results-report.ts"
+    "results:report": "tsx scripts/results-report.ts",
+    "licenses": "tsx scripts/third-party-licenses.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
