@@ -53,11 +53,10 @@ export class DbRateLimiter implements RateLimiterPort {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
-  async hit(key: string, windowSeconds: number, limit: number, offsetSeconds = 0) {
+  async hit(key: string, windowSeconds: number, limit: number) {
     const nowMs = this.now();
     const windowMs = windowSeconds * 1000;
-    const offsetMs = offsetSeconds * 1000;
-    const windowStart = new Date(Math.floor((nowMs - offsetMs) / windowMs) * windowMs + offsetMs);
+    const windowStart = new Date(Math.floor(nowMs / windowMs) * windowMs);
     const [row] = await this.db
       .insert(rateLimits)
       .values({ key, windowStart, count: 1 })
@@ -66,6 +65,25 @@ export class DbRateLimiter implements RateLimiterPort {
     const count = row?.count ?? limit + 1;
     const retryAfterSeconds = Math.ceil((windowStart.getTime() + windowMs - nowMs) / 1000);
     return { allowed: count <= limit, count, retryAfterSeconds };
+  }
+
+  async tryAcquire(key: string, intervalSeconds: number) {
+    const nowMs = this.now();
+    const intervalMs = intervalSeconds * 1000;
+    // Bajo un bloqueo por clave: se lee el último inicio concedido y solo se escribe si se concede uno nuevo.
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`slot:${key}`}))`);
+      const [last] = await tx
+        .select({ at: sql<string | null>`max(${rateLimits.windowStart})::text` })
+        .from(rateLimits)
+        .where(eq(rateLimits.key, key));
+      const lastMs = last?.at ? new Date(last.at).getTime() : null;
+      if (lastMs !== null && nowMs - lastMs < intervalMs) {
+        return { acquired: false, retryAfterSeconds: Math.max(1, Math.ceil((lastMs + intervalMs - nowMs) / 1000)) };
+      }
+      await tx.insert(rateLimits).values({ key, windowStart: new Date(nowMs), count: 1 }).onConflictDoNothing();
+      return { acquired: true, retryAfterSeconds: 0 };
+    });
   }
 }
 

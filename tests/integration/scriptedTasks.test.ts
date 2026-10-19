@@ -96,6 +96,37 @@ describe("Run T1 to T8 desde la consola", () => {
     await expect(shared.execute(b.evaluator, { originHash: "edge-b" })).rejects.toBeInstanceOf(RateLimitedError);
   });
 
+  it("VC11-5: un intento rechazado no alarga el bloqueo; al pasar el intervalo desde la corrida aceptada se puede volver a correr", async () => {
+    const [a, b, c] = await Promise.all([newWorkspace("base"), newWorkspace("base"), newWorkspace("base")]);
+    const edge = Math.ceil(Date.now() / 120_000) * 120_000 + 120_000;
+    let now = edge - 20;
+    const shared = new RunScriptedTasksUseCase(app().deps, brokenApp, new DbRateLimiter(getDb(), () => now), limits("scripted-chain", { startIntervalSeconds: 60 }));
+    await shared.execute(a.evaluator, { originHash: "chain-a" });
+    now = edge + 20;
+    await expect(shared.execute(b.evaluator, { originHash: "chain-b" })).rejects.toBeInstanceOf(RateLimitedError);
+    // 60 s y 10 ms después de la única corrida aceptada: el rechazo intermedio no debe contar.
+    now = edge - 20 + 60_010;
+    await expect(shared.execute(c.evaluator, { originHash: "chain-c" })).resolves.toMatchObject({ total: 8 });
+  });
+
+  it("VC11-5: reintentar en el Retry-After devuelto permite empezar", async () => {
+    const [a, b] = await Promise.all([newWorkspace("base"), newWorkspace("base")]);
+    let now = Date.now();
+    const shared = new RunScriptedTasksUseCase(app().deps, brokenApp, new DbRateLimiter(getDb(), () => now), limits("scripted-retry", { startIntervalSeconds: 60 }));
+    await shared.execute(a.evaluator, { originHash: "retry-a" });
+    now += 15_000;
+    const rejected = await shared.execute(b.evaluator, { originHash: "retry-b" }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(rejected).toBeInstanceOf(RateLimitedError);
+    const retryAfter = (rejected as RateLimitedError).retryAfterSeconds!;
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(60);
+    now += retryAfter * 1000;
+    await expect(shared.execute(b.evaluator, { originHash: "retry-b" })).resolves.toMatchObject({ total: 8 });
+  });
+
   it("VC9b: un solo origen no agota las corridas del día; otro origen sigue corriendo", async () => {
     const [a, b, c] = await Promise.all([newWorkspace("base"), newWorkspace("base"), newWorkspace("base")]);
     const perOrigin = fastRunner({ perOriginPerDay: 2, perWorkspacePerHour: 10 });

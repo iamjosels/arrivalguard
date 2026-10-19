@@ -19,8 +19,12 @@ export interface SessionPort {
 
 /** Límite de uso por ventana fija, con hora real. */
 export interface RateLimiterPort {
-  /** Ventana fija de `windowSeconds`; `offsetSeconds` desplaza el inicio de las ventanas (para grillas superpuestas). */
-  hit(key: string, windowSeconds: number, limit: number, offsetSeconds?: number): Promise<{ readonly allowed: boolean; readonly count: number; readonly retryAfterSeconds: number }>;
+  hit(key: string, windowSeconds: number, limit: number): Promise<{ readonly allowed: boolean; readonly count: number; readonly retryAfterSeconds: number }>;
+  /**
+   * Un inicio como máximo por intervalo, sin ventanas fijas: se concede solo si el último inicio concedido es más viejo
+   * que `intervalSeconds`. Un rechazo no escribe nada, así que no alarga el bloqueo (VC11-5).
+   */
+  tryAcquire(key: string, intervalSeconds: number): Promise<{ readonly acquired: boolean; readonly retryAfterSeconds: number }>;
 }
 
 /** Verifica el código de evaluación del jurado en tiempo constante. */

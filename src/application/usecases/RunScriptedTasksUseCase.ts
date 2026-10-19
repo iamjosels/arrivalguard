@@ -99,15 +99,10 @@ export class RunScriptedTasksUseCase {
     if (!workspace) throw new NotFoundError();
     // Límites antes de crear cualquier espacio (VC9b): primero el de corridas en vuelo, que no gasta cupos ajenos.
     if (this.config.startIntervalSeconds > 0) {
-      // Dos grillas de ventanas de 2 intervalos, desplazadas un intervalo: dos inicios a menos de un intervalo caen en la
-      // misma ventana de al menos una de ellas, también en el borde de una ventana fija.
-      const interval = this.config.startIntervalSeconds;
-      const gridA = await this.limiter.hit(`${this.config.keyPrefix}:scripted:start:a`, interval * 2, 1);
-      const gridB = await this.limiter.hit(`${this.config.keyPrefix}:scripted:start:b`, interval * 2, 1, interval);
-      if (!gridA.allowed || !gridB.allowed) {
-        const retry = Math.min(...[gridA, gridB].filter((g) => !g.allowed).map((g) => g.retryAfterSeconds));
-        throw new RateLimitedError("Another scripted run just started. Try again in a minute.", retry);
-      }
+      // Un inicio por intervalo contado desde el último inicio concedido: sin bordes de ventana, y un rechazo no alarga el
+      // bloqueo de nadie (VC11-5). Retry-After dice cuándo se puede volver a empezar.
+      const slot = await this.limiter.tryAcquire(`${this.config.keyPrefix}:scripted:start`, this.config.startIntervalSeconds);
+      if (!slot.acquired) throw new RateLimitedError("Another scripted run just started. Try again in a minute.", slot.retryAfterSeconds);
     }
     const perWorkspace = await this.limiter.hit(`${this.config.keyPrefix}:scripted:${actor.workspaceId}`, 3600, this.config.perWorkspacePerHour);
     if (!perWorkspace.allowed) throw new RateLimitedError("Scripted tasks already ran several times in the last hour. Try again later.", perWorkspace.retryAfterSeconds);
