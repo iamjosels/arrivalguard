@@ -24,7 +24,7 @@
 | 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
 | 7 Seguridad completa (G3) | cerrada, G3 cumplida | lun 11:30 | lun 00:28 | lun 00:25 exit 0 | VC9 en dos rondas: 1 crítico y 11 bajos, todos corregidos con regresión (uno como DEC-018); segunda ronda sin críticos, altos ni medios (docs/reviews/VC9.md) |
 | 8 Evaluación y documentos (G4) | cerrada, G4 cumplida | lun 14:00 | lun 09:50 | lun 09:44 exit 0 | VC10 aprobado con deuda: 4 medios y 8 bajos, sin críticos ni altos, todos corregidos (docs/reviews/VC10.md) |
-| 9 Cierre (G5) | cerrada, G5 cumplida | lun 16:00 | lun 10:20 | lun 10:01 a 10:11 exit 0 (`a82ff77`) | VC11 aprobado en la segunda ronda: 2 medios y 1 bajo corregidos, sin críticos ni altos (docs/reviews/VC11.md) |
+| 9 Cierre (G5) | cerrada, G5 cumplida | lun 16:00 | lun 10:26 (tag) | lun 10:14 a 10:24 exit 0 (`ed1ed75`, commit del tag) | VC11 aprobado en la segunda ronda: 2 medios y 1 bajo corregidos, sin críticos ni altos (docs/reviews/VC11.md) |
 
 Puertas: G1 (Fase 2), G2 (Fase 5), G3 (Fase 7), G4 (Fase 8), G5 (Fase 9).
 
