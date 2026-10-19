@@ -58,6 +58,24 @@ interface TasksFile {
   readonly baseUrl: string;
   readonly commit: string | null;
   readonly tasks: readonly { readonly id: string; readonly title: string; readonly type: string; readonly passed: boolean; readonly checks: readonly { readonly check: string; readonly ok: boolean }[]; readonly durationMs: number; readonly error?: string }[];
+  readonly consoleRun?: ConsoleRun;
+}
+interface ConsoleRun {
+  readonly status: number | null;
+  readonly durationMs: number;
+  readonly passed: number | null;
+  readonly total: number | null;
+  readonly tasks: readonly { readonly id: string; readonly passed: boolean; readonly error: string | null }[];
+  readonly error?: string;
+}
+
+function consoleLine(run: ConsoleRun): string {
+  const failing = run.tasks.filter((x) => !x.passed).map((x) => `${x.id}${x.error ? ` (${x.error})` : ""}`);
+  return (
+    `Evaluator console, **Run T1 to T8** (the same eight tasks run inside the server, DEC-020), called once in the same run: ` +
+    `HTTP ${run.status ?? "no response"}, ${run.passed ?? "n/a"} of ${run.total ?? "n/a"} passed, ${(run.durationMs / 1000).toFixed(1)} s` +
+    `${run.error ? `, error: ${run.error}` : ""}.${failing.length ? ` Failing: ${failing.join(", ")}.` : ""}`
+  );
 }
 
 const CATEGORIES: Record<string, { readonly title: string; readonly ids: readonly string[] }> = {
@@ -153,6 +171,7 @@ runMain(async () => {
       "| Task | Title | Type | Result | Duration | Notes |",
       "| --- | --- | --- | --- | --- | --- |",
       ...rows,
+      ...(t.consoleRun ? ["", consoleLine(t.consoleRun)] : []),
     ].join("\n");
   };
 

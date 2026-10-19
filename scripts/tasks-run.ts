@@ -240,8 +240,24 @@ runMain(async () => {
     for (const c of checks) if (!c.ok) console.log(`     no: ${c.check}`);
   }
 
+  // "Run T1 to T8" de la consola (DEC-020): una corrida dentro del servidor, que la juzga allí; se registra tal cual.
+  type ConsoleBody = { passed?: number; total?: number; tasks?: { id: string; passed: boolean; error: string | null }[] };
+  const consoleRun = await (async () => {
+    const started = Date.now();
+    try {
+      const { b, workspaceId } = await open("base");
+      const res = await b.call<ConsoleBody>("POST", "/api/evaluation/scripted-tasks", "evaluator", {});
+      const tasks = (res.json.tasks ?? []).map((t) => ({ id: t.id, passed: t.passed, error: t.error }));
+      return { workspaceId, status: res.status, durationMs: Date.now() - started, passed: res.json.passed ?? null, total: res.json.total ?? null, tasks };
+    } catch (e) {
+      return { workspaceId: null, status: null, durationMs: Date.now() - started, passed: null, total: null, tasks: [], error: e instanceof Error ? e.message : String(e) };
+    }
+  })();
+  const consoleOk = consoleRun.status === 200 && consoleRun.total === 8 && consoleRun.passed === 8;
+  console.log(`${consoleOk ? "OK  " : "FAIL"} consola: Run T1 to T8 en el servidor (HTTP ${consoleRun.status}, ${consoleRun.passed} de ${consoleRun.total}, ${consoleRun.durationMs} ms)`);
+
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const summary = { kind: "tasks", generatedAt: new Date().toISOString(), baseUrl, commit: health.commit ?? null, tasks: results.map(({ requests: _r, ...rest }) => rest) };
+  const summary = { kind: "tasks", generatedAt: new Date().toISOString(), baseUrl, commit: health.commit ?? null, tasks: results.map(({ requests: _r, ...rest }) => rest), consoleRun };
   const evidence = { ...summary, tasks: results };
   fs.mkdirSync(path.join(process.cwd(), "docs", "results"), { recursive: true });
   const resultsFile = path.join(process.cwd(), "docs", "results", `tasks-${stamp}.json`);
@@ -250,5 +266,5 @@ runMain(async () => {
   fs.writeFileSync(evidenceFile, `${JSON.stringify(evidence, null, 2)}\n`);
   console.log(`tareas en verde: ${results.filter((r) => r.passed).length} de ${results.length}`);
   console.log(`resultado: ${path.relative(process.cwd(), resultsFile)}; bitácora: ${path.relative(process.cwd(), evidenceFile)}`);
-  return results.every((r) => r.passed) ? 0 : 1;
+  return results.every((r) => r.passed) && consoleOk ? 0 : 1;
 });

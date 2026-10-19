@@ -12,7 +12,7 @@ There are three independent evaluations, from the most controlled to the most re
 |---|---|---|---|---|---|
 | Deterministic | `pnpm eval:deterministic` | N, O and S scenarios at use case and API level. It runs the real Vitest `integration` project (`tests/integration`, `tests/api`, `tests/security`) with the JSON reporter and groups each test under the scenario ids in its name. | None | Development database (Neon `dev`) | `docs/results/deterministic-<timestamp>.json` |
 | Agent | `pnpm eval:agent [--repeat 1\|3] [--only D05,T3]` | Dialogue scenarios D01 to D12, natural-language versions of tasks T1 to T8 and the agent-level attacks, through the real chat turn. Each case is judged by server state (plans, attempts, approvals, transfers, claims, events), not by what the model says; from the text only objective signals are checked (whether it asked a question, whether it repeated a secret or a long account number). Default `--repeat 1`. | Claude (`claude-sonnet-5-5`) with the production configuration | Development database | `docs/results/agent-<timestamp>.json` |
-| Tasks | `pnpm tasks:run --base-url <url> [--code <code>]` | Tasks T1 to T8 over HTTP against a deployment, as a judge's script would: each task opens its own workspace with the evaluation code and checks its correct result (BUILD_PROMPT 7) against server state. | As deployed | Production (https://arrivalguard.vercel.app) | Request logs in `docs/evidence/`, summary in `docs/results/` |
+| Tasks | `pnpm tasks:run --base-url <url> [--code <code>]` | Tasks T1 to T8 over HTTP against a deployment, as a judge's script would: each task opens its own workspace with the evaluation code and checks its correct result (BUILD_PROMPT 7) against server state. The same run also presses the console's **Run T1 to T8** once (DEC-020) and records what the server reports. | As deployed | Production (https://arrivalguard.vercel.app) | Request logs in `docs/evidence/`, summary in `docs/results/` |
 
 `pnpm results:report` then builds `docs/results/RESULTS.md` and fills the result sections of this document and of [SECURITY_SELF_ASSESSMENT.md](SECURITY_SELF_ASSESSMENT.md).
 
@@ -106,10 +106,18 @@ From BUILD_PROMPT 16.4, measured by `pnpm eval:agent`:
 
 The spread and the failures are published, not only the best run.
 
+How `eval:agent` counts them:
+- **Normal cases:** D01, T1, T3, T4, T5 and T7. For T1 the count stops when the payer's approval is requested, because the payer's turns are not counted.
+- **Complete requests:** the requests where the user already gave everything needed: D01, T1, T3, T4, T5, T6 and T7. A first reply that ends in a question and uses no tool counts as an unnecessary question.
+- **T8 (out of scope) is left out of that count.** Nothing can be prepared there, and offering an allowed action is the expected reply.
+- **Corrections:** D05, D06 and D08.
+- **Cost:** read from `ai_usage` for each scenario's workspace.
+- **Latency:** measured per turn.
+
 ## 5. Costs
 
 - The application computes the cost of each model call from the token usage returned by the API and the list prices in DEC-008 ([DECISIONS.md](DECISIONS.md)): USD 2.00 per million input tokens, USD 10.00 per million output tokens, USD 0.10 per million cache-read tokens and USD 2.50 per million cache-write tokens (`PRICE_*` variables in `.env.example`).
-- Before each call the estimated cost is reserved against the per-workspace cap and the daily cap (defaults USD 3.00 and USD 15.00), then settled with the real usage. A timeout keeps the estimate.
+- Before each call the estimated cost is reserved against the per-workspace cap, the daily cap and the per-origin daily cap (defaults USD 3.00, USD 15.00 and USD 7.50; DEC-019), then settled with the real usage. A timeout keeps the estimate.
 - The cost per workspace is shown in the evaluator console and in the evidence export. The reported cost is the application's own accounting at list prices, not an invoice.
 
 ## 6. Measurement limits
