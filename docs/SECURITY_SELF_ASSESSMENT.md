@@ -112,7 +112,7 @@ Latest results:
 Controls:
 
 - **Nothing the model reads grants authority.** Even if the model followed injected text, the tools it has cannot approve, change limits, add recipients, change the receiver of a payment or mark a credit; the server checks remain.
-- **Server state, not conversation memory.** History (amendment A5) is the last 8 turns as plain text; the real state is always sent fresh in `<case_state>`. User text, past and present, is escaped so it cannot open a fake `<case_state>` or close `<user_message>`.
+- **Server state, not conversation memory.** History (amendment A5) is the last 8 turns as plain text; the real state is always sent fresh in `<case_state>`. User text, past and present, and the assistant's own past text are escaped so they cannot open a fake `<case_state>` or close `<user_message>` (VC8-2, VC9-3).
 - **Third-party texts are data.** The provider's `provider_message` and the university notice are stored and shown as data; with the faults `PROVIDER_INJECTION_TEXT` and `INSTITUTION_INJECTION_TEXT` they carry injected instructions, and nothing changes.
 - **Server-built components.** Route boards, approval cards, payment status and receipts in the chat come from tool results and server state, not from the model's text. Model text is rendered as plain text with minimal markdown, never raw HTML.
 - **Signals for visibility.** `detectSecuritySignals` (`src/domain/security/SecuritySignals.ts`) labels instruction overrides as `PROMPT_INJECTION` and records a `SECURITY_BLOCK`. It is not the control.
@@ -136,7 +136,7 @@ Latest results:
 ## 6. Other controls
 
 - **Headers:** Content Security Policy with a per-request nonce (`src/proxy.ts`): `script-src 'self' 'nonce-…' 'strict-dynamic'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `connect-src 'self'`; plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` and a restrictive `Permissions-Policy` (`next.config.ts`). `pnpm ui:check` fails on any CSP violation in the browser console.
-- **Abuse limits:** evaluation access limited to 20 attempts per hour per hashed IP and 200 new workspaces per day (also on reset); chat limited to 10 turns per minute and 60 per day per workspace; AI cost capped per workspace and per day with an atomic reservation. At a limit the interface switches to structured controls.
+- **Abuse limits:** evaluation access limited to 20 attempts per hour per hashed IP and 200 new workspaces per day (also on reset); chat limited to 10 turns per minute and 60 per day per workspace; AI cost capped per workspace, per day and per origin (hashed IP, DEC-019) with an atomic reservation; the console's Run T1 to T8 is limited to 3 runs per workspace per hour and 30 per day. At a limit the interface switches to structured controls.
 - **Input validation:** strict Zod schemas on every HTTP body, query and tool argument; parameterized SQL through Drizzle; UUID path ids.
 
 ## 7. Independent reviews
@@ -144,7 +144,7 @@ Latest results:
 Each critical checkpoint was reviewed by a separate agent against the specification; the records are in `docs/reviews/` (in Spanish).
 
 - **VC6 (sessions and access, Phase 3):** adversarial review with its own attack scripts against the development database and a local server. Verdict: no critical or high findings; two medium and six low findings, all fixed with regression tests (`docs/reviews/VC6.md`). The fixes include Origin checks that ignore `X-Forwarded-Host`, a payer-only approval view, the reset rate limit and session revocation.
-- **VC9 (complete security, Phase 7):** adversarial review of the four official categories against the API and the agent, run locally. Every failure found is fixed after a regression test is written first. Record: `docs/reviews/VC9.md`.
+- **VC9 (complete security, Phase 7):** adversarial review of the four official categories against the API and the agent, run locally. Every failure found is fixed after a regression test is written first. The first round found one critical issue (refund claims prepared and submitted in parallel were settled several times, above the verified excess) and six low ones; all were fixed with regression tests in `tests/security/vc9Regressions.test.ts` and the files named in the record: `docs/reviews/VC9.md`.
 
 ## 8. Known and residual risks
 
@@ -154,7 +154,7 @@ Each critical checkpoint was reviewed by a separate agent against the specificat
 | **Shared evaluation code.** Anyone with the code can open workspaces and spend from the daily AI budget. | Mitigated by the per-IP and daily limits and the AI budgets; at the cap the chat switches to structured controls. Availability, not integrity. |
 | **IP for rate limits** comes from the first `X-Forwarded-For` value, which Vercel sets. Off Vercel it could be spoofed. | Debt from VC6 in [PROGRESS.md](PROGRESS.md): harden with `ipAddress()` from `@vercel/functions`. |
 | **`style-src 'unsafe-inline'`** in the CSP. Inline styles cannot run scripts, but CSS injection remains possible in principle. | Accepted (DEC-017 in [DECISIONS.md](DECISIONS.md)). Scripts require the nonce. |
-| **Security signals are heuristics.** Rephrased attacks may not be labelled, and an unusual normal message could be labelled. | Accepted: labels are for visibility only. The effects are blocked by server rules regardless of the label. |
+| **Security signals are heuristics.** They cover English, minimal Spanish, Portuguese and Chinese patterns and text hidden in base64 (VC9-4). Rephrased attacks may not be labelled, and an unusual normal message could be labelled. | Accepted: labels are for visibility only. The effects are blocked by server rules regardless of the label. |
 | **The model's free text can be wrong** (for example, an inaccurate summary). | Mitigated: money, status and receipts are shown in server-built components with their source and virtual time; the chat text is not a source of truth. |
 | **Bounded autonomy can be used as designed.** Injected or mistaken instructions could still make the agent do something allowed for the role, such as sending an arrival transfer within the standing permission to the verified account, or executing a payment the payer already approved. | Accepted by design: the amount, recipient and terms are bounded by the payer's mandate or approval and recorded in the evidence log. |
 | **Simulated counterparties.** Real provider webhooks, message signing, bank-side fraud checks, KYC and AML are outside the simulation. | Not covered. Declared in the README and the interface. |

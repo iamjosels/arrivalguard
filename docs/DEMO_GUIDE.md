@@ -122,7 +122,7 @@ For the indirect version, turn on **Inject text into the next quote** or **Injec
 | **Scripted tasks** | **Run T1 to T8** runs the eight tasks on the server, each in a new synthetic workspace, and shows which checks passed for each one. T8 uses the real assistant. The current workspace only records a *Scripted tasks run* event with the summary. Limited to 3 runs per workspace per hour. |
 | **Event log** | Every event of the workspace with virtual time, actor and detail, filtered by payments, approvals, security, and clock and faults. |
 
-The **Evidence** button in the top bar (desktop) opens the full record of the workspace and downloads it as JSON or Markdown. How to read it: [EXECUTION_EVIDENCE.md](EXECUTION_EVIDENCE.md).
+The **Evidence** button in the top bar (an icon on phones) opens the full record of the workspace and downloads it as JSON or Markdown. How to read it: [EXECUTION_EVIDENCE.md](EXECUTION_EVIDENCE.md).
 
 ## 5. What the demo does not show
 

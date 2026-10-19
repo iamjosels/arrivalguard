@@ -2,14 +2,14 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 22:58.
-- **Fase:** 7 Seguridad completa (en curso desde las 22:36; VC9 corriendo) y 8 Evaluación y documentos adelantada en paralelo. Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
-- **Subtarea en curso:** 7.4 revisión VC9 (auditor en segundo plano); 8.1 primera corrida de `eval:agent` con el modelo real contra la rama dev; 8.4 documentos de entrega (agente en segundo plano).
-- **Siguiente paso exacto:** revisar la corrida de `eval:agent`; corregir con regresión lo que reporte VC9; `pnpm verify`, merge a `main` y smoke (cierre de la Fase 7 y G3); después las corridas oficiales de la Fase 8 sobre el commit final y `results:report`.
+- **Hora (Lima):** domingo 18 de octubre, 23:29.
+- **Fase:** 7 Seguridad completa. VC9 primera ronda: 1 crítico y 6 bajos, todos corregidos con su regresión en `1bb4890`; segunda ronda en curso. La 8 Evaluación y documentos va adelantada: scripts de evaluación, documentos de entrega y una primera corrida de `eval:agent` con 28 de 28. Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
+- **Subtarea en curso:** 7.4 segunda ronda de VC9; 7.5 `pnpm verify` sobre `4580baf`.
+- **Siguiente paso exacto:** con VC9 sin críticos ni altos y `verify` en verde: merge a `main`, despliegue y smoke (G3). Después, corridas oficiales de la Fase 8 sobre el commit desplegado (`eval:deterministic`, `eval:agent`, `tasks:run` contra producción) y `results:report`, y revisión VC10.
 - **Último `pnpm verify`:** 22:18 a 22:25, exit 0 (34 archivos y 509 pruebas, más `secrets-scan`).
 - **URL de producción:** https://arrivalguard.vercel.app (commit b3e351c, smoke con T1 CREDITED y T1 por chat CREDITED a las 22:34).
 - **Bloqueos abiertos:** ninguno.
-- **Gasto de IA estimado:** USD 0.006.
+- **Gasto de IA estimado:** cerca de USD 0.70 en total. Incluye `ai-turns`, el smoke del chat, `eval:agent` (USD 0.47, medido en `ai_usage`) y la auditoría VC9 (USD 0.09).
 
 ## Fases y puertas
 
@@ -192,18 +192,18 @@ Subtareas:
 - [x] 7.1 S01 a S16 con su categoría oficial y efectos en la base, a nivel API (y herramienta del agente donde corresponde), en `tests/security` (`officialSuite.test.ts` con S01, S02, S04, S05 y S10 a S16; S03 y S06 a S09 en `apiSecurity.test.ts`), commit `31c3952`.
 - [x] 7.2 Encabezados: CSP con nonce (DEC-017), `frame-ancestors 'none'`, nosniff, Referrer-Policy, X-Frame-Options y Permissions-Policy.
 - [x] 7.3 `secrets-scan` en `pnpm verify`.
-- [ ] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección.
+- [ ] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección. Primera ronda: 1 crítico (VC9-1) y 6 bajos, corregidos en `1bb4890` (docs/reviews/VC9.md). Segunda ronda en curso.
 - [ ] 7.5 `pnpm verify`, merge a `main` y smoke.
 
 ## Deuda
 
 Hallazgos medios y bajos de las revisiones y pendientes menores.
 
-- VC6: el límite por IP depende del primer valor de `X-Forwarded-For` (en Vercel lo fija la plataforma); endurecer con `ipAddress()` de `@vercel/functions`.
+- (Resuelto el domingo 18 a las 23:40) VC6: el límite por IP ahora usa `ipAddress()` de `@vercel/functions` antes que `X-Forwarded-For`, con prueba en `tests/unit/clientIp.test.ts`.
 - VC7: que el documento de aprobación entre completo en 1440 × 900; indicador de cambios en las pestañas móviles; columna de estado del tablero de la landing en móvil; nombres de escenario leídos de la configuración del servidor en la landing.
 - VC8: mapeos dentro de `ChatTurnUseCase` (turno a DTO, historial, tool_result, costo) a llevar a Mapper y servicio; la clave del agente se deriva en la capa de interfaz.
-- Fase 6: el medidor del permiso no muestra los días que quedan del período; el botón Evidence no aparece en móvil.
-- VC7: "Run T1 to T8" en la consola llega con `tasks:run` (Fase 8); los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos.
+- Fase 6: el medidor del permiso no muestra los días que quedan del período. (El botón Evidence en móvil quedó resuelto el domingo 18 a las 23:35: en el teléfono es un ícono con su nombre accesible.)
+- VC7: los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos. ("Run T1 to T8" en la consola quedó resuelto en `1bb4890`, DEC-020.)
 
 ## Recortes
 

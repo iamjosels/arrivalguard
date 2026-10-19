@@ -75,10 +75,11 @@ export function EvidenceButton({ role }: { role: ActorRole }) {
           void load();
         }}
         aria-label="Evidence"
-        className="hidden md:inline-flex"
+        className="px-2.5 md:px-3"
       >
         <FileText aria-hidden className="size-4" strokeWidth={1.75} />
-        Evidence
+        {/* En móvil queda solo el ícono (con su nombre accesible) para que la barra no se desborde. */}
+        <span className="hidden md:inline">Evidence</span>
       </Button>
       <Sheet
         open={open}

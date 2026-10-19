@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ipAddress } from "@vercel/functions";
 import type { z } from "zod";
 import type { ActorContext } from "@/application/ActorContext";
 import { NotFoundError, ValidationError, WorkspaceMismatchError } from "@/application/errors/ApplicationError";
@@ -141,7 +142,7 @@ export function requireUuid(value: string | undefined): string {
   return value;
 }
 
+/** IP para los límites de acceso: la que fija la plataforma (x-real-ip en Vercel) antes que X-Forwarded-For (deuda de VC6). */
 export function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
+  return ipAddress(request) || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }

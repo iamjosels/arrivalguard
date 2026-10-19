@@ -195,6 +195,8 @@ In the `arrival_remittance` scenario the maximum is USD 600.00 per 30 virtual da
 
 `RefundClaim.prepare` (`src/domain/refund/RefundClaim.ts`) takes the verified excess from the simulated university ledger. A requested destination other than the source account throws `REFUND_DESTINATION_FIXED`; an amount above the verified excess, or no excess at all, throws `REFUND_EXCEEDS_VERIFIED_EXCESS`. The destination is always the source account. Submission uses the key `refund:{claimId}`. The USD settlement is reported by the simulated university from scenario configuration and is not a currency conversion (DEC-013).
 
+Concurrency (VC9-1): `PrepareRefundClaimUseCase` looks for an open claim and inserts the new one inside one transaction with the obligation row locked, so parallel requests return the same claim. `SimulatedInstitutionAdapter.submitRefundClaim` checks the verified excess and inserts in one transaction under `pg_advisory_xact_lock` per workspace and reference, so claims accepted in parallel never add up to more than the excess. Submitting the same claim again with another key answers 409 (test file `tests/security/vc9Regressions.test.ts`).
+
 ### 3.10 Cash projection
 
 `projectCash` (`src/domain/cash/CashProjection.ts`) projects per currency: confirmed balance, reserves, holds, obligations and expected expenses, with conditional income (the scholarship) listed separately and never counted. The verdict is `COVERED` or `DEFICIT` with the margin.
@@ -294,3 +296,6 @@ All SQL goes through Drizzle with parameters.
 | DEC-015 | A credited attempt does not block by itself; the obligation status decides |
 | DEC-016 | A credited tuition is not planned again |
 | DEC-017 | CSP with nonce and the `style-src 'unsafe-inline'` exception |
+| DEC-018 | A transfer approved one-off by the payer does not use up the standing permission's period maximum |
+| DEC-019 | Daily AI cap per origin (hashed IP) on top of the per-workspace and daily caps |
+| DEC-020 | The console's Run T1 to T8 runs on the server in new synthetic workspaces |
