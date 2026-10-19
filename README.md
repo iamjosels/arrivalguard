@@ -64,6 +64,8 @@ Copy the example environment file and fill it in:
 cp .env.example .env.local
 ```
 
+On Windows, `cp` works in PowerShell and Git Bash; in `cmd.exe` use `copy .env.example .env.local`. The commands in this README are one per line, so they also work in Windows PowerShell 5.1, which has no `&&`.
+
 Fill in `.env.local` (it is ignored by git):
 
 | Variable | What to put |
@@ -112,7 +114,7 @@ Secrets live only in server environment variables. They are never printed by the
 - Install command: `npm install -g pnpm@12.14.0 && pnpm install --frozen-lockfile`.
 - Build command: `pnpm db:migrate && pnpm build` (migrations are additive and run against the production database branch).
 - Environment variables are set in Vercel: Production uses the production database branch, Preview uses `dev`.
-- After each production deploy: `pnpm smoke --base-url https://arrivalguard.vercel.app`.
+- After each production deploy: `pnpm smoke --base-url https://arrivalguard.vercel.app --code <EVAL_ACCESS_CODE>` (or with that code in `.env.local`).
 
 ## Tests and evaluations
 
@@ -121,8 +123,8 @@ Secrets live only in server environment variables. They are never printed by the
 | `pnpm verify` | Typecheck, lint, all tests, scenario check, build and secrets scan. Must be green before merging to `main`. |
 | `pnpm test` / `pnpm test:unit` | All tests / unit tests only (no database). |
 | `pnpm db:seed-check` | Validates the synthetic scenarios and their expected numbers. |
-| `pnpm ui:check --base-url http://localhost:3000` | Playwright: tuition payment end to end with clicks, the console's Run T1 to T8, an arrival transfer, screenshots in `docs/design/screens/`, axe checks and CSP console checks. Run `pnpm exec playwright install chromium` once, and start the app first (`pnpm build && pnpm start`). |
-| `pnpm smoke --base-url <url>` | Health, simulation banner and a tuition payment by HTTP until `CREDITED`. |
+| `pnpm ui:check --base-url http://localhost:3000` | Playwright: tuition payment end to end with clicks, the console's Run T1 to T8, an arrival transfer, screenshots in `docs/design/screens/`, axe checks and CSP console checks. Run `pnpm exec playwright install chromium` once, and start the app first: `pnpm build`, then `pnpm start`. |
+| `pnpm smoke --base-url <url> [--code <code>]` | Health, simulation banner and a tuition payment by HTTP until `CREDITED`. It needs the evaluation code of the deployment it targets: without `--code` it reads `EVAL_ACCESS_CODE` from `.env.local`; against the public demo use the code from the judging packet. |
 | `pnpm smoke:chat --base-url <url>` | A tuition payment through the chat with the real model until `CREDITED`; saves the transcript in `docs/evidence/`. |
 | `pnpm ai:check` | One real call to Claude with the production model configuration and a strict tool. |
 | `pnpm ai:turns` | A 20-turn conversation with the real model against the development database; saves `docs/evidence/agent-turns-*.json`. |

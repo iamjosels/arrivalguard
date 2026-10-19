@@ -55,9 +55,10 @@ runMain(async () => {
   console.log(`GET / -> ${home.status} simulation band=${labelled ? "present" : "missing"}`);
   if (home.status !== 200 || !labelled) return 1;
 
-  const accessCode = process.env.EVAL_ACCESS_CODE;
+  // El código del despliegue al que apunta: --code o, si no, EVAL_ACCESS_CODE de .env.local (VC11).
+  const accessCode = getArg("code") ?? process.env.EVAL_ACCESS_CODE;
   if (!accessCode) {
-    console.log("EVAL_ACCESS_CODE: ausente");
+    console.log("código de evaluación: ausente (--code o EVAL_ACCESS_CODE)");
     return 1;
   }
   const b = new Browser(baseUrl);
