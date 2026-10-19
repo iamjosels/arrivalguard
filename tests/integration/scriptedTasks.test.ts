@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import * as scriptedTasks from "@/app/api/evaluation/scripted-tasks/route";
 import { RoleNotAllowedError, RateLimitedError } from "@/application/errors/ApplicationError";
 import { RunScriptedTasksUseCase, type ScriptedTaskApp } from "@/application/usecases/RunScriptedTasksUseCase";
@@ -81,6 +81,22 @@ describe("Run T1 to T8 desde la consola", () => {
     const results = await Promise.allSettled([shared.execute(a.evaluator, { originHash: "origin-a" }), shared.execute(b.evaluator, { originHash: "origin-b" })]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toBeInstanceOf(RateLimitedError);
+  });
+
+  it("dos corridas a ambos lados del cambio de ventana del limitador tampoco empiezan las dos (borde de la ventana fija)", async () => {
+    const [a, b] = await Promise.all([newWorkspace("base"), newWorkspace("base")]);
+    const shared = fastRunner({ startIntervalSeconds: 60 });
+    // Solo se simula el reloj de Date: 20 ms antes y 20 ms después de un cambio de minuto.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const edge = Math.ceil(Date.now() / 60_000) * 60_000 + 60_000;
+      vi.setSystemTime(edge - 20);
+      await shared.execute(a.evaluator, { originHash: "edge-a" });
+      vi.setSystemTime(edge + 20);
+      await expect(shared.execute(b.evaluator, { originHash: "edge-b" })).rejects.toBeInstanceOf(RateLimitedError);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("VC9b: un solo origen no agota las corridas del día; otro origen sigue corriendo", async () => {

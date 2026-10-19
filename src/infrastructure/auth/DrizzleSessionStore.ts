@@ -49,10 +49,11 @@ export class DrizzleSessionStore implements SessionPort {
 export class DbRateLimiter implements RateLimiterPort {
   constructor(private readonly db: Db) {}
 
-  async hit(key: string, windowSeconds: number, limit: number) {
+  async hit(key: string, windowSeconds: number, limit: number, offsetSeconds = 0) {
     const nowMs = Date.now();
     const windowMs = windowSeconds * 1000;
-    const windowStart = new Date(Math.floor(nowMs / windowMs) * windowMs);
+    const offsetMs = offsetSeconds * 1000;
+    const windowStart = new Date(Math.floor((nowMs - offsetMs) / windowMs) * windowMs + offsetMs);
     const [row] = await this.db
       .insert(rateLimits)
       .values({ key, windowStart, count: 1 })

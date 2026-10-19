@@ -19,7 +19,8 @@ export interface SessionPort {
 
 /** Límite de uso por ventana fija, con hora real. */
 export interface RateLimiterPort {
-  hit(key: string, windowSeconds: number, limit: number): Promise<{ readonly allowed: boolean; readonly count: number; readonly retryAfterSeconds: number }>;
+  /** Ventana fija de `windowSeconds`; `offsetSeconds` desplaza el inicio de las ventanas (para grillas superpuestas). */
+  hit(key: string, windowSeconds: number, limit: number, offsetSeconds?: number): Promise<{ readonly allowed: boolean; readonly count: number; readonly retryAfterSeconds: number }>;
 }
 
 /** Verifica el código de evaluación del jurado en tiempo constante. */
