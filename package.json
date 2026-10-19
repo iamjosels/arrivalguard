@@ -25,7 +25,11 @@
     "ui:check": "tsx scripts/ui-check.ts",
     "ai:turns": "tsx scripts/ai-turns.ts",
     "secrets-scan": "tsx scripts/secrets-scan.ts",
-    "smoke:chat": "tsx scripts/chat-smoke.ts"
+    "smoke:chat": "tsx scripts/chat-smoke.ts",
+    "eval:deterministic": "tsx scripts/eval-deterministic.ts",
+    "tasks:run": "tsx scripts/tasks-run.ts",
+    "eval:agent": "tsx scripts/eval-agent.ts",
+    "results:report": "tsx scripts/results-report.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
