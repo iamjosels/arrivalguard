@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 09:15.
-- **Fase:** 8 Evaluación y documentos, en cierre: corridas oficiales finales sobre `75614ed` en verde y `results:report` hecho. Antes de este cierre la computadora estuvo en Modern Standby de 01:34 a 06:35 y de 06:36 a 08:42; la corrida que quedó a medias se descartó y se repitió.
-- **Subtarea en curso:** 8.6 `pnpm verify` sobre el commit de resultados, merge y smoke.
-- **Siguiente paso exacto:** Fase 9: VC11 (clon limpio siguiendo solo el README), `secrets-scan`, `verify`, despliegue y smoke final, INFORME_FINAL, árbol limpio y tag `v1.0.0-submission`.
-- **Último `pnpm verify`:** lunes 01:19 a 01:28 sobre `75614ed`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
-- **URL de producción:** https://arrivalguard.vercel.app (commit `75614ed`, smoke con T1 CREDITED a las 01:29).
+- **Hora (Lima):** lunes 19 de octubre, 09:50.
+- **Fase:** 9 Cierre (en curso desde las 09:50). La Fase 8 se cerró a las 09:50 con la puerta G4 cumplida y en producción (`b7f997a`).
+- **Subtarea en curso:** 9.1 revisión VC11: clon limpio en una carpeta temporal siguiendo solo el README.
+- **Siguiente paso exacto:** corregir lo que reporte VC11; `secrets-scan`, `verify`, despliegue y smoke final; INFORME_FINAL; árbol limpio y tag `v1.0.0-submission`.
+- **Último `pnpm verify`:** lunes 09:34 a 09:44 sobre `b7f997a`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
+- **URL de producción:** https://arrivalguard.vercel.app (commit `b7f997a`, smoke con T1 CREDITED a las 09:47 y `tasks:run` 8 de 8 a las 09:48).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** cerca de USD 2.20 en total: `eval:agent` cuatro veces (USD 0.47, 0.47, 0.46 y 0.47, medido en `ai_usage`), la auditoría VC9 (USD 0.09 y 0.004), Run T1 to T8 en producción y en `ui:check` (unos USD 0.004 cada uno), `tasks:run` con T8 (unos USD 0.005 cada uno), `ai-turns` y los smoke del chat.
 
@@ -23,8 +23,8 @@
 | 5 Agente (G2) | cerrada, G2 cumplida | lun 05:00 | dom 22:34 | 22:25 exit 0 | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
 | 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
 | 7 Seguridad completa (G3) | cerrada, G3 cumplida | lun 11:30 | lun 00:28 | lun 00:25 exit 0 | VC9 en dos rondas: 1 crítico y 11 bajos, todos corregidos con regresión (uno como DEC-018); segunda ronda sin críticos, altos ni medios (docs/reviews/VC9.md) |
-| 8 Evaluación y documentos (G4) | en curso | lun 14:00 | | | VC10 |
-| 9 Cierre (G5) | pendiente | lun 16:00 | | | VC11 |
+| 8 Evaluación y documentos (G4) | cerrada, G4 cumplida | lun 14:00 | lun 09:50 | lun 09:44 exit 0 | VC10 aprobado con deuda: 4 medios y 8 bajos, sin críticos ni altos, todos corregidos (docs/reviews/VC10.md) |
+| 9 Cierre (G5) | en curso | lun 16:00 | | | VC11 |
 
 Puertas: G1 (Fase 2), G2 (Fase 5), G3 (Fase 7), G4 (Fase 8), G5 (Fase 9).
 
@@ -207,7 +207,32 @@ Subtareas:
 - [x] 8.3 Documentos de la sección 18: README, TECHNICAL, SECURITY_SELF_ASSESSMENT, EVALUATION, EXECUTION_EVIDENCE, DEMO_GUIDE, VIDEO_SCRIPT, PITCH_OUTLINE, LICENSE y THIRD_PARTY_LICENSES (`4580baf`, al día con VC9).
 - [x] 8.4 `ui:check` completo (01:01): T1 con clics hasta CREDITED, Run T1 to T8 desde la consola 8 de 8, transferencia con clics, 39 capturas, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP.
 - [x] 8.5 Revisión VC10 (`revisor`, 00:58 a 01:11): aprobado con deuda. Las 78 filas generadas coinciden sin diferencias con sus JSON. Hubo 4 medios y 8 bajos, sin críticos ni altos, todos corregidos en `75614ed` antes de la corrida oficial final (docs/reviews/VC10.md).
-- [ ] 8.6 `pnpm verify`, merge, smoke y aviso del video final en PARA_HUMANOS (aviso escrito a las 09:15).
+- [x] 8.6 `pnpm verify`, merge, smoke y aviso del video final en PARA_HUMANOS (09:15).
+- [x] 8.7 (pedido de los humanos, 09:20) Botón de tema (sistema, claro y oscuro) también en el inicio, en las pantallas fijas del pagador y en `/system`. Antes solo estaba dentro del espacio. La consola sigue siempre oscura (UI_UX 11.5) y por eso no lo muestra. En el teléfono, el botón "Open the demo" de la barra queda solo en el hero para que la barra no se desborde. `ui:check` lo prueba: claro, oscuro, se recuerda al recargar y vuelve a sistema. Commit `b7f997a`.
+
+Cierre (lun 09:50):
+- `pnpm verify` sobre `b7f997a`, exit 0: `OK typecheck`, `OK lint`, `OK test` con 39 archivos y 546 pruebas, `OK db:seed-check`, `OK build` y `OK secrets-scan`.
+- `ui:check` (09:35): todos los pasos OK, 39 capturas, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP.
+- Merge fast-forward a `main` y `GET /api/health` en producción: `b7f997a ok ok`. El inicio de producción trae `aria-label="Theme: System. Switch to Light"`.
+- `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=b7f997a`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)`.
+- `pnpm tasks:run` final contra producción sobre `b7f997a`: 8 de 8, y Run T1 to T8 de la consola 8 de 8 en 4.0 s (`docs/results/tasks-2026-10-19T14-46-39-971Z.json`).
+- `results:report` con las corridas finales:
+  - deterministic `75614ed`: 114 de 114 pruebas y 40 escenarios;
+  - agent `75614ed`: 32 de 32;
+  - tasks `b7f997a`: 8 de 8.
+  EVALUATION declara que `b7f997a` solo cambia los cinco archivos de interfaz del botón de tema.
+
+**Puerta G4 cumplida:** documentos con resultados reales, revisados por VC10, y aviso del video final escrito en PARA_HUMANOS.
+
+## Fase 9: Cierre (puerta G5)
+
+Inicio: lunes 19, 09:50. Secciones: AUTONOMIA 6 (VC11) y 11.
+
+Subtareas:
+- [ ] 9.1 Revisión VC11 (`revisor`): clon del repositorio en una carpeta temporal siguiendo solo el README (`pnpm install`, `db:migrate`, `test`).
+- [ ] 9.2 `secrets-scan`, `pnpm verify`, despliegue y smoke final en producción hasta CREDITED.
+- [ ] 9.3 `docs/INFORME_FINAL.md` y PARA_HUMANOS con lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
+- [ ] 9.4 Árbol de git limpio y tag `v1.0.0-submission` enviado a origin.
 
 ## Deuda
 

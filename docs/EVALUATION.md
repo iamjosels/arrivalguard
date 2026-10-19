@@ -143,6 +143,8 @@ How `eval:agent` counts them:
 
 Only real results, with commit and date, go below. They are written by `pnpm results:report`.
 
+The deterministic and agent runs are on commit `75614ed`. The task run is on `b7f997a`, the deployed commit, which differs from `75614ed` in `src/` only by the theme button. That change touches five UI files: `src/app/page.tsx`, `src/app/system/page.tsx`, the approval and change pages under `src/app/w/[id]/`, and `src/ui/layout/TopBar.tsx`. No API, domain, application or agent code changed (`git diff --stat 75614ed..b7f997a -- src`).
+
 ### 7.1 Deterministic (N, O and S, no AI)
 
 <!-- results:deterministic -->
@@ -265,18 +267,18 @@ Every agent run kept in `docs/results/`, oldest first (the table above is the la
 
 <!-- results:tasks -->
 
-Source: `docs/results/tasks-2026-10-19T06-29-53-054Z.json`. Base URL https://arrivalguard.vercel.app, deployed commit `75614ed`, 2026-10-19T06:29:53.173Z. HTTP only, 1 run; T8 calls the deployed assistant (real model), the other tasks use no AI.
+Source: `docs/results/tasks-2026-10-19T14-46-39-971Z.json`. Base URL https://arrivalguard.vercel.app, deployed commit `b7f997a`, 2026-10-19T14:46:39.972Z. HTTP only, 1 run; T8 calls the deployed assistant (real model), the other tasks use no AI.
 
 Tasks: 8 of 8 passed.
 
 | Task | Title | Type | Result | Duration | Notes |
 | --- | --- | --- | --- | --- | --- |
-| T1 | Pay tuition: the payer approves on the fixed screen; credited with a receipt | moves money | pass | 3.2 s |  |
-| T2 | Check status: observed state, its source and next step, never credited without a receipt | executes without family debit | pass | 2.2 s |  |
-| T3 | Arrival transfer under the standing permission: delivered once, permission and reserve updated, payer notified | moves money | pass | 1.7 s |  |
-| T4 | Project cash per currency: verdict with margin, conditional income apart | calculates or answers | pass | 1.6 s |  |
+| T1 | Pay tuition: the payer approves on the fixed screen; credited with a receipt | moves money | pass | 3.5 s |  |
+| T2 | Check status: observed state, its source and next step, never credited without a receipt | executes without family debit | pass | 2.4 s |  |
+| T3 | Arrival transfer under the standing permission: delivered once, permission and reserve updated, payer notified | moves money | pass | 1.9 s |  |
+| T4 | Project cash per currency: verdict with margin, conditional income apart | calculates or answers | pass | 1.8 s |  |
 | T5 | Compare routes: viable and discarded with reason codes, nothing created | calculates or answers | pass | 0.9 s |  |
-| T6 | Change permissions (payer only): lower the limit, the incompatible approval is invalidated | executes without family debit | pass | 2.6 s |  |
+| T6 | Change permissions (payer only): lower the limit, the incompatible approval is invalidated | executes without family debit | pass | 2.8 s |  |
 | T7 | Refund request for the verified excess, fixed destination, followed until refunded | executes without family debit | pass | 1.8 s |  |
 | T8 | Out of scope: explains the limit and offers an allowed action, moves no funds | calculates or answers | pass | 5.1 s |  |
 
