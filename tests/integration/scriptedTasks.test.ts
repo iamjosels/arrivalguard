@@ -20,7 +20,8 @@ const limits = (prefix: string, overrides: Partial<{ perWorkspacePerHour: number
   perWorkspacePerHour: 3,
   perOriginPerDay: 100,
   perDay: 100,
-  startIntervalSeconds: 1,
+  // El intervalo entre corridas tiene su propia prueba (60 s); aquí se apaga para que no se cruce con el límite medido.
+  startIntervalSeconds: 0,
   ...overrides,
 });
 

@@ -88,7 +88,7 @@ export class RunScriptedTasksUseCase {
       /** Por origen (hash de la IP que pide la corrida): un jurado no agota las corridas del día de los demás. */
       readonly perOriginPerDay: number;
       readonly perDay: number;
-      /** Una corrida empieza como máximo una vez por intervalo, en todo el sistema: acota la carga sobre la base. */
+      /** Una corrida empieza como máximo una vez por intervalo, en todo el sistema: acota la carga sobre la base. 0 lo apaga. */
       readonly startIntervalSeconds: number;
     },
   ) {}
@@ -98,8 +98,10 @@ export class RunScriptedTasksUseCase {
     const workspace = await this.deps.uow.read.workspaces.get(actor.workspaceId);
     if (!workspace) throw new NotFoundError();
     // Límites antes de crear cualquier espacio (VC9b): primero el de corridas en vuelo, que no gasta cupos ajenos.
-    const inFlight = await this.limiter.hit(`${this.config.keyPrefix}:scripted:start`, this.config.startIntervalSeconds, 1);
-    if (!inFlight.allowed) throw new RateLimitedError("Another scripted run just started. Try again in a minute.", inFlight.retryAfterSeconds);
+    if (this.config.startIntervalSeconds > 0) {
+      const inFlight = await this.limiter.hit(`${this.config.keyPrefix}:scripted:start`, this.config.startIntervalSeconds, 1);
+      if (!inFlight.allowed) throw new RateLimitedError("Another scripted run just started. Try again in a minute.", inFlight.retryAfterSeconds);
+    }
     const perWorkspace = await this.limiter.hit(`${this.config.keyPrefix}:scripted:${actor.workspaceId}`, 3600, this.config.perWorkspacePerHour);
     if (!perWorkspace.allowed) throw new RateLimitedError("Scripted tasks already ran several times in the last hour. Try again later.", perWorkspace.retryAfterSeconds);
     const perOrigin = await this.limiter.hit(`${this.config.keyPrefix}:scripted:origin:${command.originHash}`, 86_400, this.config.perOriginPerDay);
