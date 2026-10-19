@@ -73,11 +73,14 @@ export class DbRateLimiter implements RateLimiterPort {
     // Bajo un bloqueo por clave: se lee el último inicio concedido y solo se escribe si se concede uno nuevo.
     return this.db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`slot:${key}`}))`);
+      // Milisegundos desde la base como texto entero: no depende de DateStyle ni de cómo se imprima una fecha.
       const [last] = await tx
-        .select({ at: sql<string | null>`max(${rateLimits.windowStart})::text` })
+        .select({ epochMs: sql<string | null>`(extract(epoch from max(${rateLimits.windowStart})) * 1000)::bigint::text` })
         .from(rateLimits)
         .where(eq(rateLimits.key, key));
-      const lastMs = last?.at ? new Date(last.at).getTime() : null;
+      const lastMs = last?.epochMs ? Number(last.epochMs) : null;
+      // Una lectura inválida cierra la ranura en vez de abrirla.
+      if (lastMs !== null && !Number.isFinite(lastMs)) return { acquired: false, retryAfterSeconds: intervalSeconds };
       if (lastMs !== null && nowMs - lastMs < intervalMs) {
         return { acquired: false, retryAfterSeconds: Math.max(1, Math.ceil((lastMs + intervalMs - nowMs) / 1000)) };
       }
