@@ -14,6 +14,8 @@ ArrivalGuard pays a student's international tuition inside the limits the family
    - **Evaluator**: the console (virtual time, faults, AI usage and the event log).
 4. Each workspace has its own virtual clock (it starts at Tue 20 Oct, 09:00 virtual time). Sessions last 14 days. To start over or change scenario, use **Start new workspace** in the console. The previous workspace is kept, but this browser's sessions move to the new one; to keep two workspaces open at once, use a private window for the second.
 
+The theme button (top right on every page except the evaluator console, which is always dark) cycles through system, light and dark, and the browser remembers the choice.
+
 The chat uses Claude. If it is slow or unavailable, **Use structured controls** does the same steps with buttons, and the console's **Make the assistant unavailable** fault shows that switch on purpose.
 
 ## 2. Which scenario for what

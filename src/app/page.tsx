@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ConsentSeal, Logo, SimulationBand, StopOctagon } from "@/ui/brand";
 import { MoneyFigure, StatusPill } from "@/ui/finance";
 import { AccessForm } from "@/ui/landing/AccessForm";
+import { ThemeToggle } from "@/ui/layout/ThemeToggle";
 import { P1_AVAILABLE } from "@/ui/workspace/copy";
 
 // Landing (UI_UX 11.1, DESIGN_PLAN 5.1). El tablero de llegadas es estático en esta versión: muestra un pago de
@@ -35,7 +36,7 @@ export default function HomePage() {
   return (
     <>
       <header className="sticky top-0 z-20">
-        <nav aria-label="Main" className="flex h-[72px] items-center gap-6 border-b border-line bg-surface px-4 md:px-8">
+        <nav aria-label="Main" className="flex h-[72px] items-center gap-3 border-b border-line bg-surface px-4 md:gap-6 md:px-8">
           <Link href="/" aria-label="ArrivalGuard home">
             <Logo size="md" />
           </Link>
@@ -48,9 +49,13 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
-          <a href="#for-judges" className="ml-auto inline-flex h-10 items-center rounded-control border border-line-strong px-4 text-[15px] font-semibold text-ink hover:border-ink lg:ml-0">
+          <a href="#for-judges" className="ml-auto hidden h-10 items-center whitespace-nowrap rounded-control border border-line-strong px-4 text-[15px] font-semibold text-ink hover:border-ink sm:inline-flex lg:ml-0">
             Open the demo
           </a>
+          {/* En el teléfono el botón del inicio queda solo en el hero; el de tema va al borde derecho. */}
+          <div className="ml-auto sm:ml-0">
+            <ThemeToggle />
+          </div>
         </nav>
         <SimulationBand />
       </header>

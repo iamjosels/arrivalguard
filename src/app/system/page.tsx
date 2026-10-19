@@ -4,6 +4,7 @@ import { ConsentSeal } from "@/ui/brand/ConsentSeal";
 import { Logo } from "@/ui/brand/Logo";
 import { MiniSeal } from "@/ui/brand/MiniSeal";
 import { SimulationBand } from "@/ui/brand/SimulationBand";
+import { ThemeToggle } from "@/ui/layout/ThemeToggle";
 import { StopOctagon } from "@/ui/brand/StopOctagon";
 import { ThresholdMark } from "@/ui/brand/ThresholdMark";
 import { ApprovalRequestCard } from "@/ui/finance/ApprovalRequestCard";
@@ -81,7 +82,10 @@ export default function SystemPage() {
       <SimulationBand />
       <main className="mx-auto max-w-[1344px] px-4 pb-24 pt-12 sm:px-8">
         <header className="flex flex-col gap-6 pb-12">
-          <Logo size="lg" />
+          <div className="flex items-center justify-between gap-4">
+            <Logo size="lg" />
+            <ThemeToggle />
+          </div>
           <h1 className="max-w-3xl text-[40px] font-bold leading-[44px] tracking-[-0.02em] text-ink md:text-[56px] md:leading-[60px]">Tuition that arrives. Savings that stay.</h1>
           <div className="max-w-2xl">
             <p className="text-[20px] font-[650] leading-[26px] text-ink">Brand and design system</p>

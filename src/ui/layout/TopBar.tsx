@@ -52,7 +52,8 @@ export function TopBar({
         ) : null}
         <RoleSwitcher workspaceId={workspaceId} current={role} options={roles} />
         {actions}
-        <ThemeToggle />
+        {/* La consola del evaluador es siempre oscura (UI_UX 11.5): ahí no se ofrece cambiar el tema. */}
+        {role === "evaluator" ? null : <ThemeToggle />}
       </div>
     </header>
   );

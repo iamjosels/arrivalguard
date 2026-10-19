@@ -72,6 +72,20 @@ runMain(async () => {
     await capture(browser, baseUrl, context, "landing", "/", shots, axe);
     await capture(browser, baseUrl, context, "system", "/system", shots, axe);
 
+    // Botón de tema en el inicio: sistema → claro → oscuro → sistema, aplicado en <html data-theme> y recordado.
+    await step("botón de tema en el inicio: claro, oscuro y de vuelta a sistema", async () => {
+      const toggle = page.getByRole("button", { name: /^Theme:/ });
+      const theme = () => page.evaluate(() => document.documentElement.dataset.theme ?? "system");
+      await toggle.click();
+      if ((await theme()) !== "light") throw new Error(`esperaba light, hay ${await theme()}`);
+      await toggle.click();
+      if ((await theme()) !== "dark") throw new Error(`esperaba dark, hay ${await theme()}`);
+      await page.reload();
+      if ((await theme()) !== "dark") throw new Error("el tema elegido no se recordó al recargar");
+      await page.getByRole("button", { name: /^Theme: Dark/ }).click();
+      if ((await theme()) !== "system") throw new Error(`esperaba system, hay ${await theme()}`);
+    });
+
     await step("acceso con el código de evaluación (escenario base)", async () => {
       await page.getByLabel("Evaluation code").fill(code);
       await page.getByRole("radio", { name: /Base scenario/ }).check();
