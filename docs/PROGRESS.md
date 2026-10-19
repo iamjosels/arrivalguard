@@ -2,11 +2,11 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 21:40.
-- **Fase:** 4 Interfaz cerrándose (VC7 corregido) y 5 Agente en curso desde las 21:00. El código de las dos está entrelazado en las mismas vistas, así que se llevan juntas a `main` cuando cierre VC8. Fase 3 cerrada a las 20:38.
-- **Subtarea en curso:** `pnpm verify` del árbol con la Fase 4 corregida y el agente; después, revisión VC8.
-- **Siguiente paso exacto:** commit en `dev`, revisión VC8 (`revisor`), correcciones, merge a `main`, smoke y T1 por chat en producción (puerta G2).
-- **Último `pnpm verify`:** 21:43 a 21:48, exit 0 (31 archivos y 487 pruebas).
+- **Hora (Lima):** domingo 18 de octubre, 22:18.
+- **Fase:** 5 Agente y 6 Capacidades P1 cerrándose; se llevan a `main` junto con la Fase 4 (código entrelazado en las mismas vistas). Adelantados de la Fase 7: CSP con nonce y `secrets-scan` en `verify`. Fase 4 cerrada a las 21:49 en `dev`.
+- **Subtarea en curso:** `pnpm verify` del árbol con las Fases 4 a 6, commit, merge a `main`, smoke y T1 por chat en producción (G2).
+- **Siguiente paso exacto:** después de G2, la Fase 7 (S01 a S16 con categoría oficial a nivel API y agente, encabezados y revisión VC9 con `auditor-seguridad`).
+- **Último `pnpm verify`:** 22:18 a 22:25, exit 0 (34 archivos y 509 pruebas, más `secrets-scan`).
 - **URL de producción:** https://arrivalguard.vercel.app (commit 0eee748, smoke con T1 CREDITED 20:39).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
@@ -20,8 +20,8 @@
 | 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
 | 3 API, sesiones y acceso | cerrada | lun 00:30 | dom 20:38 | 20:37 exit 0 | VC6 sin críticos ni altos; 2 medios y 6 bajos corregidos (docs/reviews/VC6.md) |
 | 4 Interfaz | cerrada (merge a `main` con la Fase 5) | lun 03:00 | dom 21:49 | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
-| 5 Agente (G2) | en curso | lun 05:00 | | | VC8 |
-| 6 Capacidades P1 | pendiente | lun 09:30 | | | |
+| 5 Agente (G2) | cerrándose | lun 05:00 | | | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
+| 6 Capacidades P1 | cerrándose | lun 09:30 | | | sin VC |
 | 7 Seguridad completa (G3) | pendiente | lun 11:30 | | | VC9 |
 | 8 Evaluación y documentos (G4) | pendiente | lun 14:00 | | | VC10 |
 | 9 Cierre (G5) | pendiente | lun 16:00 | | | VC11 |
@@ -160,7 +160,25 @@ Subtareas:
 - [x] 5.6 Interfaz del chat: hilo, actividad del servidor, sugerencias, compositor, tarjetas desde el estado del servidor, texto del modelo como markdown mínimo sin HTML, modo estructurado ante una falla; `GET` y `POST /api/chat`; "AI usage" en la consola.
 - [ ] 5.7 `pnpm verify`, revisión VC8, correcciones, merge a `main`, smoke y T1 por chat en producción (G2).
 
+Revisión (21:50 a 22:12, subagente `revisor`, docs/reviews/VC8.md): aprobado con deuda, sin críticos ni altos. VC8-1 medio: presupuesto superable con turnos simultáneos (corregido con reserva atómica bajo advisory locks). VC8-2 medio: el texto de turnos pasados viajaba sin escapar (corregido). VC8-3 medio: falsos positivos de las señales en preguntas normales (corregido). Bajos: timeout con costo 0, eventos antes del límite, pruebas débiles, `ai-turns` sin estado de T1 del servidor y plazo del turno (corregidos); mapeos dentro del caso de uso (Deuda). Pruebas nuevas en `chatTurn.test.ts` y `securitySignals.test.ts`.
+
 Evidencia (21:20): `pnpm ai:turns` con el modelo real contra Neon `dev`: 20 turnos seguidos, 0 con error del modelo; T1 por chat hasta CREDITED (recibo AU-RC-BC49EF68) con la aprobación dada en la pantalla fija; ataques S01, S10, S13 y S05 con SECURITY_BLOCK; el pagador prepara un cambio de límite que queda pendiente de confirmación (`docs/evidence/agent-turns-2026-10-19T02-20-43-194Z.json`). Integración con modelo guionizado (`tests/integration/chatTurn.test.ts`, 8 pruebas): actor de la sesión, historial A5, escalada rechazada sin efectos, ids de otro espacio, reintento sin pago doble, topes 4 y 6, O06 con AI_UNAVAILABLE, presupuesto, error de la API y rechazo.
+
+## Fase 6: Capacidades P1
+
+Inicio: domingo 18, 21:52. Secciones: BUILD_PROMPT 7 (T3, T4, T7), 8.4 (aprobación puntual de remesas), 8.5, 11 (rutas de remesas, devoluciones y evidencia), 16.2 (N05, N13, N14, N17, N18), 16.6, enmiendas A1 y A2.
+
+Subtareas:
+- [x] 6.1 Remesas (T3, A1): preparar (rutas a la cuenta local verificada; dentro del tope del permiso queda lista, fuera escala al pagador; destinatario no abierto o no verificado bloquea), ejecutar con Idempotency-Key volviendo a autorizar bajo bloqueo (encadenar remesas no supera el tope), aprobación puntual del pagador con huella, entrega una sola vez a la cuenta local al cumplirse la llegada, reserva de llegada consumida primero y notificación al pagador.
+- [x] 6.2 Devoluciones (T7, A2): reclamo por el exceso verificado contra el libro de la institución, destino fijo en la cuenta de origen, envío idempotente y seguimiento hasta REFUNDED (abono de la liquidación una sola vez) al avanzar la hora virtual.
+- [x] 6.3 Rutas: `POST /api/remittances`, `/api/remittances/{id}/execute`, `/api/remittances/{id}/view` y `/approve` (solo payer), `POST /api/refund-claims` y `/api/refund-claims/{id}/submit`, `GET /api/evidence` (JSON y `?format=md`).
+- [x] 6.4 Herramientas del agente: `prepare_remittance` (un `recipient_id` ajeno da RECIPIENT_NOT_VERIFIED y SECURITY_BLOCK), `execute_remittance`, `prepare_refund_claim` y `submit_refund_claim`, con claves derivadas por el servidor; remesas y devoluciones en `<case_state>`.
+- [x] 6.5 Interfaz: transferencias y devolución en la zona B, "Send transfer" y "Submit refund request" en el modo estructurado, aprobación puntual de transferencias en la vista de Carlos, actividad del pagador, tarjetas en el chat y expediente de evidencia en una hoja lateral con descarga JSON y Markdown.
+- [ ] 6.6 `pnpm verify`, merge a `main` y smoke.
+
+Evidencia (22:00 a 22:15): integración `tests/integration/remittanceRefund.test.ts` (6 pruebas): N05 (R1 USD 288.00 sin aprobación nueva, reserva USD 1,512.00, entrega única de CNY 2,000.00), N17 (720 > 600 escala; solo el pagador aprueba con su huella; se ejecuta una vez), encadenar tres remesas listas (la tercera escala), N18 (RECIPIENT_ACCOUNT_NOT_OPEN sin intento), N13 (CNY 500.00, REFUNDED con USD 70.00, saldo USD 2,210.00) y N14 (sin exceso, sin reclamo). API `tests/api/p1Api.test.ts` (4 pruebas): T3 por HTTP con aprobación puntual, S15 por HTTP, S14 por HTTP con REFUNDED y el expediente sin secretos con claves recortadas. Agente `chatTurn.test.ts` (3 pruebas P1): remesa por chat sin envío doble, S15 por chat y reclamo por chat. `pnpm ui:check`: T1 con clics y una transferencia de CNY 2,000 con clics hasta "Accepted by provider"; `axe: 38 capturas, 0 violaciones serias o críticas`; sin scroll horizontal; consola sin violaciones de CSP.
+
+Adelantado de la Fase 7: CSP con nonce (`src/proxy.ts`, DEC-017) y `scripts/secrets-scan.ts` (329 archivos y los valores reales del entorno, sin imprimirlos) como último paso de `pnpm verify`.
 
 ## Deuda
 
@@ -168,6 +186,8 @@ Hallazgos medios y bajos de las revisiones y pendientes menores.
 
 - VC6: el límite por IP depende del primer valor de `X-Forwarded-For` (en Vercel lo fija la plataforma); endurecer con `ipAddress()` de `@vercel/functions`.
 - VC7: que el documento de aprobación entre completo en 1440 × 900; indicador de cambios en las pestañas móviles; columna de estado del tablero de la landing en móvil; nombres de escenario leídos de la configuración del servidor en la landing.
+- VC8: mapeos dentro de `ChatTurnUseCase` (turno a DTO, historial, tool_result, costo) a llevar a Mapper y servicio; la clave del agente se deriva en la capa de interfaz.
+- Fase 6: el medidor del permiso no muestra los días que quedan del período; el botón Evidence no aparece en móvil.
 - VC7: "Run T1 to T8" en la consola llega con `tasks:run` (Fase 8); los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos.
 
 ## Recortes

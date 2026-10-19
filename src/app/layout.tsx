@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Overpass, Overpass_Mono, Source_Serif_4 } from "next/font/google";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Toaster } from "@/ui/primitives";
 import { THEME_INIT_SCRIPT } from "@/ui/theme/themeScript";
@@ -15,11 +16,13 @@ export const metadata: Metadata = {
     "An AI agent that pays a student's international tuition inside the limits their family sets. Simulated funds and a fictional university.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Nonce de la CSP de esta respuesta (src/proxy.ts): el único script en línea, el del tema, lo lleva.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-dvh bg-paper text-ink antialiased">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2">

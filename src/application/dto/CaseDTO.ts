@@ -115,6 +115,34 @@ export interface MandateDTO {
   readonly version: number;
 }
 
+export interface RemittanceDTO {
+  readonly remittanceId: string;
+  readonly version: number;
+  readonly status: string;
+  readonly authorization: string | null;
+  readonly reasons: readonly string[];
+  readonly net: MoneyDTO;
+  readonly debit: MoneyDTO | null;
+  readonly routeId: string | null;
+  readonly channel: string | null;
+  readonly arrivalHours: number | null;
+  readonly recipientMasked: string;
+  readonly createdAt: string;
+  readonly approvalExpiresAt: string | null;
+  readonly attempt: { readonly attemptId: string; readonly status: string; readonly statusChangedAt: string } | null;
+}
+
+export interface RefundDTO {
+  readonly claimId: string;
+  readonly obligationId: string;
+  readonly status: string;
+  readonly amount: MoneyDTO;
+  readonly verifiedExcess: MoneyDTO;
+  /** Siempre la cuenta de origen (A2), enmascarada. */
+  readonly destinationMasked: string;
+  readonly settlement: MoneyDTO | null;
+}
+
 export interface CaseViewDTO {
   readonly synthetic: true;
   readonly workspace: {
@@ -164,8 +192,8 @@ export interface CaseViewDTO {
     readonly pendingChanges: readonly PendingChangeDTO[];
     readonly activity: readonly ActivityDTO[];
   } | null;
-  readonly remittances: readonly unknown[];
-  readonly refunds: readonly unknown[];
+  readonly remittances: readonly RemittanceDTO[];
+  readonly refunds: readonly RefundDTO[];
 }
 
 export interface ApprovalViewDTO {

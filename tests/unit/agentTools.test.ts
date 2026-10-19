@@ -27,10 +27,9 @@ describe("Herramientas del agente (BUILD_PROMPT 13.3)", () => {
   });
 
   it("estudiante y pagador tienen exactamente las herramientas de su rol, y cada una valida con Zod", () => {
-    expect(ROLE_TOOLS.student).not.toContain("prepare_policy_change");
-    expect(ROLE_TOOLS.student).not.toContain("prepare_mandate_change");
-    expect(ROLE_TOOLS.payer).not.toContain("execute_approved_payment");
-    expect(ROLE_TOOLS.payer).not.toContain("plan_tuition_payment");
+    // Las listas exactas de BUILD_PROMPT 13.3.
+    expect([...ROLE_TOOLS.student].sort()).toEqual(["compare_routes", "execute_approved_payment", "execute_remittance", "get_case_overview", "get_payment_status", "plan_tuition_payment", "prepare_refund_claim", "prepare_remittance", "project_cash", "reconcile_payment", "request_payer_approval", "submit_refund_claim"]);
+    expect([...ROLE_TOOLS.payer].sort()).toEqual(["compare_routes", "get_case_overview", "get_payment_status", "prepare_mandate_change", "prepare_policy_change", "project_cash", "reconcile_payment"]);
     for (const name of [...ROLE_TOOLS.student, ...ROLE_TOOLS.payer]) expect(name in TOOL_INPUTS).toBe(true);
     expect(TOOL_INPUTS.plan_tuition_payment.safeParse({ target_arrival_hours: 48, role: "payer" }).success).toBe(false);
     expect(TOOL_INPUTS.prepare_policy_change.safeParse({ new_max_usd: "2500.5" }).success).toBe(true);

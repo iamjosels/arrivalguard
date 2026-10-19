@@ -13,9 +13,11 @@ import type {
   PendingChangeRecord,
   PlanVersionRecord,
   RecipientRecord,
+  RemittanceRecord,
   StoredEvent,
   WorkspaceRecord,
 } from "@/domain/ports/Repositories";
+import type { RefundClaim } from "@/domain/refund/RefundClaim";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
 import { NotFoundError } from "../errors/ApplicationError";
@@ -48,6 +50,8 @@ export interface CaseSnapshot {
   readonly approvalRequests: readonly PlanVersionRecord[];
   readonly pendingChanges: readonly PendingChangeRecord[];
   readonly events: readonly StoredEvent[];
+  readonly remittances: readonly { readonly record: RemittanceRecord; readonly attempt: AttemptRecord | null }[];
+  readonly refunds: readonly RefundClaim[];
 }
 
 /** Estado verdadero del caso, desde el servidor, para la estudiante o el pagador (GET /api/case). */
@@ -99,6 +103,12 @@ export class GetCaseViewUseCase {
         )
       : null;
     const approvalRequests = current && current.plan.status === "APPROVAL_REQUESTED" ? [current] : [];
+    const allAttempts = await repos.attempts.listAll(ws);
+    const remittances = (await repos.remittances.list(ws)).map((record) => ({
+      record,
+      attempt: allAttempts.filter((a) => a.attempt.kind === "REMITTANCE" && a.attempt.toProps().subjectId === record.id).at(-1) ?? null,
+    }));
+    const refunds = await repos.refunds.list(ws);
     return {
       role: actor.role,
       workspace,
@@ -125,6 +135,8 @@ export class GetCaseViewUseCase {
       approvalRequests,
       pendingChanges,
       events,
+      remittances,
+      refunds,
     };
   }
 }

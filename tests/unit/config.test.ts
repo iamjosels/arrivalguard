@@ -5,17 +5,17 @@ import { normalizeSslMode } from "@/infrastructure/db/connection";
 
 describe("normalizeSslMode (DEC-006)", () => {
   it("convierte sslmode=require en verify-full y conserva los demás parámetros", () => {
-    expect(normalizeSslMode("postgresql://u:p@h/db?sslmode=require&channel_binding=require")).toBe(
-      "postgresql://u:p@h/db?sslmode=verify-full&channel_binding=require",
+    expect(normalizeSslMode("postgresql://u:p@h/db?sslmode=require&channel_binding=require")).toBe( // secrets-scan:allow (dato falso de prueba)
+      "postgresql://u:p@h/db?sslmode=verify-full&channel_binding=require", // secrets-scan:allow (dato falso de prueba)
     );
-    expect(normalizeSslMode("postgresql://u:p@h/db?channel_binding=require&sslmode=require")).toBe(
-      "postgresql://u:p@h/db?channel_binding=require&sslmode=verify-full",
+    expect(normalizeSslMode("postgresql://u:p@h/db?channel_binding=require&sslmode=require")).toBe( // secrets-scan:allow (dato falso de prueba)
+      "postgresql://u:p@h/db?channel_binding=require&sslmode=verify-full", // secrets-scan:allow (dato falso de prueba)
     );
   });
 
   it("no toca una cadena sin sslmode ni una que ya pide verify-full", () => {
-    expect(normalizeSslMode("postgresql://u:p@h/db")).toBe("postgresql://u:p@h/db");
-    expect(normalizeSslMode("postgresql://u:p@h/db?sslmode=verify-full")).toBe("postgresql://u:p@h/db?sslmode=verify-full");
+    expect(normalizeSslMode("postgresql://u:p@h/db")).toBe("postgresql://u:p@h/db"); // secrets-scan:allow (dato falso de prueba)
+    expect(normalizeSslMode("postgresql://u:p@h/db?sslmode=verify-full")).toBe("postgresql://u:p@h/db?sslmode=verify-full"); // secrets-scan:allow (dato falso de prueba)
   });
 });
 

@@ -118,3 +118,10 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Antes:** planificar con la obligación acreditada creaba un plan nuevo `NOT_VIABLE` (`OBLIGATION_NOT_PENDING`) que reemplazaba en la vista al plan que la pagó: la línea del pago pasaba a "bloqueada" y el sello desaparecía.
 - **Ahora:** `PlanTuitionPaymentUseCase` rechaza con `OBLIGATION_NOT_PENDING` y no crea nada; la interfaz deshabilita "Plan my payment" con la matrícula pagada.
 - **Prueba cambiada:** la de idempotencia usaba ese plan nuevo para demostrar "misma clave con otro contenido da 409". Ahora exige el rechazo del replan y demuestra el 409 con un segundo plan sintético preparado por la prueba (como S03 prepara su pago histórico). No se relajó ninguna aserción: el 409 sigue probado.
+
+## DEC-017. CSP con nonce para scripts y estilos en línea permitidos
+
+- **Fecha:** domingo 18 de octubre, 22:17 (Lima). **Fuente:** BUILD_PROMPT 14.1 y la guía de CSP de Next.js 16 (`node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`).
+- **Decisión:** `src/proxy.ts` genera un nonce por petición. `script-src 'self' 'nonce-…' 'strict-dynamic'` (con `'unsafe-eval'` solo en desarrollo), `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `connect-src 'self'` y `upgrade-insecure-requests` fuera de localhost. El único script en línea (el del tema) lleva el nonce.
+- **Excepción:** `style-src 'self' 'unsafe-inline'`. Los componentes usan atributos `style` para anchos y tamaños calculados (barras, sello) y el aviso de sonner inserta estilos; un nonce no cubre atributos `style`. Los estilos no ejecutan código; el riesgo que queda (inyección de CSS) no alcanza a los scripts ni a los datos de la API.
+- **Efecto:** todas las páginas se renderizan en el servidor por petición (el nonce lo exige). `pnpm ui:check` vigila la consola del navegador y falla ante cualquier violación de la CSP.

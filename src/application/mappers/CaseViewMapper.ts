@@ -3,7 +3,8 @@ import { fingerprintPrefix } from "@/domain/consent/ApprovalPayload";
 import type { CashProjection } from "@/domain/cash/CashProjection";
 import { isQuoteExpired, type RouteEvaluation } from "@/domain/policy/RouteQuote";
 import type { TuitionRoutingResult } from "@/domain/policy/PolicyEngine";
-import type { AttemptRecord, PlanVersionRecord, RecipientRecord, StoredEvent } from "@/domain/ports/Repositories";
+import type { AttemptRecord, PlanVersionRecord, RecipientRecord, RemittanceRecord, StoredEvent } from "@/domain/ports/Repositories";
+import type { RefundClaim } from "@/domain/refund/RefundClaim";
 import type { VirtualInstant } from "@/domain/time/Instant";
 import type {
   ActivityDTO,
@@ -16,6 +17,8 @@ import type {
   JourneyStationDTO,
   PlanDTO,
   RouteEvaluationDTO,
+  RefundDTO,
+  RemittanceDTO,
   RoutingDTO,
 } from "../dto/CaseDTO";
 import type { Observation } from "../services/TuitionPaymentProcessor";
@@ -337,8 +340,8 @@ export class CaseViewMapper {
                 .map((e): ActivityDTO => ({ seq: e.seq, type: e.type, at: e.virtualAt.toISOString(), summary: e.payload })),
             }
           : null,
-      remittances: [],
-      refunds: [],
+      remittances: s.remittances.map((x) => RemittanceMapper.toDTO(x.record, x.attempt, s.localRecipient?.maskedAccount ?? "••••")),
+      refunds: s.refunds.map((c) => RefundMapper.toDTO(c, s.payerAccount.toProps().maskedNumber)),
     };
   }
 
@@ -375,5 +378,41 @@ export class CaseViewMapper {
       },
     ];
     return stations;
+  }
+}
+
+export class RemittanceMapper {
+  static toDTO(r: RemittanceRecord, attempt: AttemptRecord | null, recipientMasked: string): RemittanceDTO {
+    return {
+      remittanceId: r.id,
+      version: r.version,
+      status: r.status,
+      authorization: r.authorization,
+      reasons: [...r.reasons],
+      net: MoneyMapper.toDTO(r.net),
+      debit: r.quote ? MoneyMapper.toDTO(r.quote.debit) : null,
+      routeId: r.quote?.routeId ?? null,
+      channel: r.quote?.channel ?? null,
+      arrivalHours: r.quote ? Math.round(r.quote.arrivalMinutes / MINUTES_PER_HOUR) : null,
+      recipientMasked,
+      createdAt: r.createdAt.toISOString(),
+      approvalExpiresAt: r.approvalExpiresAt?.toISOString() ?? null,
+      attempt: attempt ? { attemptId: attempt.attempt.id, status: attempt.attempt.status, statusChangedAt: attempt.statusChangedAt.toISOString() } : null,
+    };
+  }
+}
+
+export class RefundMapper {
+  static toDTO(c: RefundClaim, destinationMasked: string): RefundDTO {
+    const p = c.toProps();
+    return {
+      claimId: p.id,
+      obligationId: p.obligationId,
+      status: p.status,
+      amount: MoneyMapper.toDTO(p.amount),
+      verifiedExcess: MoneyMapper.toDTO(p.verifiedExcess),
+      destinationMasked,
+      settlement: MoneyMapper.toDTOOrNull(p.settlement),
+    };
   }
 }

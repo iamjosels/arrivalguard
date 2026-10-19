@@ -8,7 +8,7 @@ import { formatMoney } from "@/interfaces/format/money";
  * Capacidades P1 (transferencias de llegada y devoluciones, Fase 6). Mientras no existan, la interfaz no las ofrece
  * ni las promete (BUILD_PROMPT 4.1).
  */
-export const P1_AVAILABLE = false;
+export const P1_AVAILABLE = true;
 
 const ALL_SCENARIOS = [
   { id: "base", label: "Base scenario", description: "Pay tuition inside Carlos's limit, change the deadline and recover from a lost provider response." },
@@ -151,6 +151,15 @@ export function sealCode(fingerprint: string): string {
 export function humanize(code: string): string {
   const text = code.toLowerCase().replace(/_/g, " ");
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Monto escrito por el usuario ("2,000" o "CNY 2,000.50") como decimal con dos cifras ("2000.50"), sin floats. */
+export function decimalFromInput(input: string): string | null {
+  const minor = parseUsdToMinor(input.replace(/^s*CNY/i, ""));
+  if (!minor) return null;
+  const value = BigInt(minor);
+  if (value <= 0n) return null;
+  return `${(value / 100n).toString()}.${(value % 100n).toString().padStart(2, "0")}`;
 }
 
 /** Texto en dólares de un monto en unidades menores ingresado por el pagador ("2500" o "2,500.00"), sin floats. */

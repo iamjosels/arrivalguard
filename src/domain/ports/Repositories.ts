@@ -7,6 +7,8 @@ import type { Money } from "../money/Money";
 import type { PaymentAttempt } from "../payment/PaymentAttempt";
 import type { PaymentPlan } from "../payment/PaymentPlan";
 import type { ObligationStatus, TuitionRoutingResult } from "../policy/PolicyEngine";
+import type { ReasonCode } from "../policy/ReasonCode";
+import type { RemittanceRoutingResult } from "../policy/RemittancePolicy";
 import type { RouteQuote } from "../policy/RouteQuote";
 import type { RefundClaim } from "../refund/RefundClaim";
 import type { RealInstant, VirtualInstant } from "../time/Instant";
@@ -218,6 +220,42 @@ export interface MandateRepository {
   save(mandate: StandingMandate): Promise<void>;
 }
 
+/**
+ * Remesa para gastos de llegada (T3, enmienda A1). READY: viable y dentro del mandato. APPROVAL_REQUESTED: escaló al
+ * pagador (fuera del tope o sin mandato). APPROVED: el pagador aprobó una vez. BLOCKED: sin ruta o destinatario no
+ * admitido. EXECUTING, DELIVERED y FAILED siguen al intento.
+ */
+export type RemittanceStatus = "READY" | "APPROVAL_REQUESTED" | "APPROVED" | "BLOCKED" | "EXECUTING" | "DELIVERED" | "FAILED";
+
+export interface RemittanceRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly mandateId: string | null;
+  readonly recipientId: string;
+  readonly sourceAccountId: string;
+  readonly purpose: "ARRIVAL_EXPENSES";
+  readonly net: Money;
+  readonly targetArrivalAt: VirtualInstant;
+  readonly status: RemittanceStatus;
+  readonly authorization: "MANDATE" | "PAYER_APPROVAL" | null;
+  /** Razones de bloqueo o de escalada (por ejemplo EXCEEDS_MANDATE_PERIOD_LIMIT). */
+  readonly reasons: readonly ReasonCode[];
+  readonly quote: RouteQuote | null;
+  readonly evaluation: RemittanceRoutingResult;
+  readonly approvalId: string | null;
+  readonly approvalExpiresAt: VirtualInstant | null;
+  readonly createdByActorId: string;
+  readonly version: number;
+  readonly createdAt: VirtualInstant;
+}
+
+export interface RemittanceRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<RemittanceRecord | null>;
+  list(workspaceId: string): Promise<RemittanceRecord[]>;
+  insert(record: RemittanceRecord): Promise<void>;
+  save(record: RemittanceRecord): Promise<void>;
+}
+
 export interface RefundRepository {
   get(workspaceId: string, id: string, options?: LockOptions): Promise<RefundClaim | null>;
   list(workspaceId: string): Promise<RefundClaim[]>;
@@ -277,6 +315,7 @@ export interface Repositories {
   readonly attempts: AttemptRepository;
   readonly mandates: MandateRepository;
   readonly refunds: RefundRepository;
+  readonly remittances: RemittanceRepository;
   readonly finance: FinanceFactsRepository;
   readonly events: EventRepository;
   readonly providerReceipts: ProviderEventReceiptRepository;

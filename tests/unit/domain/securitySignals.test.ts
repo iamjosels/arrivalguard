@@ -39,6 +39,13 @@ describe("Señales de ataque en el mensaje (BUILD_PROMPT 14.2)", () => {
       "What needs my approval?",
       "Lower the tuition limit to USD 2,500",
       "How does the approval work?",
+      // Preguntas normales que antes daban falsos positivos (VC8).
+      "Has my dad approved it yet?",
+      "Has Carlos approved the plan?",
+      "Send the payment before 2026-10-22, please.",
+      "Can I pay from this account?",
+      "Is my password needed to pay?",
+      "Pay it at 09:30 tomorrow.",
     ]) {
       expect([text, reasons(text)]).toEqual([text, []]);
     }

@@ -2,20 +2,36 @@
 
 import { ChevronDown, MessageSquare, Route as RouteIcon, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { CashProjectionDTO, CaseViewDTO, PlanDTO, RouteEvaluationDTO, RoutingDTO } from "@/application/dto/CaseDTO";
+import type { CashProjectionDTO, CaseViewDTO, PlanDTO, RemittanceDTO, RouteEvaluationDTO, RoutingDTO } from "@/application/dto/CaseDTO";
 import { formatMoney } from "@/interfaces/format/money";
-import { CashProjection, channelName, ConditionalIncomeCard, FundsBar, JourneyLine, MoneyFigure, RouteBoard, StatusPill, type PillStatus, type ReasonContext } from "@/ui/finance";
+import {
+  BlockedNotice,
+  CashProjection,
+  channelName,
+  ConditionalIncomeCard,
+  FundsBar,
+  JourneyLine,
+  MoneyFigure,
+  PermissionMeter,
+  RefundRequestCard,
+  RouteBoard,
+  StatusPill,
+  TransferCard,
+  type PillStatus,
+  type ReasonContext,
+} from "@/ui/finance";
 import { formatClock, formatDuration, formatVirtual, minutesBetween, formatWhen } from "@/ui/format/time";
 import { Button, Field, Input, Panel, Switch, Tabs, notify, notifyWaiting } from "@/ui/primitives";
 import { api } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
 import { ConversationPanel } from "@/ui/chat";
-import { studentApi, useActionState, usePaymentKey, type ActionState } from "./actions";
-import { firstName, parseUsdToMinor } from "./copy";
+import { studentApi, useActionKeys, useActionState, usePaymentKey, type ActionState } from "./actions";
+import { decimalFromInput, firstName, parseUsdToMinor } from "./copy";
 import { ProblemNotice } from "./ProblemNotice";
 
-// Espacio de Sofía (UI_UX 11.2, DESIGN_PLAN 5.2). Zona A: conversación (en esta fase, controles estructurados).
-// Zona B: el estado verdadero del servidor, en el orden factura, viaje del pago, rutas, fondos y caja.
+// Espacio de Sofía (UI_UX 11.2, DESIGN_PLAN 5.2). Zona A: conversación, con los controles estructurados como respaldo.
+// Zona B: el estado verdadero del servidor, en el orden factura, viaje del pago, rutas, fondos, caja, transferencias y
+// devolución.
 
 export const lastFour = (masked: string) => masked.replace(/\D/g, "").slice(-4);
 
@@ -298,7 +314,77 @@ function FundsPanels({ data }: { data: CaseViewDTO }) {
         <ConditionalIncomeCard key={i} amount={s.amount} note={`Awarded, expected ${formatVirtual(s.expectedAt)} virtual time.`} />
       ))}
       {data.expectedExpenses.length > 0 ? <CashPanel refreshKey={`${data.familyFunds.balance.minor}:${data.familyFunds.activeHolds.minor}:${data.plan?.version ?? 0}:${data.plan?.selectedRoute?.routeId ?? ""}`} /> : null}
+      {data.mandate || data.remittances.length > 0 || local.status === "OPEN" ? <TransfersPanel data={data} /> : null}
+      {data.refunds.length > 0 || data.tuition.status === "CREDITED" ? <RefundPanel data={data} /> : null}
     </div>
+  );
+}
+
+/** Transferencias a la cuenta local (T3): permiso permanente con su medidor y cada transferencia con su estado. */
+function TransfersPanel({ data }: { data: CaseViewDTO }) {
+  const mandate = data.mandate;
+  const local = data.localAccount;
+  const transfers = data.remittances.slice().reverse();
+  const payer = firstName(data.people.payer);
+  return (
+    <Panel title={`Transfers to ${firstName(data.people.student)}'s local account`}>
+      <div className="space-y-4">
+        {mandate ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-semibold text-ink">Standing permission for arrival transfers</p>
+              <p className="tabular text-[14px] text-ink-2">
+                <MoneyFigure money={mandate.periodMax} size="s" /> per {mandate.periodDays} days
+              </p>
+            </div>
+            {mandate.status === "ACTIVE" ? (
+              <PermissionMeter used={mandate.usedThisPeriod} max={mandate.periodMax} />
+            ) : (
+              <p className="text-[14px] leading-[22px] text-ink-2">This permission is {mandate.status === "REVOKED" ? "revoked" : "no longer active"}. Each transfer needs {payer}&apos;s approval.</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-[14px] leading-[22px] text-ink-2">No standing permission. Each transfer needs {payer}&apos;s approval.</p>
+        )}
+        {local.status === "OPEN" ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line pt-3">
+            <p className="text-[14px] text-ink-2">
+              {local.bankName ?? "Local bank"}, account ending {lastFour(local.masked)}
+            </p>
+            <MoneyFigure money={local.balance} size="m" />
+          </div>
+        ) : (
+          <p className="border-t border-line pt-3 text-[14px] leading-[22px] text-ink-2">
+            <span className="font-semibold text-ink">Local account not open yet.</span> Transfers start once {firstName(data.people.student)}&apos;s account in China is open.
+          </p>
+        )}
+        {transfers.length === 0 ? (
+          <p className="text-[14px] leading-[22px] text-ink-2">No transfers yet. Use Send transfer to move money for rent or other arrival costs.</p>
+        ) : (
+          transfers.map((r) => <TransferCard key={r.remittanceId} remittance={r} recipientLabel={local.bankName ?? "the local bank"} payerName={payer} />)
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+/** Devolución (T7): el reclamo con su exceso verificado, destino fijo y seguimiento. */
+function RefundPanel({ data }: { data: CaseViewDTO }) {
+  const claims = data.refunds.slice().reverse();
+  return (
+    <Panel title="Refund request">
+      {claims.length === 0 ? (
+        <p className="text-[14px] leading-[22px] text-ink-2">
+          If the university received more than the invoice, you can request the verified difference back. Refunds return only to the paying account.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {claims.map((c) => (
+            <RefundRequestCard key={c.claimId} claim={c} />
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -481,11 +567,133 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
             </form>
           ) : null}
         </section>
+        <section>
+          {sectionHeader("transfer", "Send transfer")}
+          {open === "transfer" ? <TransferControls data={data} actions={actions} ctx={ctx} /> : null}
+        </section>
+        <section>
+          {sectionHeader("refund", "Submit refund request")}
+          {open === "refund" ? <RefundControls data={data} actions={actions} /> : null}
+        </section>
       </div>
-      <ProblemNotice problem={open === "plan" || open === "compare" || open === "project" ? actions.problem : null} ctx={ctx} />
+      <ProblemNotice problem={["plan", "compare", "project", "transfer", "refund"].includes(open) ? actions.problem : null} ctx={ctx} />
       <p className="sr-only" aria-live="polite">
         {actions.busy ? "Working" : ""}
       </p>
+    </div>
+  );
+}
+
+/** Send transfer (T3): primero prepara (ruta y permiso), después envía si quedó lista o aprobada. */
+function TransferControls({ data, actions, ctx }: { data: CaseViewDTO; actions: ActionState; ctx: ReasonContext }) {
+  const [amount, setAmount] = useState("2,000.00");
+  const [hours, setHours] = useState("24");
+  const [preparedId, setPreparedId] = useState<string | null>(null);
+  const keyFor = useActionKeys();
+  const net = decimalFromInput(amount);
+  const hoursValue = /^\d{1,3}$/.test(hours) ? Math.max(1, Math.min(720, Number.parseInt(hours, 10))) : null;
+  // El estado verdadero de la remesa preparada viene del caso; la respuesta solo se usa hasta el próximo refresco.
+  const [lastPrepared, setLastPrepared] = useState<RemittanceDTO | null>(null);
+  const prepared = data.remittances.find((r) => r.remittanceId === preparedId) ?? lastPrepared;
+  const payer = firstName(data.people.payer);
+  const sendable = prepared && (prepared.status === "READY" || prepared.status === "APPROVED");
+
+  return (
+    <div className="space-y-4 px-4 pb-4">
+      <form
+        className="space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!net || !hoursValue) return;
+          const result = await actions.run("transfer-prepare", () => studentApi.prepareRemittance(net, hoursValue));
+          if (!result) return;
+          setPreparedId(result.remittance.remittanceId);
+          setLastPrepared(result.remittance);
+          const status = result.remittance.status;
+          if (status === "READY") notify("Transfer ready to send");
+          else if (status === "APPROVAL_REQUESTED") notifyWaiting("Over this month's transfer limit");
+          else notifyWaiting("Transfer blocked");
+        }}
+      >
+        <Field label="Amount the local account receives, in CNY" htmlFor="transfer-amount" error={amount && !net ? "Enter an amount like 2,000.00" : null}>
+          <Input id="transfer-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={Boolean(amount) && !net} />
+        </Field>
+        <Field label="Must arrive within (hours)" htmlFor="transfer-hours" error={hoursValue ? null : "Enter whole hours, from 1 to 720."}>
+          <Input id="transfer-hours" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} invalid={!hoursValue} />
+        </Field>
+        <p className="text-[14px] leading-[22px] text-ink-2">
+          Goes only to {firstName(data.people.student)}&apos;s own local account. Within {payer}&apos;s standing permission it can be sent right away; above it, {payer} approves once.
+        </p>
+        <Button type="submit" variant="secondary" loading={actions.busy === "transfer-prepare"} loadingText="Checking" disabled={!net || !hoursValue}>
+          Check this transfer
+        </Button>
+      </form>
+      {prepared ? (
+        <div className="space-y-3">
+          <TransferCard remittance={prepared} recipientLabel={data.localAccount.bankName ?? "the local bank"} payerName={payer} />
+          {prepared.status === "APPROVAL_REQUESTED"
+            ? prepared.reasons.map((code) => <BlockedNotice key={code} code={code} ctx={ctx} tone="wait" extra={prepared.debit ? `This transfer costs ${formatMoney(prepared.debit)}.` : undefined} />)
+            : null}
+          {prepared.status === "BLOCKED" ? prepared.reasons.map((code) => <BlockedNotice key={code} code={code} ctx={ctx} />) : null}
+          {sendable ? (
+            <Button
+              loading={actions.busy === "transfer-send"}
+              loadingText="Sending"
+              onClick={async () => {
+                const result = await actions.run("transfer-send", () =>
+                  studentApi.executeRemittance(prepared.remittanceId, keyFor(`remit:${prepared.remittanceId}:v${prepared.version}:${prepared.status}`)),
+                );
+                if (!result) return;
+                setLastPrepared(result.remittance);
+                if (result.outcome === "NEEDS_PAYER_APPROVAL") notifyWaiting("Over this month's transfer limit");
+                else if (result.replayed) notifyWaiting("This transfer was already sent");
+                else notify("Transfer sent");
+              }}
+            >
+              Send transfer
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Submit refund request (T7): prepara el reclamo con el exceso verificado y lo envía al destino fijo. */
+function RefundControls({ data, actions }: { data: CaseViewDTO; actions: ActionState }) {
+  const keyFor = useActionKeys();
+  const claim = data.refunds.filter((c) => c.status !== "REJECTED").at(-1) ?? null;
+  return (
+    <div className="space-y-3 px-4 pb-4 text-[14px] leading-[22px] text-ink-2">
+      <p>The amount is the overpayment the university verified, and the money returns only to the paying account.</p>
+      {claim ? <RefundRequestCard claim={claim} /> : null}
+      {!claim ? (
+        <Button
+          variant="secondary"
+          loading={actions.busy === "refund-prepare"}
+          loadingText="Checking"
+          onClick={async () => {
+            const result = await actions.run("refund-prepare", () => studentApi.prepareRefund(data.tuition.obligationId));
+            if (result) notify("Refund request ready to submit");
+          }}
+        >
+          Check the overpayment
+        </Button>
+      ) : null}
+      {claim?.status === "DRAFT" ? (
+        <Button
+          loading={actions.busy === "refund-submit"}
+          loadingText="Submitting"
+          onClick={async () => {
+            const result = await actions.run("refund-submit", () => studentApi.submitRefund(claim.claimId, keyFor(`refund:${claim.claimId}`)));
+            if (!result) return;
+            if (result.replayed) notifyWaiting("This refund request was already submitted");
+            else notify("Refund request submitted");
+          }}
+        >
+          Submit refund request
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -3,7 +3,20 @@ import Link from "next/link";
 import type { CaseViewDTO } from "@/application/dto/CaseDTO";
 import type { ChatComponentDTO } from "@/application/dto/ChatDTO";
 import { formatMoney } from "@/interfaces/format/money";
-import { ApprovalRequestCard, BlockedNotice, CashProjection, channelName, MoneyFigure, RouteBoard, StatusPill, securityCategoryLabel, type PillStatus, type ReasonContext } from "@/ui/finance";
+import {
+  ApprovalRequestCard,
+  BlockedNotice,
+  CashProjection,
+  channelName,
+  MoneyFigure,
+  RefundRequestCard,
+  RouteBoard,
+  StatusPill,
+  securityCategoryLabel,
+  TransferCard,
+  type PillStatus,
+  type ReasonContext,
+} from "@/ui/finance";
 import { firstName, sealCode } from "@/ui/workspace/copy";
 import { planPill, provenanceText, type ChatRole } from "./labels";
 
@@ -119,5 +132,9 @@ export function ChatComponentCard({ component, role, workspaceId, data, ctx }: C
           </Link>
         </div>
       );
+    case "REMITTANCE":
+      return <TransferCard remittance={component.remittance} recipientLabel={data.localAccount.bankName ?? "the local bank"} payerName={payer} />;
+    case "REFUND":
+      return <RefundRequestCard claim={component.claim} />;
   }
 }

@@ -59,16 +59,32 @@ export class DrizzleConversationStore implements ConversationStorePort {
   }
 }
 
-const COUNTED = ["RESERVED", "OK"];
+/** Lo que cuenta para los topes: reservas en curso, uso real y timeouts (que pudieron facturarse). */
+const COUNTED = ["RESERVED", "OK", "TIMEOUT"];
 
 export class DrizzleAiUsageStore implements AiUsageStorePort {
-  async reserve(workspaceId: string, model: string, estimateMicros: bigint): Promise<string> {
-    const id = randomUUID();
-    await getDb().insert(aiUsage).values({ id, workspaceId, category: "CHAT", model, status: "RESERVED", costUsdMicros: estimateMicros });
-    return id;
+  async reserve(workspaceId: string, model: string, estimateMicros: bigint, limits: { workspace: bigint; daily: bigint; since: Date }): Promise<string | null> {
+    return getDb().transaction(async (tx) => {
+      // Mismo orden de bloqueo siempre: primero el global del día, después el del espacio (VC8-1).
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('ai-budget:daily'))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-budget:ws:${workspaceId}`}))`);
+      const [ws] = await tx
+        .select({ total: sql<string | null>`sum(${aiUsage.costUsdMicros})::text` })
+        .from(aiUsage)
+        .where(and(eq(aiUsage.workspaceId, workspaceId), inArray(aiUsage.status, COUNTED)));
+      const [day] = await tx
+        .select({ total: sql<string | null>`sum(${aiUsage.costUsdMicros})::text` })
+        .from(aiUsage)
+        .where(and(gte(aiUsage.createdAt, limits.since), inArray(aiUsage.status, COUNTED)));
+      if (BigInt(ws?.total ?? "0") + estimateMicros > limits.workspace) return null;
+      if (BigInt(day?.total ?? "0") + estimateMicros > limits.daily) return null;
+      const id = randomUUID();
+      await tx.insert(aiUsage).values({ id, workspaceId, category: "CHAT", model, status: "RESERVED", costUsdMicros: estimateMicros });
+      return id;
+    });
   }
 
-  async settle(id: string, row: AiUsageRow, status: "OK" | "FAILED"): Promise<void> {
+  async settle(id: string, row: AiUsageRow, status: "OK" | "FAILED" | "TIMEOUT"): Promise<void> {
     await getDb()
       .update(aiUsage)
       .set({

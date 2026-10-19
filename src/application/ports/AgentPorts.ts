@@ -96,10 +96,13 @@ export interface AiUsageRow {
 }
 
 export interface AiUsageStorePort {
-  /** Reserva el costo estimado antes de llamar (13.6); devuelve el id de la fila. */
-  reserve(workspaceId: string, model: string, estimateMicros: bigint): Promise<string>;
-  /** Registra el uso real sobre la reserva (o la libera con costo 0 si la llamada falló). */
-  settle(id: string, row: AiUsageRow, status: "OK" | "FAILED"): Promise<void>;
+  /**
+   * Reserva el costo estimado antes de llamar (13.6), de forma atómica: bajo un bloqueo por espacio y otro global,
+   * vuelve a sumar y solo inserta si la reserva cabe en los dos topes. Devuelve null si no cabe.
+   */
+  reserve(workspaceId: string, model: string, estimateMicros: bigint, limits: { readonly workspace: bigint; readonly daily: bigint; readonly since: Date }): Promise<string | null>;
+  /** Registra el uso real sobre la reserva. FAILED libera (costo 0); TIMEOUT conserva la estimación, por si se facturó. */
+  settle(id: string, row: AiUsageRow, status: "OK" | "FAILED" | "TIMEOUT"): Promise<void>;
   spentByWorkspace(workspaceId: string): Promise<bigint>;
   spentSince(since: Date): Promise<bigint>;
 }

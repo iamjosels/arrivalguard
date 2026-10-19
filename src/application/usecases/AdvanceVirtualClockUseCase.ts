@@ -3,16 +3,19 @@ import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
 import { NotFoundError, ValidationError } from "../errors/ApplicationError";
 import { event } from "../services/events";
+import type { RefundProcessor } from "../services/RefundProcessor";
 import type { TuitionPaymentProcessor } from "../services/TuitionPaymentProcessor";
 
 /**
  * Solo el evaluador avanza la hora virtual (BUILD_PROMPT 12). Después procesa lo programado en los simuladores:
- * concilia los intentos en curso del espacio. Avanzar la hora virtual nunca extiende credenciales.
+ * concilia los intentos en curso del espacio y los reclamos de devolución en trámite. Avanzar la hora virtual nunca
+ * extiende credenciales.
  */
 export class AdvanceVirtualClockUseCase {
   constructor(
     private readonly deps: Pick<AppDeps, "uow">,
     private readonly processor: TuitionPaymentProcessor,
+    private readonly refunds?: RefundProcessor,
   ) {}
 
   async execute(actor: ActorContext, command: { readonly minutes: number }): Promise<{ readonly virtualNow: VirtualInstant; readonly reconciled: number }> {
@@ -36,6 +39,9 @@ export class AdvanceVirtualClockUseCase {
     });
     const active = await this.deps.uow.read.attempts.listActive(actor.workspaceId);
     for (const record of active) await this.processor.reconcile(actor.workspaceId, record.attempt.id, "system");
-    return { virtualNow, reconciled: active.length };
+    // Reclamos de devolución en trámite: la institución puede haber avanzado con la hora virtual (T7).
+    const open = this.refunds ? (await this.deps.uow.read.refunds.list(actor.workspaceId)).filter((c) => ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(c.status)) : [];
+    for (const claim of open) await this.refunds!.reconcile(actor.workspaceId, claim.id);
+    return { virtualNow, reconciled: active.length + open.length };
   }
 }

@@ -21,6 +21,12 @@ import { DbRateLimiter, DrizzleSessionStore, EnvAccessCode } from "./auth/Drizzl
 import { pepperedHash } from "./auth/secrets";
 import { getServerEnv, usdToMicros } from "./config/env";
 import { ChatTurnUseCase } from "@/application/usecases/ChatTurnUseCase";
+import { ExecuteRemittanceUseCase } from "@/application/usecases/ExecuteRemittanceUseCase";
+import { PrepareRemittanceUseCase } from "@/application/usecases/PrepareRemittanceUseCase";
+import { PrepareRefundClaimUseCase, SubmitRefundClaimUseCase } from "@/application/usecases/RefundClaimUseCases";
+import { RemittanceApprovalUseCase } from "@/application/usecases/RemittanceApprovalUseCase";
+import { RefundProcessor } from "@/application/services/RefundProcessor";
+import { GetEvidenceUseCase } from "@/application/usecases/GetEvidenceUseCase";
 import { AgentModelError, type AgentModelPort } from "@/application/ports/AgentPorts";
 import { ToolExecutor } from "@/interfaces/agent/ToolExecutor";
 import { AnthropicAgentModel } from "./ai/AnthropicAgentModel";
@@ -54,6 +60,7 @@ export function buildContainer() {
     realClock: new SystemClock(),
   };
   const processor = new TuitionPaymentProcessor(deps);
+  const refundProcessor = new RefundProcessor(deps);
   const pepper = () => getServerEnv().SESSION_PEPPER;
   const sessions = new DrizzleSessionStore(db, pepper);
   const limiter = new DbRateLimiter(db);
@@ -87,7 +94,14 @@ export function buildContainer() {
     executeTuition: new ExecuteTuitionPaymentUseCase(deps, processor),
     reconcile: new ReconcilePaymentUseCase(deps, processor),
     paymentStatus: new GetPaymentStatusUseCase(deps, processor),
-    advanceClock: new AdvanceVirtualClockUseCase(deps, processor),
+    advanceClock: new AdvanceVirtualClockUseCase(deps, processor, refundProcessor),
+    prepareRemittance: new PrepareRemittanceUseCase(deps),
+    executeRemittance: new ExecuteRemittanceUseCase(deps, processor),
+    remittanceApproval: new RemittanceApprovalUseCase(deps),
+    prepareRefund: new PrepareRefundClaimUseCase(deps),
+    submitRefund: new SubmitRefundClaimUseCase(deps, refundProcessor),
+    refundProcessor,
+    evidence: new GetEvidenceUseCase(deps, new DrizzleAiUsageStore()),
     injectFault: new InjectFaultUseCase(deps),
     projectCash: new ProjectCashUseCase(deps),
   };
@@ -123,8 +137,8 @@ function buildChat(core: CoreContainer): ChatTurnUseCase {
     },
     maxModelCalls: 4,
     maxToolCalls: 6,
-    // No se empieza otra llamada pasados 30 s: con 25 s por llamada, el turno termina antes de los 60 s de la ruta.
-    turnDeadlineMs: 30_000,
+    // No se empieza otra llamada pasados 25 s: 25 s más una llamada de 25 s y el guardado caben en los 60 s de la ruta.
+    turnDeadlineMs: 25_000,
     historyTurns: 8,
   });
 }

@@ -1,4 +1,4 @@
-import type { AttemptDTO, CashProjectionDTO, PlanDTO, RoutingDTO } from "./CaseDTO";
+import type { AttemptDTO, CashProjectionDTO, PlanDTO, RefundDTO, RemittanceDTO, RoutingDTO } from "./CaseDTO";
 
 // Contrato del chat (BUILD_PROMPT 11 y 13.2). El texto del asistente es solo texto; todo lo que muestra dinero,
 // estados o acciones son componentes construidos desde el estado del servidor, nunca desde el texto del modelo.
@@ -20,7 +20,9 @@ export type ChatComponentDTO =
   | { readonly kind: "CASH"; readonly projection: CashProjectionDTO }
   | { readonly kind: "BLOCKED"; readonly reasons: readonly string[] }
   | { readonly kind: "SECURITY_BLOCK"; readonly category: string; readonly reason: string }
-  | { readonly kind: "PENDING_CHANGE"; readonly changeId: string; readonly changeKind: string; readonly fingerprintPrefix: string };
+  | { readonly kind: "PENDING_CHANGE"; readonly changeId: string; readonly changeKind: string; readonly fingerprintPrefix: string }
+  | { readonly kind: "REMITTANCE"; readonly remittance: RemittanceDTO }
+  | { readonly kind: "REFUND"; readonly claim: RefundDTO };
 
 export type ChatFallbackReason = "AI_UNAVAILABLE" | "BUDGET_EXHAUSTED" | "RATE_LIMITED" | "MODEL_ERROR" | "REFUSAL" | "TIMEOUT";
 

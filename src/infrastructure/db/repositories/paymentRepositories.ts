@@ -6,6 +6,9 @@ import { ACTIVE_ATTEMPT_STATUSES, PaymentAttempt, type AttemptKind, type Attempt
 import { PaymentPlan, type PlanStatus } from "@/domain/payment/PaymentPlan";
 import { DuplicateRecordError, isUniqueViolation } from "@/domain/ports/Repositories";
 import type {
+  RemittanceRecord,
+  RemittanceRepository,
+  RemittanceStatus,
   ApprovalRepository,
   AttemptRecord,
   AttemptRepository,
@@ -19,7 +22,7 @@ import { RefundClaim, type RefundStatus } from "@/domain/refund/RefundClaim";
 import { VirtualInstant } from "@/domain/time/Instant";
 import type { DbExecutor } from "../executor";
 import { RouteJsonMapper, type RouteQuoteJSON, type RoutingResultJSON } from "../mappers/RouteJsonMapper";
-import { approvals, paymentAttempts, paymentPlans, refundClaims, standingMandates } from "../schema";
+import { approvals, paymentAttempts, paymentPlans, refundClaims, remittances, standingMandates } from "../schema";
 
 const money = (currency: string, minor: bigint) => Money.of(currency as Currency, minor);
 const virtual = (date: Date | null) => (date ? VirtualInstant.fromDate(date) : null);
@@ -480,4 +483,78 @@ function toRefund(row: typeof refundClaims.$inferSelect): RefundClaim {
     settlement: row.settlementCurrency && row.settlementMinor !== null ? money(row.settlementCurrency, row.settlementMinor) : null,
     version: row.version,
   });
+}
+
+export class DrizzleRemittanceRepository implements RemittanceRepository {
+  constructor(private readonly db: DbExecutor) {}
+
+  async get(workspaceId: string, id: string, options?: LockOptions): Promise<RemittanceRecord | null> {
+    const query = this.db.select().from(remittances).where(and(eq(remittances.workspaceId, workspaceId), eq(remittances.id, id)));
+    const [row] = options?.forUpdate ? await query.for("update") : await query;
+    return row ? toRemittance(row) : null;
+  }
+
+  async list(workspaceId: string): Promise<RemittanceRecord[]> {
+    const rows = await this.db.select().from(remittances).where(eq(remittances.workspaceId, workspaceId)).orderBy(remittances.createdAt);
+    return rows.map(toRemittance);
+  }
+
+  async insert(record: RemittanceRecord): Promise<void> {
+    await this.db.insert(remittances).values(remittanceRow(record));
+  }
+
+  async save(record: RemittanceRecord): Promise<void> {
+    const { id: _id, workspaceId: _ws, createdByActorId: _by, ...rest } = remittanceRow(record);
+    await this.db.update(remittances).set(rest).where(and(eq(remittances.workspaceId, record.workspaceId), eq(remittances.id, record.id)));
+  }
+}
+
+function remittanceRow(r: RemittanceRecord) {
+  return {
+    id: r.id,
+    workspaceId: r.workspaceId,
+    mandateId: r.mandateId,
+    recipientId: r.recipientId,
+    sourceAccountId: r.sourceAccountId,
+    purpose: r.purpose,
+    netCurrency: r.net.currency,
+    netMinor: r.net.minor,
+    routeId: r.quote?.routeId ?? null,
+    quoteSnapshot: r.quote ? RouteJsonMapper.quoteToJSON(r.quote) : null,
+    evaluation: { result: RouteJsonMapper.resultToJSON(r.evaluation), reasons: [...r.reasons] },
+    debitCurrency: r.quote?.debit.currency ?? "USD",
+    debitMinor: r.quote?.debit.minor ?? null,
+    targetArrivalAtVirtual: r.targetArrivalAt.toDate(),
+    status: r.status,
+    authorization: r.authorization,
+    approvalId: r.approvalId,
+    approvalExpiresAtVirtual: r.approvalExpiresAt?.toDate() ?? null,
+    createdByActorId: r.createdByActorId,
+    version: r.version,
+    createdAtVirtual: r.createdAt.toDate(),
+  };
+}
+
+function toRemittance(row: typeof remittances.$inferSelect): RemittanceRecord {
+  const stored = row.evaluation as { result: RoutingResultJSON; reasons: string[] };
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    mandateId: row.mandateId,
+    recipientId: row.recipientId,
+    sourceAccountId: row.sourceAccountId,
+    purpose: "ARRIVAL_EXPENSES",
+    net: money(row.netCurrency, row.netMinor),
+    targetArrivalAt: VirtualInstant.fromDate(row.targetArrivalAtVirtual),
+    status: row.status as RemittanceStatus,
+    authorization: row.authorization as RemittanceRecord["authorization"],
+    reasons: stored.reasons as RemittanceRecord["reasons"],
+    quote: row.quoteSnapshot ? RouteJsonMapper.quoteFromJSON(row.quoteSnapshot as RouteQuoteJSON) : null,
+    evaluation: RouteJsonMapper.resultFromJSON(stored.result),
+    approvalId: row.approvalId,
+    approvalExpiresAt: row.approvalExpiresAtVirtual ? VirtualInstant.fromDate(row.approvalExpiresAtVirtual) : null,
+    createdByActorId: row.createdByActorId,
+    version: row.version,
+    createdAt: VirtualInstant.fromDate(row.createdAtVirtual),
+  };
 }

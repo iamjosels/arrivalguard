@@ -135,6 +135,17 @@ export class CaseStateMapper {
             period_days: view.mandate.periodDays,
           }
         : null,
+      arrival_transfers: view.remittances.map((r) => ({
+        remittance_id: r.remittanceId,
+        status: r.status,
+        authorization: r.authorization,
+        reasons: r.reasons,
+        net: moneyText(r.net),
+        debit: r.debit ? moneyText(r.debit) : null,
+        route: r.routeId,
+        payment_status: r.attempt?.status ?? null,
+      })),
+      refund_requests: view.refunds.map((c) => ({ claim_id: c.claimId, status: c.status, amount: moneyText(c.amount), destination: `paying account ${last4(c.destinationMasked)}`, settlement: c.settlement ? moneyText(c.settlement) : null })),
       payer_inbox: view.payer
         ? {
             approval_requests: view.payer.requests.map((r) => ({ plan_id: r.planId, plan_version: r.planVersion, proposed_debit: r.proposedDebit ? moneyText(r.proposedDebit) : null, route: r.routeId })),

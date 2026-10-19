@@ -2,7 +2,7 @@ import { detectSecuritySignals } from "@/domain/security/SecuritySignals";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
 import type { ChatActivityDTO, ChatComponentDTO, ChatFallbackReason, ChatHistoryDTO, ChatTurnDTO } from "../dto/ChatDTO";
-import { NotFoundError, ValidationError } from "../errors/ApplicationError";
+import { NotFoundError, RateLimitedError, ValidationError } from "../errors/ApplicationError";
 import { CaseStateMapper } from "../mappers/CaseStateMapper";
 import { CaseViewMapper } from "../mappers/CaseViewMapper";
 import {
@@ -79,6 +79,10 @@ export class ChatTurnUseCase {
     const message = command.message.trim();
     if (!message || message.length > MAX_MESSAGE_CHARS) throw new ValidationError(`Write a message of 1 to ${MAX_MESSAGE_CHARS} characters.`);
     const conversation = await this.conversations.activeFor(actor.workspaceId, actor.role);
+    // Límite de turnos primero: nada se escribe en la bitácora por encima del tope (VC8).
+    const perMinute = await this.limiter.hit(`${this.config.rateLimitPrefix}:chat:min:${actor.workspaceId}`, 60, this.config.turnsPerMinute);
+    const perDay = await this.limiter.hit(`${this.config.rateLimitPrefix}:chat:day:${actor.workspaceId}`, 86_400, this.config.turnsPerDay);
+    if (!perMinute.allowed || !perDay.allowed) throw new RateLimitedError("Too many messages. Wait a moment and use the controls below.", Math.max(perMinute.retryAfterSeconds, perDay.retryAfterSeconds));
 
     // Señales de ataque: quedan en la bitácora y en pantalla. El efecto ya lo impide el servidor. Afirmar que el
     // pagador aprobó no es un ataque si de verdad hay una aprobación vigente o usada para la versión actual.
@@ -91,16 +95,13 @@ export class ChatTurnUseCase {
     const unavailable = await this.unavailableReason(actor.workspaceId);
     if (unavailable) return this.fallbackTurn(actor, conversation.id, message, unavailable, securityComponents);
 
-    const perMinute = await this.limiter.hit(`${this.config.rateLimitPrefix}:chat:min:${actor.workspaceId}`, 60, this.config.turnsPerMinute);
-    const perDay = await this.limiter.hit(`${this.config.rateLimitPrefix}:chat:day:${actor.workspaceId}`, 86_400, this.config.turnsPerDay);
-    if (!perMinute.allowed || !perDay.allowed) return this.fallbackTurn(actor, conversation.id, message, "RATE_LIMITED", securityComponents);
-
     const history = await this.conversations.recentTurns(conversation.id, this.config.historyTurns);
     const caseState = CaseStateMapper.toCaseState(view);
     // A5: turnos pasados como texto plano; el estado real llega siempre por <case_state>.
     const messages: AgentMessage[] = [];
     for (const t of history) {
-      messages.push({ role: "user", content: t.userText });
+      // El texto pasado también se escapa: no puede abrir un <case_state> falso en turnos siguientes (VC8-2).
+      messages.push({ role: "user", content: escapeUserText(t.userText) });
       messages.push({ role: "assistant", content: t.assistantText || "(no reply)" });
     }
     messages.push({ role: "user", content: `<case_state>${JSON.stringify(caseState)}</case_state>\n<user_message>${escapeUserText(message)}</user_message>` });
@@ -120,17 +121,27 @@ export class ChatTurnUseCase {
       while (modelCalls < this.config.maxModelCalls) {
         if (Date.now() - started > this.config.turnDeadlineMs) break;
         const estimate = this.estimate(messages);
-        const budget = await this.budgetProblem(actor.workspaceId, estimate);
-        if (budget) {
-          if (modelCalls === 0) return this.fallbackTurn(actor, conversation.id, message, budget, securityComponents);
+        // Reserva atómica contra los dos topes: turnos simultáneos no pueden superarlos (VC8-1).
+        const reservation = await this.usage.reserve(actor.workspaceId, this.model.model, estimate, {
+          workspace: this.config.budgetPerWorkspaceMicros,
+          daily: this.config.budgetDailyMicros,
+          since: startOfUtcDay(new Date()),
+        });
+        if (!reservation) {
+          if (modelCalls === 0) return this.fallbackTurn(actor, conversation.id, message, "BUDGET_EXHAUSTED", securityComponents);
           break;
         }
-        const reservation = await this.usage.reserve(actor.workspaceId, this.model.model, estimate);
         let response;
         try {
           response = await this.model.respond({ tools: definitions, messages });
         } catch (error) {
-          await this.usage.settle(reservation, { workspaceId: actor.workspaceId, category: "CHAT", model: this.model.model, usage: ZERO_USAGE, costUsdMicros: 0n }, "FAILED");
+          const timeout = error instanceof AgentModelError && error.kind === "TIMEOUT";
+          // Un timeout conserva la estimación (pudo facturarse); cualquier otro error libera la reserva.
+          await this.usage.settle(
+            reservation,
+            { workspaceId: actor.workspaceId, category: "CHAT", model: this.model.model, usage: ZERO_USAGE, costUsdMicros: timeout ? estimate : 0n },
+            timeout ? "TIMEOUT" : "FAILED",
+          );
           throw error;
         }
         modelCalls++;

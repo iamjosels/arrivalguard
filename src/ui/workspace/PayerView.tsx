@@ -6,13 +6,14 @@ import { useState } from "react";
 import type { ActivityDTO, CaseViewDTO } from "@/application/dto/CaseDTO";
 import type { MoneyDTO } from "@/application/dto/MoneyDTO";
 import { formatMoney } from "@/interfaces/format/money";
-import { ApprovalRequestCard, channelName, MoneyFigure, PermissionMeter, StatusPill } from "@/ui/finance";
+import { ApprovalRequestCard, channelName, MoneyFigure, PermissionMeter, remittanceStatus, StatusPill } from "@/ui/finance";
 import { formatDuration, formatWhen, minutesBetween } from "@/ui/format/time";
 import { Button, Field, Input, Panel, Tabs, notify } from "@/ui/primitives";
 import { api } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
 import { ConversationPanel } from "@/ui/chat";
 import { useActionState } from "./actions";
+import { TransferApprovalCard } from "./TransferApprovalCard";
 import { eventDetail, eventTitle, firstName, parseUsdToMinor, sealCode } from "./copy";
 import { ProblemNotice } from "./ProblemNotice";
 import { lastFour, reasonContext } from "./StudentView";
@@ -33,7 +34,12 @@ export function PayerView({ data, refresh, workspaceId }: { data: CaseViewDTO; r
         value={tab}
         onChange={(id) => setTab(id as MobileTab)}
         tabs={[
-          { id: "requests", label: "Requests", badge: (data.payer?.requests.length ?? 0) > 0, icon: <Inbox aria-hidden className="size-4" strokeWidth={1.75} /> },
+          {
+            id: "requests",
+            label: "Requests",
+            badge: (data.payer?.requests.length ?? 0) > 0 || data.remittances.some((r) => r.status === "APPROVAL_REQUESTED"),
+            icon: <Inbox aria-hidden className="size-4" strokeWidth={1.75} />,
+          },
           { id: "permissions", label: "Permissions", icon: <SlidersHorizontal aria-hidden className="size-4" strokeWidth={1.75} /> },
           { id: "activity", label: "Activity", icon: <MessageSquare aria-hidden className="size-4" strokeWidth={1.75} /> },
         ]}
@@ -78,10 +84,15 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
   const current = history.filter((a) => a.planVersion === plan?.version && route);
   const older = history.filter((a) => !(a.planVersion === plan?.version && route));
   const changes = data.payer?.pendingChanges ?? [];
+  const transfers = data.remittances.filter((r) => r.status === "APPROVAL_REQUESTED");
+  const waiting = requests.length + changes.length + transfers.length;
   return (
-    <Panel title="Requests" aside={<span className="text-[12px] font-medium text-muted">{requests.length + changes.length > 0 ? `${requests.length + changes.length} waiting` : ""}</span>}>
+    <Panel title="Requests" aside={<span className="text-[12px] font-medium text-muted">{waiting > 0 ? `${waiting} waiting` : ""}</span>}>
       <div className="space-y-3">
-        {requests.length === 0 && changes.length === 0 && history.length === 0 ? <p className="text-[14px] leading-[22px] text-ink-2">Nothing needs your approval.</p> : null}
+        {waiting === 0 && history.length === 0 ? <p className="text-[14px] leading-[22px] text-ink-2">Nothing needs your approval.</p> : null}
+        {transfers.map((r) => (
+          <TransferApprovalCard key={`${r.remittanceId}-${r.version}`} remittanceId={r.remittanceId} data={data} />
+        ))}
         {requests.filter((r) => r.proposedDebit).map((r) => (
           <ApprovalRequestCard
             key={`${r.planId}-${r.planVersion}`}
@@ -161,7 +172,21 @@ function activityText(item: ActivityDTO, data: CaseViewDTO): string {
     case "APPROVAL_REQUESTED":
       return `${student} requested your approval${version ? ` for plan version ${version}` : ""}.`;
     case "APPROVAL_GRANTED":
+      if (typeof s.remittanceId === "string") {
+        return `You approved a transfer to ${student}'s local account${isMoneyDTO(s.debit) ? `, ${formatMoney(s.debit)}` : ""}.${typeof s.fingerprint === "string" ? ` Seal ${sealCode(s.fingerprint)}.` : ""}`;
+      }
       return `You approved${version ? ` plan version ${version}` : " the plan"}.${typeof s.fingerprint === "string" ? ` Seal ${sealCode(s.fingerprint)}.` : ""}`;
+    case "REMITTANCE_EXECUTED_UNDER_MANDATE":
+      return `${student} sent ${isMoneyDTO(s.net) ? formatMoney(s.net) : "a transfer"} under your standing permission.${typeof s.routeId === "string" ? ` Route ${s.routeId}` : ""}${isMoneyDTO(s.debit) ? `, ${formatMoney(s.debit)}` : ""}.`;
+    case "REMITTANCE_ESCALATED":
+      return `${student} asked to send ${isMoneyDTO(s.net) ? formatMoney(s.net) : "a transfer"}${isMoneyDTO(s.debit) ? ` (${formatMoney(s.debit)})` : ""}. It is above your standing permission and needs your approval.`;
+    case "REMITTANCE_DELIVERED":
+      return `${data.localAccount.bankName ?? "The local bank"} delivered ${isMoneyDTO(s.net) ? formatMoney(s.net) : "the transfer"} to ${student}'s local account.`;
+    case "REFUND_CLAIM_SUBMITTED":
+      return `${student} requested a refund of ${isMoneyDTO(s.amount) ? formatMoney(s.amount) : "the verified overpayment"} to your account.`;
+    case "REFUND_CLAIM_UPDATED":
+      if (s.status === "REFUNDED") return `Refunded: ${isMoneyDTO(s.settlement) ? formatMoney(s.settlement) : "the refund"} returned to your account.`;
+      return `Refund request ${typeof s.status === "string" ? s.status.toLowerCase().replace(/_/g, " ") : "updated"}.`;
     case "APPROVAL_INVALIDATED":
       return `Approval${version ? ` for plan version ${version}` : ""} no longer matches. The plan changed.`;
     case "APPROVAL_REVOKED":
@@ -250,6 +275,27 @@ function PermissionsPanel({ data, refresh, workspaceId }: { data: CaseViewDTO; r
               {mandate.status === "ACTIVE" ? (
                 <>
                   <PermissionMeter used={mandate.usedThisPeriod} max={mandate.periodMax} />
+                  {data.remittances.some((r) => r.attempt) ? (
+                    <ul className="divide-y divide-line border-y border-line text-[14px] leading-[22px]">
+                      {data.remittances
+                        .filter((r) => r.attempt)
+                        .slice()
+                        .reverse()
+                        .map((r) => {
+                          const st = remittanceStatus(r, firstName(data.people.payer));
+                          return (
+                            <li key={r.remittanceId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                              <span className="text-ink">
+                                <MoneyFigure money={r.net} size="s" />
+                                {r.debit ? <span className="text-ink-2"> for {formatMoney(r.debit)}</span> : null}
+                                {r.authorization === "PAYER_APPROVAL" ? <span className="text-muted">, approved by you</span> : null}
+                              </span>
+                              <StatusPill status={st.pill} label={st.label} />
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  ) : null}
                   <Button
                     variant="danger"
                     loading={actions.busy === "revoke"}

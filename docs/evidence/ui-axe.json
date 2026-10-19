@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T02:35:26.666Z",
+  "generatedAt": "2026-10-19T03:29:08.219Z",
   "baseUrl": "http://localhost:3000",
   "screens": [
     {
@@ -235,6 +235,34 @@
     },
     {
       "screen": "student-credited-390-dark",
+      "horizontalOverflowPx": 0,
+      "serious": 0,
+      "critical": 0,
+      "ids": []
+    },
+    {
+      "screen": "student-transfer-1440-light",
+      "horizontalOverflowPx": 0,
+      "serious": 0,
+      "critical": 0,
+      "ids": []
+    },
+    {
+      "screen": "student-transfer-1440-dark",
+      "horizontalOverflowPx": 0,
+      "serious": 0,
+      "critical": 0,
+      "ids": []
+    },
+    {
+      "screen": "student-transfer-390-light",
+      "horizontalOverflowPx": 0,
+      "serious": 0,
+      "critical": 0,
+      "ids": []
+    },
+    {
+      "screen": "student-transfer-390-dark",
       "horizontalOverflowPx": 0,
       "serious": 0,
       "critical": 0,

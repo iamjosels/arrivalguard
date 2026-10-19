@@ -10,7 +10,7 @@ describe("Redacción de payloads (BUILD_PROMPT 14.1)", () => {
 
   it("borra valores con forma de secreto y claves sensibles", () => {
     const out = redact({
-      note: "key sk-ant-api03-abcdef and postgresql://u:p@host/db",
+      note: "key sk-ant-api03-abcdef and postgresql://u:p@host/db", // secrets-scan:allow (dato falso de prueba)
       sessionToken: "abc",
       authorization: "Bearer x",
       evalAccessCode: "AG-1234",
@@ -44,7 +44,7 @@ describe("Redacción de payloads (BUILD_PROMPT 14.1)", () => {
   });
 
   it("un secreto dentro de un campo con nombre de identificador igual se borra", () => {
-    expect(redact({ requestId: "sk-ant-api03-zzzz" })).toEqual({ requestId: "[redacted]" });
+    expect(redact({ requestId: "sk-ant-api03-zzzz" })).toEqual({ requestId: "[redacted]" }); // secrets-scan:allow (dato falso de prueba)
   });
 
   it("no toca las unidades menores de dinero aunque sean números largos", () => {

@@ -14,6 +14,7 @@ import {
   DrizzleMandateRepository,
   DrizzlePlanRepository,
   DrizzleRefundRepository,
+  DrizzleRemittanceRepository,
 } from "./repositories/paymentRepositories";
 import {
   DrizzleActorRepository,
@@ -36,6 +37,7 @@ export function repositoriesFor(db: DbExecutor): Repositories {
     attempts: new DrizzleAttemptRepository(db),
     mandates: new DrizzleMandateRepository(db),
     refunds: new DrizzleRefundRepository(db),
+    remittances: new DrizzleRemittanceRepository(db),
     finance: new DrizzleFinanceFactsRepository(db),
     events: new DrizzleEventRepository(db),
     providerReceipts: new DrizzleProviderEventReceiptRepository(db),

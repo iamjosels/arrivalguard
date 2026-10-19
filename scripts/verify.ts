@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
-// pnpm verify (AUTONOMIA 5): typecheck, lint, test, db:seed-check y build. Desde la Fase 7, también secrets-scan.
-const steps = ["typecheck", "lint", "test", "db:seed-check", "build"];
+// pnpm verify (AUTONOMIA 5): typecheck, lint, test, db:seed-check, build y, desde la Fase 7, secrets-scan.
+const steps = ["typecheck", "lint", "test", "db:seed-check", "build", "secrets-scan"];
 
 const results: { step: string; ok: boolean; seconds: number }[] = [];
 for (const step of steps) {

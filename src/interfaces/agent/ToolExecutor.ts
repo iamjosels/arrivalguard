@@ -2,14 +2,15 @@ import type { ActorContext } from "@/application/ActorContext";
 import type { ChatComponentDTO } from "@/application/dto/ChatDTO";
 import { ApplicationError } from "@/application/errors/ApplicationError";
 import { CaseStateMapper } from "@/application/mappers/CaseStateMapper";
-import { CaseViewMapper, CashProjectionMapper, RouteMapper } from "@/application/mappers/CaseViewMapper";
+import { CaseViewMapper, CashProjectionMapper, RefundMapper, RouteMapper } from "@/application/mappers/CaseViewMapper";
+import { moneyText } from "@/application/mappers/CaseStateMapper";
 import type { AgentToolDefinition, ToolOutcome, ToolRunnerPort } from "@/application/ports/AgentPorts";
 import { event } from "@/application/services/events";
-import { DomainError } from "@/domain/errors/DomainError";
+import { DomainError, PolicyViolationError } from "@/domain/errors/DomainError";
 import type { ActorRole } from "@/domain/events/DomainEvent";
 import { Money } from "@/domain/money/Money";
 import type { CoreContainer } from "@/infrastructure/container";
-import { presentAttempt, presentPlan } from "../http/presenters";
+import { presentAttempt, presentPlan, presentRemittance } from "../http/presenters";
 import { ACTIVITY_LABELS, ROLE_TOOLS, TOOL_INPUTS, toolsForRole, type ToolName } from "./toolCatalog";
 
 // Ejecutor de herramientas (BUILD_PROMPT 13.2 y 13.3). Usa SIEMPRE el actor de la sesión: el modelo no puede elegir
@@ -125,6 +126,59 @@ export class ToolExecutor implements ToolRunnerPort {
         );
         return { result: { projection: CaseStateMapper.cash(projection) }, components: [{ kind: "CASH", projection }] };
       }
+      case "prepare_remittance": {
+        const local = (await app.deps.uow.read.recipients.list(actor.workspaceId)).find((r) => r.kind === "STUDENT_LOCAL");
+        const asked = input.recipient_id as string | undefined;
+        if (asked && asked !== local?.id) {
+          // Un destino que no es la cuenta local verificada no se acepta (S15): queda como inducción.
+          await this.securityBlock(actor, "prepare_remittance", "INDUCED_TRANSFER", "RECIPIENT_NOT_VERIFIED");
+          throw new PolicyViolationError(["RECIPIENT_NOT_VERIFIED"]);
+        }
+        const record = await app.prepareRemittance.execute(actor, { net: Money.fromDecimal("CNY", input.net_amount as string), targetArrivalHours: input.target_arrival_hours as number });
+        const remittance = await presentRemittance(app, actor, record.id);
+        return {
+          result: {
+            remittance_id: record.id,
+            status: record.status,
+            authorization: record.authorization,
+            reasons: record.reasons,
+            route: record.quote?.routeId ?? null,
+            debit: record.quote ? moneyText(record.quote.debit.toJSON()) : null,
+            net: moneyText(record.net.toJSON()),
+            next: record.status === "READY" ? "Within the standing permission: it can be sent." : record.status === "APPROVAL_REQUESTED" ? "Above the standing permission: the payer must approve it once on his screen." : "Blocked: see reasons.",
+          },
+          components: [{ kind: "REMITTANCE", remittance }],
+        };
+      }
+      case "execute_remittance": {
+        const remittanceId = input.remittance_id as string;
+        const record = await app.deps.uow.read.remittances.get(actor.workspaceId, remittanceId);
+        // Clave derivada por el servidor: un reintento del agente repite la misma.
+        const key = `remittance:${remittanceId}:v${record?.version ?? 0}:${record?.approvalId ?? "mandate"}`;
+        const outcome = await app.executeRemittance.execute(actor, { remittanceId, idempotencyKey: key });
+        const remittance = await presentRemittance(app, actor, remittanceId);
+        if (outcome.outcome === "NEEDS_PAYER_APPROVAL") {
+          return { result: { sent: false, needs_payer_approval: true, reasons: outcome.remittance.reasons }, components: [{ kind: "REMITTANCE", remittance }] };
+        }
+        const attempt = await presentAttempt(app, actor, outcome.attempt.attempt.id);
+        return { result: { sent: true, replayed: outcome.replayed, payment: CaseStateMapper.attempt(attempt) }, components: [{ kind: "REMITTANCE", remittance }] };
+      }
+      case "prepare_refund_claim": {
+        const claim = await app.prepareRefund.execute(actor, { obligationId: input.obligation_id as string });
+        const account = await app.deps.uow.read.accounts.getByKind(actor.workspaceId, "PAYER_USD");
+        const dto = RefundMapper.toDTO(claim, account?.toProps().maskedNumber ?? "••••");
+        return {
+          result: { claim_id: claim.id, status: claim.status, amount: moneyText(dto.amount), destination: "the paying account (fixed)", verified_excess: moneyText(dto.verifiedExcess) },
+          components: [{ kind: "REFUND", claim: dto }],
+        };
+      }
+      case "submit_refund_claim": {
+        const claimId = input.claim_id as string;
+        const submitted = await app.submitRefund.execute(actor, { claimId, idempotencyKey: `refund:${claimId}` });
+        const account = await app.deps.uow.read.accounts.getByKind(actor.workspaceId, "PAYER_USD");
+        const dto = RefundMapper.toDTO(submitted.claim, account?.toProps().maskedNumber ?? "••••");
+        return { result: { claim_id: claimId, status: dto.status, replayed: submitted.replayed }, components: [{ kind: "REFUND", claim: dto }] };
+      }
       case "prepare_policy_change": {
         const record = await app.preparePayerChange.execute(actor, {
           kind: "POLICY_CHANGE",
@@ -149,6 +203,13 @@ export class ToolExecutor implements ToolRunnerPort {
         };
       }
     }
+  }
+
+  private async securityBlock(actor: ActorContext, tool: string, category: "INDUCED_TRANSFER" | "PRIVILEGE_ESCALATION", reason: string): Promise<void> {
+    const app = this.app();
+    const workspace = await app.deps.uow.read.workspaces.get(actor.workspaceId);
+    if (!workspace) return;
+    await app.deps.uow.transaction((r) => r.events.append(actor.workspaceId, [event("SECURITY_BLOCK", actor.role, { type: "Tool", id: tool }, workspace.virtualNow, { category, reason, tool })]));
   }
 
   /** Herramienta ajena al rol (o inventada): se rechaza y queda como SECURITY_BLOCK de escalada de privilegios. */

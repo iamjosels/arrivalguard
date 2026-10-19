@@ -122,9 +122,11 @@ export class TuitionPaymentProcessor {
   private async settleFailed(workspaceId: string, attemptId: string, via: TransitionSource, actorRole: ActorRole | "system", code: string): Promise<void> {
     await this.deps.uow.transaction(async (r) => {
       const now = await this.now(r, workspaceId);
-      const { record, account, planRecord } = await this.lockChain(r, workspaceId, attemptId);
+      const { record, account, planRecord, remittance } = await this.lockChain(r, workspaceId, attemptId);
       const status = record.attempt.status;
       if (status !== "SUBMITTING" && status !== "UNKNOWN") return;
+      // Remesa fallida sin débito: queda FAILED; una nueva se prepara de nuevo.
+      if (remittance && remittance.status === "EXECUTING") await r.remittances.save({ ...remittance, status: "FAILED" });
       const events: DomainEventDraft[] = [];
       const subject = { type: "PaymentAttempt", id: attemptId };
       if (via === "SUBMISSION") events.push(event("PROVIDER_SUBMIT_SENT", actorRole, subject, now, { attemptId, outcome: "FAILED" }));
@@ -155,10 +157,12 @@ export class TuitionPaymentProcessor {
     const reference = obligationId ? ((await this.deps.uow.read.obligations.get(workspaceId, obligationId))?.reference ?? null) : null;
     const providerEvents = await this.deps.provider.events(ctx, effectiveTransferId);
     const credit = peek.attempt.kind === "TUITION" && reference ? await this.deps.institution.getCreditStatus(ctx, reference, effectiveTransferId) : null;
+    // Remesa: el proveedor la entrega a la cuenta local cuando se cumple la llegada prevista (hora virtual).
+    const transfer = peek.attempt.kind === "REMITTANCE" ? await this.deps.provider.getTransfer(ctx, peek.attempt.idempotencyKey) : null;
 
     await this.deps.uow.transaction(async (r) => {
       const now = ctx.now;
-      const { record, account, obligation, planRecord } = await this.lockChain(r, workspaceId, attemptId);
+      const { record, account, localAccount, obligation, planRecord, remittance } = await this.lockChain(r, workspaceId, attemptId);
       const events: DomainEventDraft[] = [];
       const subject = { type: "PaymentAttempt", id: attemptId };
       const attempt = record.attempt;
@@ -221,26 +225,47 @@ export class TuitionPaymentProcessor {
           );
         }
       }
+      if (attempt.kind === "REMITTANCE" && attempt.status === "PROVIDER_ACCEPTED" && transfer?.expectedArrivalAt && !now.isBefore(transfer.expectedArrivalAt)) {
+        // Entregada una sola vez: la transición PROVIDER_ACCEPTED -> DELIVERED ocurre una vez y con ella el abono local.
+        attempt.transitionTo("DELIVERED", "PROVIDER");
+        changedAt = transfer.expectedArrivalAt;
+        const net = record.quote.net;
+        if (localAccount) {
+          localAccount.credit(net);
+          await r.accounts.save(localAccount);
+        }
+        if (remittance) await r.remittances.save({ ...remittance, status: "DELIVERED" });
+        events.push(
+          event("REMITTANCE_DELIVERED", "system", subject, now, {
+            attemptId,
+            remittanceId: attempt.toProps().subjectId,
+            net: net.toJSON(),
+            deliveredAt: transfer.expectedArrivalAt.toISOString(),
+          }),
+        );
+      }
       await r.attempts.save({ ...record, statusChangedAt: changedAt });
       await r.events.append(workspaceId, events);
     });
   }
 
-  /** Bloquea cuenta, obligación, plan e intento, en ese orden. */
+  /** Bloquea cuenta (y cuenta local en remesas), obligación, plan o remesa, e intento, en ese orden. */
   private async lockChain(r: Repositories, workspaceId: string, attemptId: string) {
     const peek = await r.attempts.get(workspaceId, attemptId);
     if (!peek) throw new NotFoundError();
     const kind = peek.attempt.kind;
     const account = await r.accounts.getByKind(workspaceId, "PAYER_USD", { forUpdate: true });
     if (!account) throw new NotFoundError();
+    const localAccount = kind === "REMITTANCE" ? await r.accounts.getByKind(workspaceId, "STUDENT_LOCAL_CNY", { forUpdate: true }) : null;
     const obligationId = peek.attempt.toProps().obligationId;
     const obligation = obligationId ? await r.obligations.get(workspaceId, obligationId, { forUpdate: true }) : null;
     const planId = peek.attempt.toProps().subjectId;
     if (kind === "TUITION") await r.plans.getCurrent(workspaceId, planId, { forUpdate: true });
     const planRecord = kind === "TUITION" ? await r.plans.getVersion(workspaceId, planId, peek.subjectVersion) : null;
+    const remittance = kind === "REMITTANCE" ? await r.remittances.get(workspaceId, planId, { forUpdate: true }) : null;
     const record = await r.attempts.get(workspaceId, attemptId, { forUpdate: true });
     if (!record) throw new NotFoundError();
-    return { record, account, obligation, planRecord };
+    return { record, account, localAccount, obligation, planRecord, remittance };
   }
 
   private async loadForSubmit(workspaceId: string, attemptId: string): Promise<{ record: AttemptRecord; ctx: SimulationContext; payload: TransferPayload }> {

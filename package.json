@@ -23,7 +23,9 @@
     "smoke": "tsx scripts/smoke.ts",
     "verify": "tsx scripts/verify.ts",
     "ui:check": "tsx scripts/ui-check.ts",
-    "ai:turns": "tsx scripts/ai-turns.ts"
+    "ai:turns": "tsx scripts/ai-turns.ts",
+    "secrets-scan": "tsx scripts/secrets-scan.ts",
+    "smoke:chat": "tsx scripts/chat-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

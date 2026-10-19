@@ -1,6 +1,7 @@
 import type { CoreContainer } from "@/infrastructure/container";
 import type { ActorContext } from "@/application/ActorContext";
-import { AttemptMapper, PlanMapper } from "@/application/mappers/CaseViewMapper";
+import { NotFoundError } from "@/application/errors/ApplicationError";
+import { AttemptMapper, PlanMapper, RemittanceMapper } from "@/application/mappers/CaseViewMapper";
 import type { PlanVersionRecord } from "@/domain/ports/Repositories";
 import { visibleTuitionStatus } from "@/domain/payment/VisibleStatus";
 
@@ -14,6 +15,15 @@ export async function presentPlan(app: CoreContainer, actor: ActorContext, recor
   ]);
   const university = recipients.find((r) => r.kind === "INSTITUTION");
   return PlanMapper.toDTO(record, approvals, recipients, university?.id ?? "", workspace!.virtualNow);
+}
+
+/** Arma RemittanceDTO con su último intento y el destinatario enmascarado. */
+export async function presentRemittance(app: CoreContainer, actor: ActorContext, remittanceId: string) {
+  const repos = app.deps.uow.read;
+  const [record, attempts, recipients] = await Promise.all([repos.remittances.get(actor.workspaceId, remittanceId), repos.attempts.listAll(actor.workspaceId), repos.recipients.list(actor.workspaceId)]);
+  if (!record) throw new NotFoundError();
+  const attempt = attempts.filter((a) => a.attempt.kind === "REMITTANCE" && a.attempt.toProps().subjectId === record.id).at(-1) ?? null;
+  return RemittanceMapper.toDTO(record, attempt, recipients.find((r) => r.id === record.recipientId)?.maskedAccount ?? "••••");
 }
 
 /** Arma AttemptDTO con su estado visible y procedencia. */

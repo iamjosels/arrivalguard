@@ -52,6 +52,35 @@ export const TOOL_DEFINITIONS: Readonly<Record<string, AgentToolDefinition>> = {
     description: "Projects cash per currency after planned payments. Conditional income such as an unpaid scholarship is shown apart and not counted.",
     inputSchema: obj({ arrival_expenses_usd: usd("Optional estimate of arrival expenses.") }),
   },
+  prepare_remittance: {
+    name: "prepare_remittance",
+    description: "Prepares a transfer in CNY to the student's own verified local account for arrival expenses. Within the standing permission it is ready to send; above it, it escalates to the payer. Moves no money.",
+    inputSchema: obj(
+      {
+        net_amount: { type: "string", description: 'Amount the local account must receive, decimal string, for example "2000.00".' },
+        currency: { type: "string", enum: ["CNY"] },
+        purpose: { type: "string", enum: ["ARRIVAL_EXPENSES"] },
+        recipient_id: { type: "string", description: "Optional. Only the student's own local account can receive transfers." },
+        target_arrival_hours: hours,
+      },
+      ["net_amount", "currency", "purpose", "target_arrival_hours"],
+    ),
+  },
+  execute_remittance: {
+    name: "execute_remittance",
+    description: "Sends a prepared arrival transfer. The server re-checks the standing permission at send time; if it no longer fits, it escalates to the payer instead of sending.",
+    inputSchema: obj({ remittance_id: uuidProp("Remittance id from a prepare_remittance result or the case state.") }, ["remittance_id"]),
+  },
+  prepare_refund_claim: {
+    name: "prepare_refund_claim",
+    description: "Prepares a refund request for the verified overpayment of an obligation. The amount is the verified excess and the money returns only to the paying account.",
+    inputSchema: obj({ obligation_id: uuidProp("Obligation id from the case state.") }, ["obligation_id"]),
+  },
+  submit_refund_claim: {
+    name: "submit_refund_claim",
+    description: "Submits a prepared refund request to the university. Its status then advances with virtual time.",
+    inputSchema: obj({ claim_id: uuidProp("Refund claim id from prepare_refund_claim.") }, ["claim_id"]),
+  },
   prepare_policy_change: {
     name: "prepare_policy_change",
     description: "Prepares a change to the tuition limit or the arrival reserve. It does NOT apply it: the payer confirms it on a fixed screen.",
@@ -65,7 +94,20 @@ export const TOOL_DEFINITIONS: Readonly<Record<string, AgentToolDefinition>> = {
 };
 
 export const ROLE_TOOLS: Readonly<Record<"student" | "payer", readonly string[]>> = {
-  student: ["get_case_overview", "plan_tuition_payment", "compare_routes", "request_payer_approval", "execute_approved_payment", "get_payment_status", "reconcile_payment", "project_cash"],
+  student: [
+    "get_case_overview",
+    "plan_tuition_payment",
+    "compare_routes",
+    "request_payer_approval",
+    "execute_approved_payment",
+    "get_payment_status",
+    "reconcile_payment",
+    "project_cash",
+    "prepare_remittance",
+    "execute_remittance",
+    "prepare_refund_claim",
+    "submit_refund_claim",
+  ],
   payer: ["get_case_overview", "get_payment_status", "reconcile_payment", "project_cash", "compare_routes", "prepare_policy_change", "prepare_mandate_change"],
 };
 
@@ -94,6 +136,16 @@ export const TOOL_INPUTS = {
     .strictObject({ new_max_usd: decimalUsd.optional(), new_reserve_usd: decimalUsd.optional() })
     .refine((v) => v.new_max_usd !== undefined || v.new_reserve_usd !== undefined, { message: "Say what should change" }),
   prepare_mandate_change: z.strictObject({ mandate_id: uuid, new_period_max_usd: decimalUsd.optional(), revoke: z.boolean().optional() }),
+  prepare_remittance: z.strictObject({
+    net_amount: z.string().regex(/^\d{1,9}(\.\d{1,2})?$/, "Use a decimal string like 2000.00"),
+    currency: z.literal("CNY"),
+    purpose: z.literal("ARRIVAL_EXPENSES"),
+    recipient_id: z.string().max(64).optional(),
+    target_arrival_hours: z.number().int().min(1).max(720),
+  }),
+  execute_remittance: z.strictObject({ remittance_id: uuid }),
+  prepare_refund_claim: z.strictObject({ obligation_id: uuid }),
+  submit_refund_claim: z.strictObject({ claim_id: uuid }),
 } as const;
 
 export type ToolName = keyof typeof TOOL_INPUTS;
@@ -110,4 +162,8 @@ export const ACTIVITY_LABELS: Readonly<Record<ToolName, string>> = {
   project_cash: "Projecting your funds",
   prepare_policy_change: "Preparing the change",
   prepare_mandate_change: "Preparing the change",
+  prepare_remittance: "Validating limits",
+  execute_remittance: "Sending the transfer",
+  prepare_refund_claim: "Checking with the university",
+  submit_refund_claim: "Submitting the refund request",
 };

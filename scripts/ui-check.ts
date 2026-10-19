@@ -18,6 +18,15 @@ const SIZES = [
 ] as const;
 const THEMES = ["light", "dark"] as const;
 
+/** Violaciones de la CSP y errores de página vistos en la consola del navegador (deben ser 0). */
+const consoleProblems: string[] = [];
+function watchConsole(page: Page, where: string): void {
+  page.on("console", (msg) => {
+    if (msg.type() === "error" && /Content Security Policy|Refused to (execute|load|apply)/i.test(msg.text())) consoleProblems.push(`${where}: ${msg.text().slice(0, 160)}`);
+  });
+  page.on("pageerror", (err) => consoleProblems.push(`${where}: ${err.message.slice(0, 160)}`));
+}
+
 interface AxeRow {
   readonly screen: string;
   /** Ancho del documento menos el de la ventana: debe ser 0 (sin scroll horizontal, UI_UX 14). */
@@ -42,6 +51,7 @@ runMain(async () => {
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL: baseUrl });
     const page = await context.newPage();
+    watchConsole(page, "recorrido");
     const step = async (label: string, action: () => Promise<void>) => {
       const started = Date.now();
       try {
@@ -137,12 +147,32 @@ runMain(async () => {
     });
     await capture(browser, baseUrl, context, "student-credited", `${workspacePath}?as=student`, shots, axe);
 
+    // T3 con clics en un espacio nuevo del escenario de transferencias: CNY 2,000 dentro del permiso permanente.
+    await step("transferencia de llegada (arrival_remittance): Send transfer de CNY 2,000", async () => {
+      await page.goto("/");
+      await page.getByLabel("Evaluation code").fill(code);
+      await page.getByRole("radio", { name: /Arrival transfers/ }).check();
+      await page.getByRole("button", { name: "Open the demo" }).click();
+      await page.waitForURL(/\/w\/[0-9a-f-]+\?as=student/);
+      await page.getByRole("button", { name: "Use structured controls" }).click();
+      await page.getByRole("button", { name: "Send transfer" }).first().click();
+      await page.getByRole("button", { name: "Check this transfer" }).click();
+      await page.locator("[data-sonner-toast]", { hasText: "Transfer ready to send" }).first().waitFor();
+      await page.getByRole("button", { name: "Send transfer" }).last().click();
+      await page.locator("[data-sonner-toast]", { hasText: "Transfer sent" }).first().waitFor();
+      const transfers = page.locator("section", { has: page.getByRole("heading", { name: /Transfers to/ }) });
+      await transfers.getByText("Accepted by provider").first().waitFor();
+    });
+    await capture(browser, baseUrl, context, "student-transfer", new URL(page.url()).pathname + "?as=student", shots, axe);
+
     fs.writeFileSync(EVIDENCE, `${JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, screens: axe }, null, 2)}\n`);
     const serious = axe.reduce((n, r) => n + r.serious + r.critical, 0);
     console.log(`axe: ${axe.length} capturas revisadas, ${serious} violaciones serias o críticas (${path.relative(process.cwd(), EVIDENCE)})`);
     const wide = axe.filter((r) => r.horizontalOverflowPx > 0);
     console.log(`scroll horizontal: ${wide.length === 0 ? "ninguno" : wide.map((r) => `${r.screen} (+${r.horizontalOverflowPx} px)`).join(", ")}`);
-    if (wide.length > 0 || serious > 0) return 1;
+    console.log(`consola (CSP y errores de página): ${consoleProblems.length === 0 ? "sin problemas" : consoleProblems.length}`);
+    for (const p of consoleProblems.slice(0, 10)) console.log(`  ${p}`);
+    if (wide.length > 0 || serious > 0 || consoleProblems.length > 0) return 1;
     console.log("ui:check: OK (T1 CREDITED solo con clics)");
     return 0;
   } finally {
@@ -172,6 +202,7 @@ async function capture(
     for (const theme of themes) {
       const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, baseURL: baseUrl, storageState: state, colorScheme: theme, reducedMotion: "reduce" });
       const page: Page = await context.newPage();
+      watchConsole(page, `${name}-${size.name}-${theme}`);
       await page.goto(url);
       await page.waitForLoadState("networkidle");
       if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, `${name}-${size.name}-${theme}.png`), fullPage });

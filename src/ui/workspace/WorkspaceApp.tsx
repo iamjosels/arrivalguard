@@ -11,6 +11,7 @@ import { api, setWorkspaceScope, type ActorRole } from "@/ui/lib/api";
 import { useResource } from "@/ui/lib/useResource";
 import { minutesBetween } from "@/ui/format/time";
 import { firstName, scenarioLabel } from "./copy";
+import { EvidenceButton } from "./EvidenceDrawer";
 import { PayerView } from "./PayerView";
 import { StudentView } from "./StudentView";
 
@@ -71,6 +72,7 @@ export function WorkspaceApp({ workspaceId, role }: { workspaceId: string; role:
           virtualNow={virtualNow}
           elapsedMinutes={elapsed}
           roles={roles}
+          actions={<EvidenceButton role={role} />}
         />
         <SimulationBand />
       </div>

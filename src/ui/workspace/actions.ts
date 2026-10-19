@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import type { RefundDTO, RemittanceDTO } from "@/application/dto/CaseDTO";
 import { ApiError, api, newIdempotencyKey, type ActorRole } from "@/ui/lib/api";
 
 // Acciones del espacio contra la API. El servidor decide; la interfaz muestra la razón exacta que devuelve.
@@ -77,9 +78,28 @@ export function usePaymentKey() {
   }, []);
 }
 
+/** Una clave por acción y sujeto (remesa o reclamo): un reintento de la misma acción repite la misma clave. */
+export function useActionKeys() {
+  const ref = useRef(new Map<string, string>());
+  return useCallback((scope: string) => {
+    let key = ref.current.get(scope);
+    if (!key) {
+      key = newIdempotencyKey(`ui-${scope.split(":")[0]}`);
+      ref.current.set(scope, key);
+    }
+    return key;
+  }, []);
+}
+
 export const studentApi = {
   plan: (targetArrivalHours: number) => api<{ outcome: string; plan: { status: string } }>("/api/plans", { role: "student", body: { targetArrivalHours } }),
   requestApproval: (planId: string) => api("/api/approvals/requests", { role: "student", body: { planId } }),
   send: (role: ActorRole, planId: string, key: string) => api<{ replayed: boolean; attempt: { status: string } }>("/api/payments", { role, body: { planId }, idempotencyKey: key }),
+  prepareRemittance: (netAmount: string, targetArrivalHours: number) =>
+    api<{ remittance: RemittanceDTO }>("/api/remittances", { role: "student", body: { netAmount, targetArrivalHours } }),
+  executeRemittance: (remittanceId: string, key: string) =>
+    api<{ outcome: "SENT" | "NEEDS_PAYER_APPROVAL"; replayed?: boolean; remittance: RemittanceDTO }>(`/api/remittances/${remittanceId}/execute`, { role: "student", body: {}, idempotencyKey: key }),
+  prepareRefund: (obligationId: string) => api<{ claim: RefundDTO }>("/api/refund-claims", { role: "student", body: { obligationId } }),
+  submitRefund: (claimId: string, key: string) => api<{ replayed: boolean; claim: RefundDTO }>(`/api/refund-claims/${claimId}/submit`, { role: "student", body: {}, idempotencyKey: key }),
   check: (role: ActorRole, attemptId: string) => api<{ attempt: { status: string; visibleStatus: string } }>(`/api/payments/${attemptId}/reconcile`, { role, body: {} }),
 };

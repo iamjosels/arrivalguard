@@ -60,6 +60,19 @@ export const emptyBody = z.strictObject({});
 
 export const chatBody = z.strictObject({ message: z.string().min(1).max(2000) });
 
+/** T3: solo el monto neto en CNY y el plazo. El destino es siempre la cuenta local de la estudiante. */
+export const remittanceBody = z.strictObject({
+  netAmount: z.string().regex(/^\d{1,9}(\.\d{1,2})?$/, "Use a decimal string like 2000.00"),
+  targetArrivalHours: z.number().int().min(1).max(720),
+});
+
+export const approveRemittanceBody = z.strictObject({ version: z.number().int().min(1), fingerprint });
+
+/** T7: solo la obligación. Monto (el exceso verificado) y destino (la cuenta de origen) los fija el servidor. */
+export const refundClaimBody = z.strictObject({ obligationId: uuid });
+
+export const evidenceQuery = z.strictObject({ format: z.enum(["json", "md"]).optional() });
+
 export const eventsQuery = z.strictObject({ afterSeq: z.coerce.number().int().min(0).optional() });
 
 export const uuidParam = uuid;
