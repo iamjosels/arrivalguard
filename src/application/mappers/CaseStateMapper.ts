@@ -17,12 +17,14 @@ export function moneyText(dto: MoneyDTO): string {
 
 const last4 = (masked: string) => `ending ${masked.replace(/\D/g, "").slice(-4)}`;
 
+const ACRONYMS = new Set(["FX", "ACH", "SWIFT"]);
+
 /** "EDU_PAY_PARTNER" a "Edu Pay Partner": el nombre que el modelo puede decir. */
 function providerName(channel: string): string {
   return channel
     .split(/[_\s]+/)
     .filter(Boolean)
-    .map((w) => (w.length <= 3 && w === w.toUpperCase() ? w : w.charAt(0) + w.slice(1).toLowerCase()))
+    .map((w) => (ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0) + w.slice(1).toLowerCase()))
     .join(" ");
 }
 

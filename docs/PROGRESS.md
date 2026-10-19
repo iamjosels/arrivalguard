@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 22:18.
-- **Fase:** 5 Agente y 6 Capacidades P1 cerrándose; se llevan a `main` junto con la Fase 4 (código entrelazado en las mismas vistas). Adelantados de la Fase 7: CSP con nonce y `secrets-scan` en `verify`. Fase 4 cerrada a las 21:49 en `dev`.
-- **Subtarea en curso:** `pnpm verify` del árbol con las Fases 4 a 6, commit, merge a `main`, smoke y T1 por chat en producción (G2).
-- **Siguiente paso exacto:** después de G2, la Fase 7 (S01 a S16 con categoría oficial a nivel API y agente, encabezados y revisión VC9 con `auditor-seguridad`).
+- **Hora (Lima):** domingo 18 de octubre, 22:36.
+- **Fase:** 7 Seguridad completa (en curso desde las 22:36). Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
+- **Subtarea en curso:** 7.1 S01 a S16 con su categoría oficial, a nivel API y agente.
+- **Siguiente paso exacto:** suite de seguridad S01 a S16 (`tests/security`), revisión VC9 con `auditor-seguridad`, correcciones con regresión, `pnpm verify`, merge y smoke.
 - **Último `pnpm verify`:** 22:18 a 22:25, exit 0 (34 archivos y 509 pruebas, más `secrets-scan`).
-- **URL de producción:** https://arrivalguard.vercel.app (commit 0eee748, smoke con T1 CREDITED 20:39).
+- **URL de producción:** https://arrivalguard.vercel.app (commit b3e351c, smoke con T1 CREDITED y T1 por chat CREDITED a las 22:34).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
 
@@ -19,10 +19,10 @@
 | 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
 | 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
 | 3 API, sesiones y acceso | cerrada | lun 00:30 | dom 20:38 | 20:37 exit 0 | VC6 sin críticos ni altos; 2 medios y 6 bajos corregidos (docs/reviews/VC6.md) |
-| 4 Interfaz | cerrada (merge a `main` con la Fase 5) | lun 03:00 | dom 21:49 | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
-| 5 Agente (G2) | cerrándose | lun 05:00 | | | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
-| 6 Capacidades P1 | cerrándose | lun 09:30 | | | sin VC |
-| 7 Seguridad completa (G3) | pendiente | lun 11:30 | | | VC9 |
+| 4 Interfaz | cerrada | lun 03:00 | dom 21:49 (en `main` 22:33) | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
+| 5 Agente (G2) | cerrada, G2 cumplida | lun 05:00 | dom 22:34 | 22:25 exit 0 | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
+| 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
+| 7 Seguridad completa (G3) | en curso | lun 11:30 | | | VC9 |
 | 8 Evaluación y documentos (G4) | pendiente | lun 14:00 | | | VC10 |
 | 9 Cierre (G5) | pendiente | lun 16:00 | | | VC11 |
 
@@ -158,7 +158,7 @@ Subtareas:
 - [x] 5.4 Historial A5 (pasados como texto plano, turno en curso literal) en `conversations` y `conversation_turns`; presupuesto con reserva previa en `ai_usage` (3.00 USD por espacio, 15.00 USD diarios), 10 turnos por minuto y 60 por día; salida segura (AI_UNAVAILABLE, tope, error de la API, rechazo) con AI_FALLBACK_ACTIVATED y modo estructurado.
 - [x] 5.5 Señales de ataque en el mensaje (inducción, aprobación afirmada sin aprobación real, cambio de reglas, secretos, número completo) como SECURITY_BLOCK con su categoría oficial. El control real es estructural.
 - [x] 5.6 Interfaz del chat: hilo, actividad del servidor, sugerencias, compositor, tarjetas desde el estado del servidor, texto del modelo como markdown mínimo sin HTML, modo estructurado ante una falla; `GET` y `POST /api/chat`; "AI usage" en la consola.
-- [ ] 5.7 `pnpm verify`, revisión VC8, correcciones, merge a `main`, smoke y T1 por chat en producción (G2).
+- [x] 5.7 `pnpm verify`, revisión VC8, correcciones, merge a `main`, smoke y T1 por chat en producción (G2).
 
 Revisión (21:50 a 22:12, subagente `revisor`, docs/reviews/VC8.md): aprobado con deuda, sin críticos ni altos. VC8-1 medio: presupuesto superable con turnos simultáneos (corregido con reserva atómica bajo advisory locks). VC8-2 medio: el texto de turnos pasados viajaba sin escapar (corregido). VC8-3 medio: falsos positivos de las señales en preguntas normales (corregido). Bajos: timeout con costo 0, eventos antes del límite, pruebas débiles, `ai-turns` sin estado de T1 del servidor y plazo del turno (corregidos); mapeos dentro del caso de uso (Deuda). Pruebas nuevas en `chatTurn.test.ts` y `securitySignals.test.ts`.
 
@@ -174,11 +174,26 @@ Subtareas:
 - [x] 6.3 Rutas: `POST /api/remittances`, `/api/remittances/{id}/execute`, `/api/remittances/{id}/view` y `/approve` (solo payer), `POST /api/refund-claims` y `/api/refund-claims/{id}/submit`, `GET /api/evidence` (JSON y `?format=md`).
 - [x] 6.4 Herramientas del agente: `prepare_remittance` (un `recipient_id` ajeno da RECIPIENT_NOT_VERIFIED y SECURITY_BLOCK), `execute_remittance`, `prepare_refund_claim` y `submit_refund_claim`, con claves derivadas por el servidor; remesas y devoluciones en `<case_state>`.
 - [x] 6.5 Interfaz: transferencias y devolución en la zona B, "Send transfer" y "Submit refund request" en el modo estructurado, aprobación puntual de transferencias en la vista de Carlos, actividad del pagador, tarjetas en el chat y expediente de evidencia en una hoja lateral con descarga JSON y Markdown.
-- [ ] 6.6 `pnpm verify`, merge a `main` y smoke.
+- [x] 6.6 `pnpm verify`, merge a `main` y smoke.
+
+Cierre conjunto de las Fases 4, 5 y 6 (22:25 a 22:34): `pnpm verify` exit 0 (`OK typecheck`, `OK lint`, `OK test` con 34 archivos y 509 pruebas, `OK db:seed-check`, `OK build`, `OK secrets-scan`, `verify: TODO EN VERDE`). `pnpm ui:check` contra el build local: T1 con clics y una transferencia con clics, 38 capturas, 0 violaciones de axe, sin scroll horizontal y sin violaciones de CSP. Commit `b3e351c`, merge fast-forward a `main`, `main:production:READY`. `pnpm smoke --base-url https://arrivalguard.vercel.app` (22:33): `commit=b3e351c`, T1 por HTTP hasta `status=CREDITED` y saldo 214000, `smoke: OK (T1 CREDITED)`; la respuesta trae `Content-Security-Policy` con nonce.
+
+**Puerta G2 (22:34):** `pnpm smoke:chat --base-url https://arrivalguard.vercel.app` con el modelo real en producción: el primer mensaje de Sofía planifica la ruta B y pide la aprobación (herramientas compare_routes, project_cash, plan_tuition_payment y request_payer_approval, 9.3 s); Carlos aprueba en su pantalla fija (201); "Send the payment now" ejecuta (execute_approved_payment, 5.2 s); el evaluador avanza 24 h; "Has the university received my payment?" responde con el recibo; `T1 (servidor): CREDITED AU-RC-8555B526`, `smoke:chat: OK (T1 CREDITED por chat)`. Evidencia: `docs/evidence/g2-chat-2026-10-19T03-34-06-061Z.json` (commit b3e351c).
 
 Evidencia (22:00 a 22:15): integración `tests/integration/remittanceRefund.test.ts` (6 pruebas): N05 (R1 USD 288.00 sin aprobación nueva, reserva USD 1,512.00, entrega única de CNY 2,000.00), N17 (720 > 600 escala; solo el pagador aprueba con su huella; se ejecuta una vez), encadenar tres remesas listas (la tercera escala), N18 (RECIPIENT_ACCOUNT_NOT_OPEN sin intento), N13 (CNY 500.00, REFUNDED con USD 70.00, saldo USD 2,210.00) y N14 (sin exceso, sin reclamo). API `tests/api/p1Api.test.ts` (4 pruebas): T3 por HTTP con aprobación puntual, S15 por HTTP, S14 por HTTP con REFUNDED y el expediente sin secretos con claves recortadas. Agente `chatTurn.test.ts` (3 pruebas P1): remesa por chat sin envío doble, S15 por chat y reclamo por chat. `pnpm ui:check`: T1 con clics y una transferencia de CNY 2,000 con clics hasta "Accepted by provider"; `axe: 38 capturas, 0 violaciones serias o críticas`; sin scroll horizontal; consola sin violaciones de CSP.
 
 Adelantado de la Fase 7: CSP con nonce (`src/proxy.ts`, DEC-017) y `scripts/secrets-scan.ts` (329 archivos y los valores reales del entorno, sin imprimirlos) como último paso de `pnpm verify`.
+
+## Fase 7: Seguridad completa (puerta G3)
+
+Inicio: domingo 18, 22:36. Secciones: BUILD_PROMPT 14.1 y 14.2 (S01 a S16), AUTONOMIA 6 (VC9).
+
+Subtareas:
+- [ ] 7.1 S01 a S16 con su categoría oficial y efectos en la base, a nivel API (y herramienta del agente donde corresponde), en `tests/security`.
+- [x] 7.2 Encabezados: CSP con nonce (DEC-017), `frame-ancestors 'none'`, nosniff, Referrer-Policy, X-Frame-Options y Permissions-Policy.
+- [x] 7.3 `secrets-scan` en `pnpm verify`.
+- [ ] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección.
+- [ ] 7.5 `pnpm verify`, merge a `main` y smoke.
 
 ## Deuda
 
