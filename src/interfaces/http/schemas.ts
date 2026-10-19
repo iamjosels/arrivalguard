@@ -58,6 +58,8 @@ export const cashQuery = z.strictObject({ arrivalExpensesMinor: minor.optional()
 
 export const emptyBody = z.strictObject({});
 
+export const chatBody = z.strictObject({ message: z.string().min(1).max(2000) });
+
 export const eventsQuery = z.strictObject({ afterSeq: z.coerce.number().int().min(0).optional() });
 
 export const uuidParam = uuid;

@@ -111,3 +111,10 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Antes:** `newAttemptBlockers` devolvía `OBLIGATION_NOT_PENDING` si existía cualquier intento CREDITED. Era una interpretación más amplia que el spec, que habla del estado de la OBLIGACIÓN.
 - **Ahora:** la obligación acreditada se bloquea por su estado (`checkTuitionExecution` devuelve `OBLIGATION_NOT_PENDING`, con prueba unitaria y una de integración tras N01). Un pago parcial ya acreditado con la obligación todavía pendiente no bloquea: su débito cuenta para el máximo acumulado, que es lo que pide S03 ("USD 1,500.00 ya debitados y un nuevo cargo de 1,500.00 con máximo de 2,900.00": `EXCEEDS_PAYER_MAX`).
 - **Prueba cambiada:** el caso unitario que exigía `OBLIGATION_NOT_PENDING` para `newAttemptBlockers(["CREDITED"])` se reemplazó por uno que fija la regla nueva. No se relajó ningún control: los dos bloqueos (estado de la obligación y máximo acumulado) siguen probados.
+
+## DEC-016. Una matrícula acreditada no se vuelve a planificar
+
+- **Fecha:** domingo 18 de octubre, 21:30 (Lima), durante las correcciones de VC7. **Fuente:** BUILD_PROMPT 10 ("una obligación CREDITED no admite intentos nuevos") y la revisión VC7.
+- **Antes:** planificar con la obligación acreditada creaba un plan nuevo `NOT_VIABLE` (`OBLIGATION_NOT_PENDING`) que reemplazaba en la vista al plan que la pagó: la línea del pago pasaba a "bloqueada" y el sello desaparecía.
+- **Ahora:** `PlanTuitionPaymentUseCase` rechaza con `OBLIGATION_NOT_PENDING` y no crea nada; la interfaz deshabilita "Plan my payment" con la matrícula pagada.
+- **Prueba cambiada:** la de idempotencia usaba ese plan nuevo para demostrar "misma clave con otro contenido da 409". Ahora exige el rechazo del replan y demuestra el 409 con un segundo plan sintético preparado por la prueba (como S03 prepara su pago histórico). No se relajó ninguna aserción: el 409 sigue probado.

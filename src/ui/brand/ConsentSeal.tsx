@@ -32,7 +32,7 @@ export function ConsentSeal({ fingerprint, size = 96, state = "stamped", animate
   const showCaption = (caption ?? size >= 56) && Boolean(fingerprint);
   const groups = fingerprint ? fingerprintGroups(fingerprint) : "";
   const captionNode = showCaption ? (
-    <span aria-hidden className={cn("font-mono text-[12px] leading-4", state === "stamped" ? "text-ink-2" : "text-muted")}>
+    <span aria-hidden={state === "stamped" ? true : undefined} className={cn("font-mono text-[12px] leading-4", state === "stamped" ? "text-ink-2" : "text-muted")}>
       Consent fingerprint {groups}
     </span>
   ) : null;

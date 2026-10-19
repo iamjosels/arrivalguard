@@ -1,14 +1,15 @@
 "use client";
 
-import { ChevronDown, CirclePause, MessageSquare, Route as RouteIcon, Wallet } from "lucide-react";
+import { ChevronDown, MessageSquare, Route as RouteIcon, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CashProjectionDTO, CaseViewDTO, PlanDTO, RouteEvaluationDTO, RoutingDTO } from "@/application/dto/CaseDTO";
 import { formatMoney } from "@/interfaces/format/money";
 import { CashProjection, channelName, ConditionalIncomeCard, FundsBar, JourneyLine, MoneyFigure, RouteBoard, StatusPill, type PillStatus, type ReasonContext } from "@/ui/finance";
-import { formatClock, formatDuration, formatVirtual, minutesBetween } from "@/ui/format/time";
-import { Button, Field, Input, Panel, Switch, Tabs, notify } from "@/ui/primitives";
+import { formatClock, formatDuration, formatVirtual, minutesBetween, formatWhen } from "@/ui/format/time";
+import { Button, Field, Input, Panel, Switch, Tabs, notify, notifyWaiting } from "@/ui/primitives";
 import { api } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
+import { ConversationPanel } from "@/ui/chat";
 import { studentApi, useActionState, usePaymentKey, type ActionState } from "./actions";
 import { firstName, parseUsdToMinor } from "./copy";
 import { ProblemNotice } from "./ProblemNotice";
@@ -52,15 +53,31 @@ export function StudentView({ data, refresh }: { data: CaseViewDTO; refresh: () 
 
   const send = async () => {
     if (!plan) return;
-    const result = await actions.run("send", () => studentApi.send("student", plan.planId, paymentKey(plan.planId, plan.version)));
-    if (result) notify(result.replayed ? "Payment already sent" : "Payment sent");
+    // La clave va ligada a la aprobación vigente: tras una falla confirmada y una aprobación nueva, la clave es otra (VC7-2).
+    const approvalId = plan.approvals.find((a) => a.planVersion === plan.version && a.status === "ACTIVE")?.approvalId ?? "none";
+    const result = await actions.run("send", () => studentApi.send("student", plan.planId, paymentKey(plan.planId, plan.version, approvalId)));
+    if (result) announceAttempt(result.attempt.status, result.replayed);
   };
   const check = async () => {
     const attemptId = data.payment.attempt?.attemptId;
     if (!attemptId) return;
     const result = await actions.run("check", () => studentApi.check("student", attemptId));
-    if (result) notify(result.attempt.visibleStatus === "CREDITED" || result.attempt.status !== data.payment.attempt?.status ? "Status updated" : "Still waiting for the university");
+    if (result) announceAttempt(result.attempt.status, false, result.attempt.status === data.payment.attempt?.status);
   };
+
+  // Conciliación periódica (BUILD_PROMPT 15.4): con un pago en vuelo, cada 10 s se consulta el MISMO intento.
+  const inFlight = data.payment.attempt && ["SUBMITTING", "UNKNOWN", "PROVIDER_ACCEPTED", "PENDING_UNIVERSITY"].includes(data.payment.attempt.status) ? data.payment.attempt.attemptId : null;
+  useEffect(() => {
+    if (!inFlight) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void studentApi
+        .check("student", inFlight)
+        .then(() => refresh())
+        .catch(() => undefined);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [inFlight, refresh]);
   const requestApproval = async () => {
     if (!plan) return;
     const result = await actions.run("request", () => studentApi.requestApproval(plan.planId));
@@ -85,7 +102,14 @@ export function StudentView({ data, refresh }: { data: CaseViewDTO; refresh: () 
       <div className="grid gap-6 lg:grid-cols-12">
         <div id="panel-chat" role="tabpanel" aria-label="Chat" className={cn("min-w-0 lg:col-span-5", section("chat"))}>
           <Panel title="Conversation" className="lg:sticky lg:top-6">
-            <StructuredControls data={data} actions={actions} ctx={ctx} onSend={send} onCheck={check} onRequest={requestApproval} />
+            <ConversationPanel
+              role="student"
+              workspaceId={data.workspace.id}
+              data={data}
+              refresh={refresh}
+              ctx={ctx}
+              structured={<StructuredControls data={data} actions={actions} ctx={ctx} onSend={send} onCheck={check} onRequest={requestApproval} />}
+            />
           </Panel>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
@@ -145,7 +169,7 @@ function JourneyPanel({ data, actions, ctx, onSend, onCheck, onRequest }: StepPr
   const approval = data.plan?.approvals.find((a) => a.planVersion === data.plan?.version && (a.status === "ACTIVE" || a.status === "CONSUMED"));
   return (
     <Panel title="Payment journey" aside={<StatusPill status={status} payerName={firstName(data.people.payer)} />}>
-      <JourneyLine stations={data.payment.journey} payerName={firstName(data.people.payer)} approvalFingerprint={approval?.fingerprint ?? null} />
+      <JourneyLine stations={data.payment.journey} payerName={firstName(data.people.payer)} approvalFingerprint={approval?.fingerprint ?? null} referenceAt={data.workspace.virtualStart} />
       <div className="mt-5 border-t border-line pt-4">
         <NextStep data={data} actions={actions} ctx={ctx} onSend={onSend} onCheck={onCheck} onRequest={onRequest} />
       </div>
@@ -219,7 +243,7 @@ function NextStep({ data, actions, ctx, onSend, onCheck, onRequest }: StepProps)
       break;
     default:
       if (data.payment.visibleStatus === "CREDITED" && attempt?.receipt) {
-        body = step("Credited by the university", `From the university, ${formatClock(attempt.receipt.creditedAt)} virtual time. Receipt ${attempt.receipt.receiptId}.`);
+        body = step("Credited by the university", `From the university, ${formatWhen(attempt.receipt.creditedAt, data.workspace.virtualStart)} virtual time. Receipt ${attempt.receipt.receiptId}.`);
       } else {
         body = step("Nothing to do right now", "The payment state is up to date.");
       }
@@ -273,12 +297,13 @@ function FundsPanels({ data }: { data: CaseViewDTO }) {
       {data.scholarship.map((s, i) => (
         <ConditionalIncomeCard key={i} amount={s.amount} note={`Awarded, expected ${formatVirtual(s.expectedAt)} virtual time.`} />
       ))}
-      {data.expectedExpenses.length > 0 ? <CashPanel /> : null}
+      {data.expectedExpenses.length > 0 ? <CashPanel refreshKey={`${data.familyFunds.balance.minor}:${data.familyFunds.activeHolds.minor}:${data.plan?.version ?? 0}:${data.plan?.selectedRoute?.routeId ?? ""}`} /> : null}
     </div>
   );
 }
 
-function CashPanel() {
+/** Se vuelve a pedir cuando cambia el caso (saldo, retenciones, plan o ruta), y el veredicto es el del servidor (VC7). */
+function CashPanel({ refreshKey }: { refreshKey: string }) {
   const [projection, setProjection] = useState<CashProjectionDTO | null>(null);
   useEffect(() => {
     let alive = true;
@@ -288,14 +313,32 @@ function CashPanel() {
     return () => {
       alive = false;
     };
-  }, []);
-  const usd = projection?.byCurrency.find((c) => c.currency === "USD");
-  if (!usd) return null;
+  }, [refreshKey]);
+  if (!projection) return null;
   return (
     <Panel title="Cash for the first weeks">
-      <CashProjection row={usd} />
+      <ProjectionRows projection={projection} />
     </Panel>
   );
+}
+
+/** Solo la moneda del veredicto del servidor lleva veredicto; no se inventa uno para las demás. */
+export function ProjectionRows({ projection }: { projection: CashProjectionDTO }) {
+  const row = projection.byCurrency.find((c) => c.currency === projection.verdict.margin.currency);
+  return row ? <CashProjection row={row} verdict={projection.verdict} /> : null;
+}
+
+function announcePlan(status: string) {
+  if (status === "NOT_VIABLE") notifyWaiting("No route meets every rule");
+  else notify("Plan ready");
+}
+
+function announceAttempt(status: string, replayed: boolean, unchanged = false) {
+  if (status === "FAILED_CONFIRMED") notifyWaiting("Failed, no money left the account");
+  else if (status === "CREDITED") notify("Credited by the university");
+  else if (replayed) notifyWaiting("This payment was already sent");
+  else if (unchanged) notifyWaiting("Still waiting for the university");
+  else notify(status === "SUBMITTING" || status === "UNKNOWN" ? "Payment sent. Checking with the provider" : "Payment sent");
 }
 
 function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: StepProps) {
@@ -325,11 +368,6 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-control bg-wait-tint px-3 py-2 text-[14px] leading-[22px] text-wait">
-        <CirclePause aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-        <p>Assistant unavailable. Structured controls are active.</p>
-      </div>
-      <p className="text-[14px] leading-[22px] text-ink-2">The assistant is unavailable right now. You can continue with the controls below. Nothing has been lost.</p>
       <div className="divide-y divide-line overflow-hidden rounded-control border border-line-strong">
         <section>
           {sectionHeader("plan", "Plan my payment")}
@@ -340,7 +378,7 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
                 e.preventDefault();
                 if (!hoursValue) return;
                 const result = await actions.run("plan", () => studentApi.plan(hoursValue));
-                if (result) notify(result.outcome === "NOT_VIABLE" ? "No route arrives in time" : "Plan ready");
+                if (result) announcePlan(result.plan.status);
               }}
             >
               <Field label="Tuition invoice" htmlFor="plan-invoice">
@@ -355,7 +393,8 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
                 <Input id="plan-hours" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} invalid={!hoursValue} />
               </Field>
               <Switch checked disabled onCheckedChange={() => undefined} label="Keep the arrival reserve" description={`${formatMoney(data.familyFunds.arrivalReserve)} stays aside for the first weeks.`} />
-              <Button type="submit" loading={actions.busy === "plan"} loadingText="Planning" disabled={!hoursValue}>
+              {data.tuition.status !== "PENDING" ? <p className="text-[14px] leading-[22px] text-ink-2">This invoice is already paid. There is nothing to plan.</p> : null}
+              <Button type="submit" loading={actions.busy === "plan"} loadingText="Planning" disabled={!hoursValue || data.tuition.status !== "PENDING"}>
                 Plan my payment
               </Button>
             </form>
@@ -438,7 +477,7 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
               <Button type="submit" variant="secondary" loading={actions.busy === "project"} loadingText="Projecting">
                 Project my funds
               </Button>
-              {projection?.byCurrency.map((row) => <CashProjection key={row.currency} row={row} />)}
+              {projection ? <ProjectionRows projection={projection} /> : null}
             </form>
           ) : null}
         </section>

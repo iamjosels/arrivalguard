@@ -36,9 +36,13 @@ export class GetApprovalViewUseCase {
     const ctx = await loadTuitionContext(this.deps.uow.read, actor.workspaceId, this.deps.scenarios.acceptedTuitionChannels(workspace.scenario));
     const record = await this.deps.uow.read.plans.getCurrent(actor.workspaceId, command.planId);
     if (!record) throw new NotFoundError();
+    // La aprobación que corresponde a la pantalla: la vigente; si no hay, la última de esta versión SOLO cuando el plan
+    // ya salió o terminó. Con una solicitud nueva pendiente (por ejemplo, tras una falla confirmada que consumió la
+    // anterior), el documento es para aprobar de nuevo (VC7-1).
+    const waiting = record.plan.status === "APPROVAL_REQUESTED" || record.plan.status === "READY_FOR_APPROVAL";
     const approval =
       (await this.deps.uow.read.approvals.findActive(actor.workspaceId, record.plan.id, record.plan.version)) ??
-      (await this.deps.uow.read.approvals.listForSubject(actor.workspaceId, record.plan.id)).filter((a) => a.subjectVersion === record.plan.version).at(-1) ??
+      (waiting ? null : (await this.deps.uow.read.approvals.listForSubject(actor.workspaceId, record.plan.id)).filter((a) => a.subjectVersion === record.plan.version).at(-1)) ??
       null;
     const limits = approval ? { maxDebit: approval.maxDebit, reserve: approval.reserve } : { maxDebit: ctx.policy.maxTuitionDebit, reserve: ctx.policy.reserve };
     const payload = approvalPayloadFor(ctx, record, limits);

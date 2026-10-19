@@ -23,7 +23,17 @@ const SENT_STATUSES = new Set(["EXECUTING", "COMPLETED"]);
 
 export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string; planId: string }) {
   setWorkspaceScope(workspaceId);
-  const view = useResource((signal) => api<ApprovalViewDTO>(`/api/approvals/${planId}/view`, { role: "payer", signal }), [planId], 10000);
+  // Versión y huella que Carlos vio al abrir: si el servidor trae otras, el plan cambió con el documento abierto.
+  const [seen, setSeen] = useState<{ version: number; fingerprint: string | null } | null>(null);
+  const view = useResource(
+    async (signal) => {
+      const v = await api<ApprovalViewDTO>(`/api/approvals/${planId}/view`, { role: "payer", signal });
+      setSeen((prev) => prev ?? { version: v.planVersion, fingerprint: v.fingerprint });
+      return v;
+    },
+    [planId],
+    5000,
+  );
   const actions = useActionState(view.refresh);
   const [stampedNow, setStampedNow] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
@@ -45,7 +55,9 @@ export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string;
   }
 
   const approval = d.approval;
-  const approved = approval?.status === "ACTIVE" || approval?.status === "CONSUMED";
+  // Aprobado solo si está vigente, o si se usó en un pago que salió (VC7-1): una aprobación consumida por un pago
+  // fallido no cuenta cuando hay una solicitud nueva.
+  const approved = approval?.status === "ACTIVE" || (approval?.status === "CONSUMED" && SENT_STATUSES.has(d.status));
   const invalidated = approval?.status === "INVALIDATED";
   const revoked = approval?.status === "REVOKED";
   const expired = approval?.status === "EXPIRED";
@@ -61,8 +73,10 @@ export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string;
       notify("Payment approved");
     }
   };
-  // Un 409 de versión o huella: el plan cambió mientras el documento estaba abierto.
-  const conflict = actions.problem?.kind === "message" && actions.problem.title === "This plan changed";
+  // El plan cambió mientras el documento estaba abierto: por un 409 del servidor o porque el refresco trajo otra
+  // versión u otra huella (UI_UX 11.4). Hasta que Carlos revise la versión nueva, no puede aprobar.
+  const moved = Boolean(seen && !approved && (seen.version !== d.planVersion || seen.fingerprint !== d.fingerprint));
+  const conflict = moved || (actions.problem?.kind === "message" && actions.problem.title === "This plan changed");
 
   return (
     <Shell workspaceId={workspaceId}>
@@ -71,6 +85,19 @@ export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string;
           <div role="status" className="-mx-5 -mt-6 mb-6 flex items-center gap-2 bg-wait-tint px-5 py-2 text-[14px] text-wait md:-mx-12 md:-mt-8 md:px-12">
             <Hourglass aria-hidden className="size-4" strokeWidth={1.75} />
             {d.quoteExpired && !conflict ? `The price expired. ${firstName(d.requestedBy)} needs to refresh the plan.` : "This plan changed. Review the new version."}
+            {conflict ? (
+              <button
+                type="button"
+                className="ml-auto min-h-11 font-semibold underline md:min-h-0"
+                onClick={() => {
+                  setSeen({ version: d.planVersion, fingerprint: d.fingerprint });
+                  actions.clearProblem();
+                  void view.refresh();
+                }}
+              >
+                Review the new version
+              </button>
+            ) : null}
           </div>
         ) : null}
         <p className="tabular text-[12px] leading-4 font-medium text-muted">
@@ -194,7 +221,7 @@ function Term({ label, children }: { label: string; children: React.ReactNode })
 function Shell({ workspaceId, children }: { workspaceId: string; children: React.ReactNode }) {
   return (
     <div className="relative mx-auto w-full max-w-[640px] px-4 pt-5 pb-12 md:px-0">
-      <Link href={`/w/${workspaceId}?as=payer`} className="mb-3 inline-flex h-10 items-center gap-1 text-[15px] font-semibold text-route hover:underline xl:absolute xl:top-5 xl:-left-36">
+      <Link href={`/w/${workspaceId}?as=payer`} className="mb-3 inline-flex h-11 items-center gap-1 text-[15px] md:h-10 font-semibold text-route hover:underline xl:absolute xl:top-5 xl:-left-36">
         <ChevronLeft aria-hidden className="size-4" strokeWidth={1.75} />
         Requests
       </Link>

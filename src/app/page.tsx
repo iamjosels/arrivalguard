@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ConsentSeal, Logo, SimulationBand, StopOctagon } from "@/ui/brand";
 import { MoneyFigure, StatusPill } from "@/ui/finance";
 import { AccessForm } from "@/ui/landing/AccessForm";
+import { P1_AVAILABLE } from "@/ui/workspace/copy";
 
 // Landing (UI_UX 11.1, DESIGN_PLAN 5.1). El tablero de llegadas es estático en esta versión: muestra un pago de
 // ejemplo con datos sintéticos, rotulados como tales.
@@ -98,7 +99,7 @@ export default function HomePage() {
             <div className="rounded-panel border border-line bg-surface p-6">
               <h3 className="text-[20px] leading-[26px] font-[650]">ArrivalGuard can, on its own:</h3>
               <ul className="mt-4 space-y-2">
-                {["Compare routes", "Refresh an expired price within Carlos's limit", "Check status", "Send arrival transfers under the standing permission", "File refund requests"].map((t) => (
+                {["Compare routes", "Refresh an expired price within Carlos's limit", "Check status", ...(P1_AVAILABLE ? ["Send arrival transfers under the standing permission", "File refund requests"] : [])].map((t) => (
                   <li key={t} className="flex gap-2 text-ink">
                     <Check aria-hidden className="mt-1 size-4 shrink-0 text-ink-2" strokeWidth={1.75} />
                     {t}
@@ -205,6 +206,7 @@ function ArrivalsBoard() {
               <StatusPill status="CREDITED" />
             </td>
           </tr>
+          {P1_AVAILABLE ? (
           <tr className="border-t border-line align-top">
             <td className="py-3">
               <span className="block font-semibold text-ink">Transfer to Sofía&apos;s local account</span>
@@ -217,6 +219,7 @@ function ArrivalsBoard() {
               <StatusPill status="DELIVERED" />
             </td>
           </tr>
+          ) : null}
         </tbody>
       </table>
       <ol className="mt-5 grid grid-cols-2 gap-4 rounded-doc bg-paper p-4 text-[13px] leading-[18px] md:grid-cols-4">

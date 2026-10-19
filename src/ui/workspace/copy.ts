@@ -4,7 +4,13 @@ import { formatMoney } from "@/interfaces/format/money";
 // Textos fijos de la interfaz (UI_UX 9 y DESIGN_PLAN 5). Los nombres de escenario vienen del servidor; aquí van las
 // descripciones de una línea de la landing y de la consola.
 
-export const SCENARIO_OPTIONS = [
+/**
+ * Capacidades P1 (transferencias de llegada y devoluciones, Fase 6). Mientras no existan, la interfaz no las ofrece
+ * ni las promete (BUILD_PROMPT 4.1).
+ */
+export const P1_AVAILABLE = false;
+
+const ALL_SCENARIOS = [
   { id: "base", label: "Base scenario", description: "Pay tuition inside Carlos's limit, change the deadline and recover from a lost provider response." },
   { id: "arrival_remittance", label: "Arrival transfers", description: "Send rent under Carlos's standing permission, then reach the period limit." },
   { id: "scholarship_deficit", label: "Scholarship not yet received", description: "Project the first weeks and see the gap, with the scholarship kept apart." },
@@ -12,10 +18,14 @@ export const SCENARIO_OPTIONS = [
   { id: "deadline_impossible", label: "Impossible deadline", description: "Ask for a deadline no route can meet and see why each one fails." },
 ] as const;
 
-export type ScenarioOptionId = (typeof SCENARIO_OPTIONS)[number]["id"];
+const P1_SCENARIOS: readonly string[] = ["arrival_remittance", "overpayment_refund"];
+
+export const SCENARIO_OPTIONS = ALL_SCENARIOS.filter((s) => P1_AVAILABLE || !P1_SCENARIOS.includes(s.id));
+
+export type ScenarioOptionId = (typeof ALL_SCENARIOS)[number]["id"];
 
 export function scenarioLabel(id: string): string {
-  return SCENARIO_OPTIONS.find((s) => s.id === id)?.label ?? id;
+  return ALL_SCENARIOS.find((s) => s.id === id)?.label ?? id;
 }
 
 /** Fallas de la consola, en el orden de DESIGN_PLAN 5.6, con su consecuencia en una línea. */

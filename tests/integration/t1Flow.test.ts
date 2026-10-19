@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { PaymentPlan } from "@/domain/payment/PaymentPlan";
 import { afterAll, describe, expect, it } from "vitest";
 import { ActiveAttemptExistsError, IdempotencyConflictError, RoleNotAllowedError, VersionConflictError } from "@/application/errors/ApplicationError";
 import { PolicyViolationError } from "@/domain/errors/DomainError";
@@ -61,11 +63,35 @@ describe("N01: matrícula con objetivo de 48 h de punta a punta (T1, puerta G1)"
     expect(again.replayed).toBe(true);
     expect(again.attempt.attempt.id).toBe(first.attempt.attempt.id);
     await app().advanceClock.execute(t.evaluator, { minutes: 24 * 60 });
-    // Matrícula ya acreditada: un plan nuevo queda NOT_VIABLE; usar la misma clave con ese otro plan es contenido distinto.
-    const replanned = await app().planTuition.execute(t.student, { targetArrivalHours: 24 });
-    expect(replanned.record.plan.status).toBe("NOT_VIABLE");
-    expect(replanned.record.evaluation.blockers).toEqual(["OBLIGATION_NOT_PENDING"]);
-    await expect(app().executeTuition.execute(t.student, { planId: replanned.record.plan.id, idempotencyKey: "idem-key" })).rejects.toBeInstanceOf(IdempotencyConflictError);
+    // Matrícula ya acreditada: no se vuelve a planificar y el plan que la pagó no se reemplaza (DEC-016).
+    await expect(app().planTuition.execute(t.student, { targetArrivalHours: 24 })).rejects.toMatchObject({ reasons: ["OBLIGATION_NOT_PENDING"] });
+    const current = await app().deps.uow.read.plans.getCurrent(t.workspaceId, planId);
+    expect(current?.plan.status).toBe("COMPLETED");
+    expect(count(await eventTypes(t.workspaceId), "DEBIT_CONFIRMED")).toBe(1);
+
+    // Misma clave con otro contenido (otro plan): 409. El segundo plan es estado sintético preparado por la prueba,
+    // porque con la matrícula acreditada ya no se puede planificar otro (DEC-016).
+    const otherPlanId = randomUUID();
+    await app().deps.uow.transaction((r) =>
+      r.plans.insertVersion({ ...current!, plan: PaymentPlan.rehydrate({ ...current!.plan.toProps(), id: otherPlanId, version: 1, status: "READY_FOR_APPROVAL" }) }),
+    );
+    await expect(app().executeTuition.execute(t.student, { planId: otherPlanId, idempotencyKey: "idem-key" })).rejects.toBeInstanceOf(IdempotencyConflictError);
+    expect(count(await eventTypes(t.workspaceId), "DEBIT_CONFIRMED")).toBe(1);
+  });
+
+  it("después de una falla confirmada, la vista de aprobación es para aprobar de nuevo (VC7-1)", async () => {
+    const t = await newWorkspace("base");
+    const { planId } = await planAndApprove(t);
+    await app().injectFault.execute(t.evaluator, { fault: "FAIL_NEXT_TRANSFER", enabled: true });
+    const failed = await app().executeTuition.execute(t.student, { planId, idempotencyKey: "vc7-1-fail" });
+    expect(failed.attempt.attempt.status).toBe("FAILED_CONFIRMED");
+    await app().requestApproval.execute(t.student, { planId });
+    const view = await app().approvalView.execute(t.payer, { planId });
+    expect(view.record.plan.status).toBe("APPROVAL_REQUESTED");
+    expect(view.approval).toBeNull();
+    const granted = await app().grantApproval.execute(t.payer, { planId, planVersion: view.record.plan.version, fingerprint: view.fingerprint! });
+    const paid = await app().executeTuition.execute(t.student, { planId, idempotencyKey: `vc7-1-${granted.id}` });
+    expect(paid.attempt.attempt.status).toBe("PENDING_UNIVERSITY");
     expect(count(await eventTypes(t.workspaceId), "DEBIT_CONFIRMED")).toBe(1);
   });
 });

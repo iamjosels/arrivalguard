@@ -1,11 +1,11 @@
-import type { Container } from "@/infrastructure/container";
+import type { CoreContainer } from "@/infrastructure/container";
 import type { ActorContext } from "@/application/ActorContext";
 import { AttemptMapper, PlanMapper } from "@/application/mappers/CaseViewMapper";
 import type { PlanVersionRecord } from "@/domain/ports/Repositories";
 import { visibleTuitionStatus } from "@/domain/payment/VisibleStatus";
 
 /** Arma PlanDTO con sus aprobaciones y receptores enmascarados. */
-export async function presentPlan(app: Container, actor: ActorContext, record: PlanVersionRecord) {
+export async function presentPlan(app: CoreContainer, actor: ActorContext, record: PlanVersionRecord) {
   const repos = app.deps.uow.read;
   const [recipients, approvals, workspace] = await Promise.all([
     repos.recipients.list(actor.workspaceId),
@@ -17,7 +17,7 @@ export async function presentPlan(app: Container, actor: ActorContext, record: P
 }
 
 /** Arma AttemptDTO con su estado visible y procedencia. */
-export async function presentAttempt(app: Container, actor: ActorContext, attemptId: string) {
+export async function presentAttempt(app: CoreContainer, actor: ActorContext, attemptId: string) {
   const status = await app.paymentStatus.execute(actor, { attemptId });
   const attempt = status.attempt!;
   const visible = visibleTuitionStatus(status.plan?.plan ?? null, attempt.attempt);

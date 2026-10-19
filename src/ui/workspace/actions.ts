@@ -68,17 +68,17 @@ export function useActionState(refresh: () => Promise<void>): ActionState {
  * Así un doble clic o un reintento nunca crean un segundo pago (y el servidor lo garantiza igual).
  */
 export function usePaymentKey() {
-  const ref = useRef<{ planId: string; version: number; key: string } | null>(null);
-  return useCallback((planId: string, version: number) => {
-    if (!ref.current || ref.current.planId !== planId || ref.current.version !== version) {
-      ref.current = { planId, version, key: newIdempotencyKey(`ui-tuition-v${version}`) };
+  const ref = useRef<{ planId: string; version: number; approvalId: string; key: string } | null>(null);
+  return useCallback((planId: string, version: number, approvalId: string) => {
+    if (!ref.current || ref.current.planId !== planId || ref.current.version !== version || ref.current.approvalId !== approvalId) {
+      ref.current = { planId, version, approvalId, key: newIdempotencyKey(`ui-tuition-v${version}`) };
     }
     return ref.current.key;
   }, []);
 }
 
 export const studentApi = {
-  plan: (targetArrivalHours: number) => api<{ outcome: string }>("/api/plans", { role: "student", body: { targetArrivalHours } }),
+  plan: (targetArrivalHours: number) => api<{ outcome: string; plan: { status: string } }>("/api/plans", { role: "student", body: { targetArrivalHours } }),
   requestApproval: (planId: string) => api("/api/approvals/requests", { role: "student", body: { planId } }),
   send: (role: ActorRole, planId: string, key: string) => api<{ replayed: boolean; attempt: { status: string } }>("/api/payments", { role, body: { planId }, idempotencyKey: key }),
   check: (role: ActorRole, attemptId: string) => api<{ attempt: { status: string; visibleStatus: string } }>(`/api/payments/${attemptId}/reconcile`, { role, body: {} }),

@@ -58,7 +58,7 @@ export function ThemeToggle() {
       }}
       aria-label={`Theme: ${LABELS[choice]}. Switch to ${LABELS[next]}`}
       title={`Theme: ${LABELS[choice]}`}
-      className="inline-flex size-10 items-center justify-center rounded-control border border-line text-ink-2 transition-colors duration-[120ms] hover:border-line-strong hover:text-ink"
+      className="inline-flex size-11 items-center md:size-10 justify-center rounded-control border border-line text-ink-2 transition-colors duration-[120ms] hover:border-line-strong hover:text-ink"
     >
       <Icon aria-hidden className="size-5" strokeWidth={1.75} />
     </button>

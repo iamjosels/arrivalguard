@@ -1,3 +1,4 @@
+import { PolicyViolationError } from "@/domain/errors/DomainError";
 import { ACTIVE_ATTEMPT_STATUSES, type AttemptStatus } from "@/domain/payment/PaymentAttempt";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
@@ -35,6 +36,8 @@ export class PlanTuitionPaymentUseCase {
       const current = latest ? await r.plans.getCurrent(actor.workspaceId, latest.plan.id, { forUpdate: true }) : null;
       const active = ctx.attempts.find((a) => (ACTIVE_ATTEMPT_STATUSES as readonly AttemptStatus[]).includes(a.attempt.status));
       if (active) throw new ActiveAttemptExistsError(active.attempt.id);
+      // Una matrícula ya acreditada no se vuelve a planificar: no se crea un plan que reemplace al que la pagó (VC7).
+      if (ctx.obligation.status !== "PENDING") throw new PolicyViolationError(["OBLIGATION_NOT_PENDING"]);
       return applyTuitionPlan(this.deps, r, ctx, actor, {
         quotes,
         targetArrivalAt: ctx.now.plusHours(command.targetArrivalHours),

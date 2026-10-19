@@ -52,7 +52,7 @@ export function ChangeConfirmation({ workspaceId, changeId }: { workspaceId: str
 
   return (
     <div className="relative mx-auto w-full max-w-[640px] px-4 pt-5 pb-12 md:px-0">
-      <Link href={`/w/${workspaceId}?as=payer`} className="mb-3 inline-flex h-10 items-center gap-1 text-[15px] font-semibold text-route hover:underline xl:absolute xl:top-5 xl:-left-40">
+      <Link href={`/w/${workspaceId}?as=payer`} className="mb-3 inline-flex h-11 items-center gap-1 text-[15px] md:h-10 font-semibold text-route hover:underline xl:absolute xl:top-5 xl:-left-40">
         <ChevronLeft aria-hidden className="size-4" strokeWidth={1.75} />
         Permissions
       </Link>

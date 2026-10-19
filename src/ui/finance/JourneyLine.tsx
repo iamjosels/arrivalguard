@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { JourneyStationDTO } from "@/application/dto/CaseDTO";
 import { ConsentSeal } from "@/ui/brand/ConsentSeal";
 import { StopOctagon } from "@/ui/brand/StopOctagon";
-import { formatClock } from "@/ui/format/time";
+import { formatWhen } from "@/ui/format/time";
 import { cn } from "@/ui/lib/cn";
 
 export interface JourneyLineProps {
@@ -13,6 +13,8 @@ export interface JourneyLineProps {
   readonly payerName?: string;
   readonly approvalFingerprint?: string | null;
   readonly orientation?: "horizontal" | "vertical" | "responsive";
+  /** Inicio del espacio: si una estación es de otro día virtual, su hora lleva el día. */
+  readonly referenceAt?: string | null;
   readonly className?: string;
 }
 
@@ -83,7 +85,7 @@ const filled = (s: JourneyStationDTO | undefined) => s?.state === "done" || s?.s
  * Línea del pago estilo mapa de metro (UI_UX 12): hecho, actual, incierto (tramo punteado en `wait`), bloqueado
  * (octágono) y acreditado (relleno `arrive` con check). Bajo cada estación, hora virtual y procedencia.
  */
-export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprint, orientation = "responsive", className }: JourneyLineProps) {
+export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprint, orientation = "responsive", referenceAt = null, className }: JourneyLineProps) {
   const layout = LAYOUT[orientation];
   const signature = stations.map((s) => s.state).join(",");
   const [previous, setPrevious] = useState(signature);
@@ -102,7 +104,7 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
   }
 
   const current = stations.find((s) => s.state === "uncertain" || s.state === "blocked" || s.state === "current") ?? [...stations].reverse().find((s) => s.state === "done");
-  const announcement = current ? `${stationLabel(current)}: ${subtitle(current, payerName) ?? stateWord(current)}` : "";
+  const announcement = current ? `${stationLabel(current)}: ${subtitle(current, payerName, referenceAt) ?? stateWord(current)}` : "";
 
   return (
     <div className={className}>
@@ -116,7 +118,7 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
         {stations.map((station, i) => {
           const next = stations[i + 1];
           const segment = next ? (next.state === "uncertain" ? "uncertain" : filled(next) ? "filled" : "empty") : null;
-          const sub = subtitle(station, payerName);
+          const sub = subtitle(station, payerName, referenceAt);
           const isCurrent = station.state === "current" || station.state === "uncertain" || station.state === "blocked";
           return (
             <li key={station.key} className={layout.item} aria-current={isCurrent ? "step" : undefined}>
@@ -201,11 +203,12 @@ const SOURCE: Record<NonNullable<JourneyStationDTO["source"]>, (payer: string) =
   UNIVERSITY: () => "University",
 };
 
-function subtitle(station: JourneyStationDTO, payer: string): string | null {
+function subtitle(station: JourneyStationDTO, payer: string, referenceAt: string | null): string | null {
   if (station.state === "uncertain") return "Checking with the provider";
   if (station.state === "blocked") return "Blocked";
   if (station.at && (station.state === "done" || station.state === "current")) {
-    return station.source ? `${formatClock(station.at)}, ${SOURCE[station.source](payer)}` : formatClock(station.at);
+    const when = formatWhen(station.at, referenceAt);
+    return station.source ? `${when}, ${SOURCE[station.source](payer)}` : when;
   }
   if (station.state === "current") {
     switch (station.key) {

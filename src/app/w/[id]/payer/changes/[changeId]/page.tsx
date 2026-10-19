@@ -8,7 +8,9 @@ export default async function ChangePage({ params }: { params: Promise<{ id: str
   const { id, changeId } = await params;
   return (
     <div className="min-h-dvh">
-      <SimulationBand />
+      <div className="sticky top-0 z-20">
+        <SimulationBand />
+      </div>
       <main id="main">
         <ChangeConfirmation workspaceId={id} changeId={changeId} />
       </main>

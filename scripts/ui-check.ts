@@ -74,9 +74,13 @@ runMain(async () => {
     await capture(browser, baseUrl, context, "student-empty", `${workspacePath}?as=student`, shots, axe);
 
     await step("Plan my payment (48 h): ruta B", async () => {
+      // El chat es el modo por defecto: T1 por clics usa los controles estructurados.
+      await page.getByRole("button", { name: "Use structured controls" }).click();
       await page.getByRole("button", { name: "Plan my payment" }).last().click();
       await page.getByText("Plan ready").first().waitFor();
-      await page.getByText("Lowest cost that meets every rule").or(page.getByText("Selected").first()).first().waitFor();
+      const routes = page.locator("section", { has: page.getByRole("heading", { name: "Routes" }) });
+      await routes.getByText("Lowest cost that meets every rule").first().waitFor();
+      if ((await routes.getByText("Edu Pay Partner").count()) === 0) throw new Error("La ruta elegida no es B (Edu Pay Partner)");
     });
 
     await step("Request approval", async () => {
@@ -92,20 +96,29 @@ runMain(async () => {
       await page.getByRole("heading", { name: "Payment approval" }).waitFor();
     });
     const approvalPath = new URL(page.url()).pathname;
-    await capture(browser, baseUrl, context, "approval-pending", approvalPath, shots, axe);
+    await capture(browser, baseUrl, context, "approval-pending", approvalPath, shots, axe, THEMES, true);
 
     await step("Approve this payment: aparece el sello", async () => {
       await page.getByRole("button", { name: "Approve this payment" }).click();
       await page.getByText(/Approved by Carlos Ramos/).waitFor();
       await page.getByRole("img", { name: /Consent seal, fingerprint/ }).first().waitFor();
     });
-    await capture(browser, baseUrl, context, "approval-approved", approvalPath, shots, axe);
+    await capture(browser, baseUrl, context, "approval-approved", approvalPath, shots, axe, THEMES, true);
     await capture(browser, baseUrl, context, "payer", `${workspacePath}?as=payer`, shots, axe);
 
     await step("Sofía envía el pago", async () => {
-      await page.goto(`${workspacePath}?as=student`);
+      await page.getByRole("link", { name: "Requests" }).click();
+      await page.waitForURL(/as=payer/);
+      await page.getByRole("tab", { name: /Sofía, student/ }).click();
+      await page.waitForURL(/as=student/);
       await journey(page).getByRole("button", { name: "Send payment" }).click();
       await page.getByText(/Waiting for the university/).first().waitFor();
+    });
+
+    await step("Check this payment: el mismo pago, todavía en la universidad", async () => {
+      await journey(page).getByRole("button", { name: "Check this payment" }).click();
+      // El aviso (toast) que devuelve la consulta, no el texto fijo del panel.
+      await page.locator("[data-sonner-toast]", { hasText: "Still waiting for the university" }).first().waitFor();
     });
 
     await step("El evaluador avanza 24 horas", async () => {
@@ -116,10 +129,10 @@ runMain(async () => {
     });
     await capture(browser, baseUrl, context, "console", `${workspacePath}?as=evaluator`, shots, axe, ["dark"]);
 
-    await step("Check this payment: CREDITED", async () => {
-      await page.goto(`${workspacePath}?as=student`);
-      const check = journey(page).getByRole("button", { name: "Check this payment" });
-      if (await check.isVisible()) await check.click();
+    await step("Sofía ve CREDITED con el recibo de la universidad", async () => {
+      await page.getByRole("tab", { name: /Sofía, student/ }).click();
+      await page.waitForURL(/as=student/);
+      await journey(page).getByText(/Receipt AU-RC-/).first().waitFor();
       await page.getByText("Credited by the university").first().waitFor();
     });
     await capture(browser, baseUrl, context, "student-credited", `${workspacePath}?as=student`, shots, axe);
@@ -129,7 +142,7 @@ runMain(async () => {
     console.log(`axe: ${axe.length} capturas revisadas, ${serious} violaciones serias o críticas (${path.relative(process.cwd(), EVIDENCE)})`);
     const wide = axe.filter((r) => r.horizontalOverflowPx > 0);
     console.log(`scroll horizontal: ${wide.length === 0 ? "ninguno" : wide.map((r) => `${r.screen} (+${r.horizontalOverflowPx} px)`).join(", ")}`);
-    if (wide.length > 0) return 1;
+    if (wide.length > 0 || serious > 0) return 1;
     console.log("ui:check: OK (T1 CREDITED solo con clics)");
     return 0;
   } finally {
@@ -152,6 +165,7 @@ async function capture(
   shots: boolean,
   axe: AxeRow[],
   themes: readonly (typeof THEMES)[number][] = THEMES,
+  fullPage = false,
 ): Promise<void> {
   const state = await source.storageState();
   for (const size of SIZES) {
@@ -160,7 +174,7 @@ async function capture(
       const page: Page = await context.newPage();
       await page.goto(url);
       await page.waitForLoadState("networkidle");
-      if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, `${name}-${size.name}-${theme}.png`), fullPage: false });
+      if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, `${name}-${size.name}-${theme}.png`), fullPage });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
       const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");

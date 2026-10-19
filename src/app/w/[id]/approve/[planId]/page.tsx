@@ -8,7 +8,9 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   const { id, planId } = await params;
   return (
     <div className="min-h-dvh">
-      <SimulationBand />
+      <div className="sticky top-0 z-20">
+        <SimulationBand />
+      </div>
       <main id="main">
         <ApprovalDocument workspaceId={id} planId={planId} />
       </main>

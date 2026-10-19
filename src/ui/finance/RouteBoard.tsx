@@ -29,6 +29,19 @@ interface Row {
 }
 
 /**
+ * Titular cuando no hay ruta elegida (VC7): sale de los bloqueos del plan o de la razón que comparten todas las rutas;
+ * "No route arrives in time" solo si de verdad todas fallan por plazo.
+ */
+export function noRouteHeadline(routing: RoutingDTO, targetHours: number, fastest: RouteEvaluationDTO | null, invoiceNet: MoneyDTO, payerName?: string): { title: string; detail: string } {
+  if (routing.blockers.length > 0) return reasonCopy(routing.blockers[0]!, { targetHours, invoiceNet, payerName });
+  const all = [...routing.viable, ...routing.discarded];
+  const shared = all.length > 0 ? all[0]!.reasons.find((code) => all.every((r) => r.reasons.includes(code))) : undefined;
+  if (shared && shared !== "DEADLINE_MISSED") return reasonCopy(shared, { targetHours, invoiceNet, payerName });
+  if (shared === "DEADLINE_MISSED" && fastest) return { title: "No route arrives in time", detail: `The fastest route takes ${fastest.arrivalHours} h. You need it within ${targetHours} h.` };
+  return { title: "No route meets every rule", detail: "Each route fails at least one rule. The reasons are listed on each row." };
+}
+
+/**
  * Tablero de rutas con aspecto de tablero de llegadas (UI_UX 12): primero la elegida, después las viables y al final
  * las descartadas con la razón en la fila, nunca en un tooltip.
  */
@@ -37,6 +50,7 @@ export function RouteBoard({ routing, targetHours, invoiceNet, comparedAt, compa
   const visible = compact ? rows.filter((r) => r.kind === "selected") : rows;
   const noRoute = routing.selectedRouteId === null;
   const fastest = [...routing.viable, ...routing.discarded].reduce<RouteEvaluationDTO | null>((best, r) => (best === null || r.arrivalHours < best.arrivalHours ? r : best), null);
+  const headline = noRouteHeadline(routing, targetHours, fastest, invoiceNet, payerName);
   const note = `Within ${targetHours} h${comparedAt ? `, compared at ${formatClock(comparedAt)} virtual time` : ""}`;
 
   return (
@@ -52,10 +66,8 @@ export function RouteBoard({ routing, targetHours, invoiceNet, comparedAt, compa
 
       {noRoute ? (
         <div className="rounded-doc border border-line bg-paper px-4 py-3">
-          <p className="text-[15px] font-semibold leading-[22px] text-ink">No route arrives in time</p>
-          <p className="text-[14px] leading-[22px] text-ink-2">
-            {fastest ? `The fastest route takes ${fastest.arrivalHours} h. You need it within ${targetHours} h.` : "No route can be used for this payment."}
-          </p>
+          <p className="text-[15px] font-semibold leading-[22px] text-ink">{headline.title}</p>
+          <p className="text-[14px] leading-[22px] text-ink-2">{headline.detail}</p>
         </div>
       ) : null}
 

@@ -2,11 +2,11 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 20:58.
-- **Fase:** 4 Interfaz (en curso desde las 19:58). Fase 3 cerrada a las 20:38 (`0eee748` en producción, smoke con T1 hasta CREDITED). Fase 2 cerrada a las 19:48.
-- **Subtarea en curso:** 4.8 revisión VC7 (subagente `revisor`, con las capturas).
-- **Siguiente paso exacto:** corregir lo que encuentre VC7, `pnpm verify`, merge a `main` y smoke; después la Fase 5 (agente).
-- **Último `pnpm verify`:** 20:51 a 20:57, exit 0 (25 archivos y 460 pruebas).
+- **Hora (Lima):** domingo 18 de octubre, 21:40.
+- **Fase:** 4 Interfaz cerrándose (VC7 corregido) y 5 Agente en curso desde las 21:00. El código de las dos está entrelazado en las mismas vistas, así que se llevan juntas a `main` cuando cierre VC8. Fase 3 cerrada a las 20:38.
+- **Subtarea en curso:** `pnpm verify` del árbol con la Fase 4 corregida y el agente; después, revisión VC8.
+- **Siguiente paso exacto:** commit en `dev`, revisión VC8 (`revisor`), correcciones, merge a `main`, smoke y T1 por chat en producción (puerta G2).
+- **Último `pnpm verify`:** 21:43 a 21:48, exit 0 (31 archivos y 487 pruebas).
 - **URL de producción:** https://arrivalguard.vercel.app (commit 0eee748, smoke con T1 CREDITED 20:39).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
@@ -19,8 +19,8 @@
 | 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
 | 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
 | 3 API, sesiones y acceso | cerrada | lun 00:30 | dom 20:38 | 20:37 exit 0 | VC6 sin críticos ni altos; 2 medios y 6 bajos corregidos (docs/reviews/VC6.md) |
-| 4 Interfaz | en curso | lun 03:00 | | | VC7 |
-| 5 Agente (G2) | pendiente | lun 05:00 | | | VC8 |
+| 4 Interfaz | cerrada (merge a `main` con la Fase 5) | lun 03:00 | dom 21:49 | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
+| 5 Agente (G2) | en curso | lun 05:00 | | | VC8 |
 | 6 Capacidades P1 | pendiente | lun 09:30 | | | |
 | 7 Seguridad completa (G3) | pendiente | lun 11:30 | | | VC9 |
 | 8 Evaluación y documentos (G4) | pendiente | lun 14:00 | | | VC10 |
@@ -133,7 +133,13 @@ Subtareas:
 - [x] 4.5 Pantallas: landing con acceso del jurado, espacio de Sofía (zona A con modo estructurado, zona B con el estado del servidor), vista de Carlos (solicitudes, actividad, permisos con edición y revocación), documento de aprobación con sello, confirmación de cambios y consola del evaluador (escenario, reloj, fallas y bitácora).
 - [x] 4.6 `/system` (P1) con tokens, tipografía, componentes y sellos.
 - [x] 4.7 VC7: `pnpm ui:check` (Playwright) recorre T1 solo con clics hasta CREDITED; capturas a 1440 × 900 y 390 × 844 en claro y oscuro en `docs/design/screens/`; axe por pantalla en `docs/evidence/ui-axe.json`.
-- [ ] 4.8 `pnpm verify`, revisión VC7 con las capturas, correcciones, merge a `main` y smoke.
+- [x] 4.8 `pnpm verify`, revisión VC7 con las capturas y correcciones. El merge a `main` va junto con la Fase 5 (ver Estado actual).
+
+Revisión (20:59 a 21:19, subagente `revisor`, docs/reviews/VC7.md): rechazado por un alto, sin críticos. VC7-1 alto: tras una falla confirmada, el documento mostraba la aprobación consumida como vigente y no dejaba aprobar de nuevo. Ocho medios: clave de la interfaz sin la aprobación, avisos que contradecían al servidor, titular del tablero sin ruta, replan con la matrícula pagada, caja desactualizada, documento que no avisaba de un cambio, capturas incompletas del documento, faltantes P0 de la consola y promesas P1 en la landing. Siete bajos. Corregido todo lo que afecta corrección o el spec, con pruebas (integración de VC7-1 y del replan rechazado, unitaria del titular del tablero) y `ui:check` más estricto. Decisión DEC-016. Pendientes menores en la Deuda.
+
+Evidencia de cierre (21:48): `pnpm verify` exit 0: `OK typecheck`, `OK lint`, `OK test` (31 archivos y 487 pruebas), `OK db:seed-check`, `OK build`, `verify: TODO EN VERDE` (el árbol incluye el agente de la Fase 5).
+
+Evidencia (21:34): `pnpm ui:check` contra `pnpm build && pnpm start`: T1 solo con clics hasta CREDITED con "Check this payment" pulsado mientras espera la universidad; `axe: 34 capturas revisadas, 0 violaciones serias o críticas`; `scroll horizontal: ninguno`; `ui:check: OK`.
 
 Evidencia (20:51): `pnpm ui:check --base-url http://localhost:3000` contra `pnpm build && pnpm start`: landing, acceso con el código (escenario base), Plan my payment (ruta B), Request approval, Carlos abre la solicitud y aprueba (aparece el sello), Sofía envía, el evaluador avanza 24 horas y Check this payment llega a CREDITED, todo con clics; `axe: 34 capturas revisadas, 0 violaciones serias o críticas`; `scroll horizontal: ninguno`; `ui:check: OK (T1 CREDITED solo con clics)`. Capturas en `docs/design/screens/` (landing, /system, estudiante vacío, esperando y acreditado, documento pendiente y aprobado, vista del pagador y consola), a 1440 × 900 y 390 × 844, en claro y oscuro (la consola solo en oscuro). Revisadas a ojo: se corrigieron el desborde horizontal de la consola en móvil, la bitácora sin día después de avanzar el reloj, textos duplicados en fondos y beca, la tarjeta invalidada con opacidad (no cumplía 4.5:1) y pestañas con `aria-controls` sin panel.
 
@@ -141,11 +147,28 @@ Evidencia (20:51): `pnpm ui:check --base-url http://localhost:3000` contra `pnpm
 
 Cambios de API para la interfaz (aditivos): `SessionDTO` agrega `virtualStart` y `people` (nombres sintéticos para el selector de rol); `PlanDTO` agrega `targetArrivalHours` y `comparedAt` (sacados de las cotizaciones evaluadas).
 
+## Fase 5: Agente (puerta G2)
+
+Inicio: domingo 18, 21:00 (en paralelo con la revisión VC7). Secciones: BUILD_PROMPT 13 (13.1 a 13.6), 14.1 (texto del modelo), 14.2 (S01, S02, S04, S05, S10 a S13 de nivel agente), A5.
+
+Subtareas:
+- [x] 5.1 Puertos del agente (modelo, herramientas, conversación, uso de IA) y `ChatTurnUseCase`: el actor sale de la sesión; `<case_state>` compacto, enmascarado y por rol; hasta 4 llamadas al modelo y 6 herramientas por turno; no se empieza otra llamada pasados 30 s (25 s por llamada, `maxDuration` de 60 s).
+- [x] 5.2 Adaptador de Claude con la configuración 13.1 (thinking between_tools con effort low, system con cache_control, herramientas strict, tool_choice auto) y el system prompt literal de 13.4.
+- [x] 5.3 Herramientas por rol (13.3) con Zod en el servidor; nunca hay herramientas para aprobar, confirmar, destinatarios, reloj, fallas ni acreditar; una herramienta ajena al rol da ROLE_NOT_ALLOWED y SECURITY_BLOCK (PRIVILEGE_ESCALATION). La clave del envío por el agente la deriva el servidor (`tuition:{planId}:v{version}:{approvalId}`).
+- [x] 5.4 Historial A5 (pasados como texto plano, turno en curso literal) en `conversations` y `conversation_turns`; presupuesto con reserva previa en `ai_usage` (3.00 USD por espacio, 15.00 USD diarios), 10 turnos por minuto y 60 por día; salida segura (AI_UNAVAILABLE, tope, error de la API, rechazo) con AI_FALLBACK_ACTIVATED y modo estructurado.
+- [x] 5.5 Señales de ataque en el mensaje (inducción, aprobación afirmada sin aprobación real, cambio de reglas, secretos, número completo) como SECURITY_BLOCK con su categoría oficial. El control real es estructural.
+- [x] 5.6 Interfaz del chat: hilo, actividad del servidor, sugerencias, compositor, tarjetas desde el estado del servidor, texto del modelo como markdown mínimo sin HTML, modo estructurado ante una falla; `GET` y `POST /api/chat`; "AI usage" en la consola.
+- [ ] 5.7 `pnpm verify`, revisión VC8, correcciones, merge a `main`, smoke y T1 por chat en producción (G2).
+
+Evidencia (21:20): `pnpm ai:turns` con el modelo real contra Neon `dev`: 20 turnos seguidos, 0 con error del modelo; T1 por chat hasta CREDITED (recibo AU-RC-BC49EF68) con la aprobación dada en la pantalla fija; ataques S01, S10, S13 y S05 con SECURITY_BLOCK; el pagador prepara un cambio de límite que queda pendiente de confirmación (`docs/evidence/agent-turns-2026-10-19T02-20-43-194Z.json`). Integración con modelo guionizado (`tests/integration/chatTurn.test.ts`, 8 pruebas): actor de la sesión, historial A5, escalada rechazada sin efectos, ids de otro espacio, reintento sin pago doble, topes 4 y 6, O06 con AI_UNAVAILABLE, presupuesto, error de la API y rechazo.
+
 ## Deuda
 
 Hallazgos medios y bajos de las revisiones y pendientes menores.
 
-- Ninguno todavía.
+- VC6: el límite por IP depende del primer valor de `X-Forwarded-For` (en Vercel lo fija la plataforma); endurecer con `ipAddress()` de `@vercel/functions`.
+- VC7: que el documento de aprobación entre completo en 1440 × 900; indicador de cambios en las pestañas móviles; columna de estado del tablero de la landing en móvil; nombres de escenario leídos de la configuración del servidor en la landing.
+- VC7: "Run T1 to T8" en la consola llega con `tasks:run` (Fase 8); los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos.
 
 ## Recortes
 

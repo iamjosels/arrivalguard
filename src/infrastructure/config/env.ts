@@ -8,6 +8,8 @@ export const CONFIG_DEFAULTS = {
   EVAL_ACCESS_PER_IP_HOUR: 20,
   EVAL_WORKSPACES_PER_DAY: 200,
   RATE_LIMIT_PREFIX: "access",
+  AI_TURNS_PER_MINUTE: 10,
+  AI_TURNS_PER_DAY: 60,
   AI_BUDGET_PER_WORKSPACE_USD: "3.00",
   AI_BUDGET_DAILY_USD: "15.00",
   PRICE_INPUT_PER_MTOK_USD: "2.00",
@@ -29,6 +31,8 @@ const serverEnvSchema = z.object({
   EVAL_ACCESS_PER_IP_HOUR: z.coerce.number().int().positive().default(CONFIG_DEFAULTS.EVAL_ACCESS_PER_IP_HOUR),
   EVAL_WORKSPACES_PER_DAY: z.coerce.number().int().positive().default(CONFIG_DEFAULTS.EVAL_WORKSPACES_PER_DAY),
   RATE_LIMIT_PREFIX: z.string().regex(/^[a-z0-9-]{1,40}$/).default(CONFIG_DEFAULTS.RATE_LIMIT_PREFIX),
+  AI_TURNS_PER_MINUTE: z.coerce.number().int().positive().default(CONFIG_DEFAULTS.AI_TURNS_PER_MINUTE),
+  AI_TURNS_PER_DAY: z.coerce.number().int().positive().default(CONFIG_DEFAULTS.AI_TURNS_PER_DAY),
   AI_BUDGET_PER_WORKSPACE_USD: decimalUsd.default(CONFIG_DEFAULTS.AI_BUDGET_PER_WORKSPACE_USD),
   AI_BUDGET_DAILY_USD: decimalUsd.default(CONFIG_DEFAULTS.AI_BUDGET_DAILY_USD),
   PRICE_INPUT_PER_MTOK_USD: decimalUsd.default(CONFIG_DEFAULTS.PRICE_INPUT_PER_MTOK_USD),
@@ -84,4 +88,10 @@ export function resolveAppBaseUrl(env: BaseUrlInput): string {
 
 function stripTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+/** "2.50" (USD) a micro-USD como bigint, sin punto flotante. */
+export function usdToMicros(decimal: string): bigint {
+  const [units, cents = ""] = decimal.split(".");
+  return BigInt(units ?? "0") * 1_000_000n + BigInt((cents + "000000").slice(0, 6));
 }

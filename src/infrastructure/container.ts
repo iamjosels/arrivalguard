@@ -19,7 +19,12 @@ import { ReadModelsUseCase } from "@/application/usecases/ReadModelsUseCase";
 import { RevokePermissionUseCase } from "@/application/usecases/RevokePermissionUseCase";
 import { DbRateLimiter, DrizzleSessionStore, EnvAccessCode } from "./auth/DrizzleSessionStore";
 import { pepperedHash } from "./auth/secrets";
-import { getServerEnv } from "./config/env";
+import { getServerEnv, usdToMicros } from "./config/env";
+import { ChatTurnUseCase } from "@/application/usecases/ChatTurnUseCase";
+import { AgentModelError, type AgentModelPort } from "@/application/ports/AgentPorts";
+import { ToolExecutor } from "@/interfaces/agent/ToolExecutor";
+import { AnthropicAgentModel } from "./ai/AnthropicAgentModel";
+import { DrizzleAiUsageStore, DrizzleConversationStore } from "./db/repositories/aiRepositories";
 import { ReconcilePaymentUseCase } from "@/application/usecases/ReconcilePaymentUseCase";
 import { RequestPayerApprovalUseCase } from "@/application/usecases/RequestPayerApprovalUseCase";
 import { NodeHasher } from "./crypto/NodeHasher";
@@ -53,6 +58,7 @@ export function buildContainer() {
   const sessions = new DrizzleSessionStore(db, pepper);
   const limiter = new DbRateLimiter(db);
   const createWorkspace = new CreateEvaluationWorkspaceUseCase(deps);
+  const caseView = new GetCaseViewUseCase(deps, processor);
   return {
     deps,
     processor,
@@ -67,7 +73,7 @@ export function buildContainer() {
       perDay: getServerEnv().EVAL_WORKSPACES_PER_DAY,
       keyPrefix: getServerEnv().RATE_LIMIT_PREFIX,
     }),
-    caseView: new GetCaseViewUseCase(deps, processor),
+    caseView,
     changePolicy: new ChangePayerPolicyUseCase(deps),
     preparePayerChange: new PreparePayerChangeUseCase(deps),
     confirmPayerChange: new ConfirmPayerChangeUseCase(deps),
@@ -87,11 +93,50 @@ export function buildContainer() {
   };
 }
 
-export type Container = ReturnType<typeof buildContainer>;
+/** Sin clave de API el asistente queda no disponible y la interfaz usa el modo estructurado (BUILD_PROMPT 13.6). */
+function agentModel(apiKey: string | undefined, model: string): AgentModelPort {
+  if (apiKey) return new AnthropicAgentModel(apiKey, model);
+  return {
+    model,
+    respond: async () => {
+      throw new AgentModelError("UNAVAILABLE", "No API key configured.");
+    },
+  };
+}
+
+/** Núcleo sin el chat: lo usan el ejecutor de herramientas y los presentadores (evita un tipo circular). */
+export type CoreContainer = ReturnType<typeof buildContainer>;
+
+function buildChat(core: CoreContainer): ChatTurnUseCase {
+  const env = getServerEnv();
+  return new ChatTurnUseCase(core.deps, core.caseView, agentModel(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL), new ToolExecutor(() => getContainer()), new DrizzleConversationStore(), new DrizzleAiUsageStore(), core.limiter, {
+    budgetPerWorkspaceMicros: usdToMicros(env.AI_BUDGET_PER_WORKSPACE_USD),
+    budgetDailyMicros: usdToMicros(env.AI_BUDGET_DAILY_USD),
+    turnsPerMinute: env.AI_TURNS_PER_MINUTE,
+    turnsPerDay: env.AI_TURNS_PER_DAY,
+    rateLimitPrefix: env.RATE_LIMIT_PREFIX,
+    prices: {
+      input: usdToMicros(env.PRICE_INPUT_PER_MTOK_USD),
+      output: usdToMicros(env.PRICE_OUTPUT_PER_MTOK_USD),
+      cacheRead: usdToMicros(env.PRICE_CACHE_READ_PER_MTOK_USD),
+      cacheWrite: usdToMicros(env.PRICE_CACHE_WRITE_PER_MTOK_USD),
+    },
+    maxModelCalls: 4,
+    maxToolCalls: 6,
+    // No se empieza otra llamada pasados 30 s: con 25 s por llamada, el turno termina antes de los 60 s de la ruta.
+    turnDeadlineMs: 30_000,
+    historyTurns: 8,
+  });
+}
+
+export type Container = CoreContainer & { readonly chat: ChatTurnUseCase };
 
 let container: Container | undefined;
 
 export function getContainer(): Container {
-  if (!container) container = buildContainer();
+  if (!container) {
+    const core = buildContainer();
+    container = Object.assign(core, { chat: buildChat(core) });
+  }
   return container;
 }

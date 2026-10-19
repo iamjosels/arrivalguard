@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { EventDTO } from "@/application/dto/CaseDTO";
+import type { AiUsageDTO } from "@/application/mappers/AiUsageMapper";
+import { formatMoney } from "@/interfaces/format/money";
+import { PermissionMeter } from "@/ui/finance";
 import { StopOctagon } from "@/ui/brand";
 import { formatDuration, formatVirtual, formatWhen, minutesBetween } from "@/ui/format/time";
 import { Button, Field, Input, Panel, Select, Switch, notify } from "@/ui/primitives";
@@ -17,6 +20,7 @@ import { ProblemNotice } from "@/ui/workspace/ProblemNotice";
 // activa fallas y cambia de escenario; el servidor lo exige por rol.
 
 interface EventsResponse {
+  readonly aiUsage?: AiUsageDTO;
   readonly virtualNow: string | null;
   readonly faults: Readonly<Record<string, unknown>>;
   readonly events: readonly EventDTO[];
@@ -169,6 +173,24 @@ export function EvaluatorConsole({
               ))}
             </div>
           </Panel>
+          <Panel title="AI usage">
+            {events.data?.aiUsage ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[14px] leading-[22px] text-ink">
+                    {formatMoney(events.data.aiUsage.workspace)} of {formatMoney(events.data.aiUsage.workspaceBudget)} for this workspace
+                  </p>
+                  <PermissionMeter used={events.data.aiUsage.workspace} max={events.data.aiUsage.workspaceBudget} />
+                </div>
+                <p className="text-[14px] leading-[22px] text-ink-2">
+                  {formatMoney(events.data.aiUsage.daily)} of {formatMoney(events.data.aiUsage.dailyBudget)} today, across all workspaces
+                </p>
+                <p className="text-[12px] leading-4 text-muted">At either limit the assistant switches to structured controls. Nothing is lost.</p>
+              </div>
+            ) : (
+              <p className="text-[14px] text-ink-2">Loading usage</p>
+            )}
+          </Panel>
           <ProblemNotice problem={actions.problem} />
         </div>
 
@@ -183,7 +205,7 @@ export function EvaluatorConsole({
                     type="button"
                     aria-pressed={filter === f.id}
                     onClick={() => setFilter(f.id)}
-                    className={cn("h-8 rounded-full border px-3 text-[13px] font-medium", filter === f.id ? "border-route bg-route-tint text-ink" : "border-line text-ink-2 hover:text-ink")}
+                    className={cn("h-11 rounded-full border px-3 md:h-8 text-[13px] font-medium", filter === f.id ? "border-route bg-route-tint text-ink" : "border-line text-ink-2 hover:text-ink")}
                   >
                     {f.label}
                   </button>

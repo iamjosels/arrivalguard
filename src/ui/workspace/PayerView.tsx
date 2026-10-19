@@ -11,6 +11,7 @@ import { formatDuration, formatWhen, minutesBetween } from "@/ui/format/time";
 import { Button, Field, Input, Panel, Tabs, notify } from "@/ui/primitives";
 import { api } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
+import { ConversationPanel } from "@/ui/chat";
 import { useActionState } from "./actions";
 import { eventDetail, eventTitle, firstName, parseUsdToMinor, sealCode } from "./copy";
 import { ProblemNotice } from "./ProblemNotice";
@@ -49,6 +50,18 @@ export function PayerView({ data, refresh, workspaceId }: { data: CaseViewDTO; r
         <div id="panel-permissions" role="tabpanel" aria-label="Permissions" className={cn("min-w-0 lg:col-span-7", section("permissions"))}>
           <PermissionsPanel data={data} refresh={refresh} workspaceId={workspaceId} />
         </div>
+        <div className="min-w-0 lg:col-span-12">
+          <Panel title="Conversation">
+            <ConversationPanel
+              role="payer"
+              workspaceId={workspaceId}
+              data={data}
+              refresh={refresh}
+              ctx={reasonContext(data)}
+              structured={<p className="text-[14px] leading-[22px] text-ink-2">Use the Requests and Permissions panels to approve, change limits or revoke permissions.</p>}
+            />
+          </Panel>
+        </div>
       </div>
     </div>
   );
@@ -83,7 +96,7 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
             action={
               <Link
                 href={`/w/${workspaceId}/approve/${r.planId}`}
-                className="inline-flex h-10 items-center rounded-control bg-route px-4 text-[15px] font-semibold text-on-route transition-colors duration-[120ms] hover:bg-route-hover"
+                className="inline-flex h-11 items-center rounded-control bg-route px-4 md:h-10 text-[15px] font-semibold text-on-route transition-colors duration-[120ms] hover:bg-route-hover"
               >
                 Review and approve
               </Link>
@@ -94,7 +107,7 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
           <div key={c.changeId} className="rounded-control border border-line p-4">
             <p className="font-semibold text-ink">{c.kind === "POLICY_CHANGE" ? "Limit change prepared in the chat" : "Permission change prepared in the chat"}</p>
             <p className="text-[14px] leading-[22px] text-ink-2">Nothing changes until you confirm it on its own screen.</p>
-            <Link href={`/w/${workspaceId}/payer/changes/${c.changeId}`} className="mt-3 inline-flex h-10 items-center rounded-control border border-line-strong px-4 text-[15px] font-semibold text-ink hover:border-ink">
+            <Link href={`/w/${workspaceId}/payer/changes/${c.changeId}`} className="mt-3 inline-flex h-11 items-center rounded-control border border-line-strong px-4 md:h-10 text-[15px] font-semibold text-ink hover:border-ink">
               Review change
             </Link>
           </div>
@@ -113,7 +126,7 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
             invalidated={a.status === "INVALIDATED" ? { title: "Approval no longer matches", detail: `The plan changed. ${firstName(data.people.payer)} needs to approve the new one.` } : null}
             secondary={
               a.status === "ACTIVE" ? (
-                <Link href={`/w/${workspaceId}/approve/${plan?.planId ?? ""}`} className="text-[15px] font-semibold text-route hover:underline">
+                <Link href={`/w/${workspaceId}/approve/${plan?.planId ?? ""}`} className="inline-flex min-h-11 items-center text-[15px] font-semibold text-route hover:underline md:min-h-0">
                   Review or revoke
                 </Link>
               ) : null
@@ -138,6 +151,8 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
   );
 }
 
+const isMoneyDTO = (v: unknown): v is MoneyDTO => typeof v === "object" && v !== null && typeof (v as MoneyDTO).minor === "string" && typeof (v as MoneyDTO).currency === "string";
+
 function activityText(item: ActivityDTO, data: CaseViewDTO): string {
   const s = item.summary;
   const student = firstName(data.people.student);
@@ -154,7 +169,7 @@ function activityText(item: ActivityDTO, data: CaseViewDTO): string {
     case "POLICY_CHANGED":
       return "You changed your limits.";
     case "INSTITUTION_CREDITED":
-      return `${data.tuition.institution} credited ${formatMoney(data.tuition.netDue)}.${typeof s.receiptId === "string" ? ` Receipt ${s.receiptId}.` : ""}`;
+      return `${data.tuition.institution} credited ${isMoneyDTO(s.net) ? formatMoney(s.net) : "the payment"}.${typeof s.receiptId === "string" ? ` Receipt ${s.receiptId}.` : ""}`;
     default: {
       const detail = eventDetail(item.type, s);
       return `${eventTitle(item.type)}${detail ? `. ${detail}` : ""}.`;
