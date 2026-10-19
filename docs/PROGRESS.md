@@ -2,14 +2,14 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 01:03.
-- **Fase:** 8 Evaluación y documentos (en curso desde las 00:30). Fase 7 cerrada a las 00:28 con la puerta G3 cumplida y en producción (`82e72e5`).
-- **Subtarea en curso:** 8.5 revisión VC10 (revisor en segundo plano).
-- **Siguiente paso exacto:** corregir lo que reporte VC10, `pnpm verify`, merge, smoke y aviso del video final (G4). Después, Fase 9: VC11, INFORME_FINAL y tag.
-- **Último `pnpm verify`:** lunes 00:17 a 00:25 sobre `82e72e5`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
-- **URL de producción:** https://arrivalguard.vercel.app (commit `82e72e5`, smoke con T1 CREDITED a las 00:27).
+- **Hora (Lima):** lunes 19 de octubre, 09:15.
+- **Fase:** 8 Evaluación y documentos, en cierre: corridas oficiales finales sobre `75614ed` en verde y `results:report` hecho. Antes de este cierre la computadora estuvo en Modern Standby de 01:34 a 06:35 y de 06:36 a 08:42; la corrida que quedó a medias se descartó y se repitió.
+- **Subtarea en curso:** 8.6 `pnpm verify` sobre el commit de resultados, merge y smoke.
+- **Siguiente paso exacto:** Fase 9: VC11 (clon limpio siguiendo solo el README), `secrets-scan`, `verify`, despliegue y smoke final, INFORME_FINAL, árbol limpio y tag `v1.0.0-submission`.
+- **Último `pnpm verify`:** lunes 01:19 a 01:28 sobre `75614ed`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
+- **URL de producción:** https://arrivalguard.vercel.app (commit `75614ed`, smoke con T1 CREDITED a las 01:29).
 - **Bloqueos abiertos:** ninguno.
-- **Gasto de IA estimado:** cerca de USD 1.70 en total: `eval:agent` tres veces (USD 0.47, 0.47 y 0.46, medido en `ai_usage`), la auditoría VC9 (USD 0.09 y 0.004), Run T1 to T8 en producción y en `ui:check` (unos USD 0.004 cada uno), `ai-turns` y los smoke del chat.
+- **Gasto de IA estimado:** cerca de USD 2.20 en total: `eval:agent` cuatro veces (USD 0.47, 0.47, 0.46 y 0.47, medido en `ai_usage`), la auditoría VC9 (USD 0.09 y 0.004), Run T1 to T8 en producción y en `ui:check` (unos USD 0.004 cada uno), `tasks:run` con T8 (unos USD 0.005 cada uno), `ai-turns` y los smoke del chat.
 
 ## Fases y puertas
 
@@ -202,12 +202,12 @@ Cierre (lun 00:28): `pnpm verify` sobre `82e72e5` exit 0 (`OK typecheck`, `OK li
 Inicio: lunes 19, 00:30. Secciones: BUILD_PROMPT 16 y 18, AUTONOMIA 6 (VC10).
 
 Subtareas:
-- [x] 8.1 Corridas oficiales. `tasks:run` contra producción (`82e72e5`, 00:29): 8 de 8 tareas y Run T1 to T8 de la consola 8 de 8 en 3.9 s. Sobre `82e72e5`: `eval:deterministic` 114 de 114 y `eval:agent` 27 de 28 (D02 marcado por un juez que solo contaba signos de pregunta; la respuesta pedía los dos datos en un mensaje). Juez corregido y documentado en EVALUATION, con N06, N15 y N16 agregados. Sobre `1235212` (mismo `src` que producción): `eval:deterministic` 114 de 114 con 40 escenarios y `eval:agent` 30 de 30 (USD 0.455, 0 salidas seguras, mediana de 15.8 s por turno). Las tres corridas del agente quedan publicadas.
-- [x] 8.2 `results:report` (00:57): RESULTS.md, EVALUATION 7.1 a 7.3 y las cuatro categorías de SECURITY_SELF_ASSESSMENT, con commit y fecha de cada archivo (`c2377ca`).
+- [x] 8.1 Corridas oficiales finales sobre `75614ed`, el commit desplegado. `tasks:run` contra producción (01:29): 8 de 8, con T8 comprobando la acción ofrecida y guardando su transcripción, y Run T1 to T8 de la consola 8 de 8 en 4.0 s. `eval:deterministic` (08:43 a 08:53): 114 de 114 con 40 escenarios. `eval:agent` (08:53 a 09:11, solo, sin compartir la base con otra corrida): 32 de 32, incluidos S14 y S15 con el modelo real; mediana de 1 turno con 6 de 6 casos normales medidos por el estado del servidor, 0 preguntas de más en 7 pedidos completos, 3 de 3 correcciones, 0 salidas seguras, mediana de 18.4 s por turno y USD 0.47. Corridas anteriores, que también quedan publicadas: `tasks:run` contra producción (`82e72e5`, 00:29): 8 de 8 tareas y Run T1 to T8 de la consola 8 de 8 en 3.9 s. Sobre `82e72e5`: `eval:deterministic` 114 de 114 y `eval:agent` 27 de 28 (D02 marcado por un juez que solo contaba signos de pregunta; la respuesta pedía los dos datos en un mensaje). Juez corregido y documentado en EVALUATION, con N06, N15 y N16 agregados. Sobre `1235212` (mismo `src` que producción): `eval:deterministic` 114 de 114 con 40 escenarios y `eval:agent` 30 de 30 (USD 0.455, 0 salidas seguras, mediana de 15.8 s por turno). Las tres corridas del agente quedan publicadas.
+- [x] 8.2 `results:report` final (09:12) con las corridas de `75614ed`; la primera versión fue a las 00:57: RESULTS.md, EVALUATION 7.1 a 7.3 y las cuatro categorías de SECURITY_SELF_ASSESSMENT, con commit y fecha de cada archivo (`c2377ca`).
 - [x] 8.3 Documentos de la sección 18: README, TECHNICAL, SECURITY_SELF_ASSESSMENT, EVALUATION, EXECUTION_EVIDENCE, DEMO_GUIDE, VIDEO_SCRIPT, PITCH_OUTLINE, LICENSE y THIRD_PARTY_LICENSES (`4580baf`, al día con VC9).
 - [x] 8.4 `ui:check` completo (01:01): T1 con clics hasta CREDITED, Run T1 to T8 desde la consola 8 de 8, transferencia con clics, 39 capturas, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP.
-- [ ] 8.5 Revisión VC10 (`revisor`): cada número de los documentos sale de un archivo de resultados o evidencia.
-- [ ] 8.6 `pnpm verify`, merge, smoke y aviso del video final en PARA_HUMANOS.
+- [x] 8.5 Revisión VC10 (`revisor`, 00:58 a 01:11): aprobado con deuda. Las 78 filas generadas coinciden sin diferencias con sus JSON. Hubo 4 medios y 8 bajos, sin críticos ni altos, todos corregidos en `75614ed` antes de la corrida oficial final (docs/reviews/VC10.md).
+- [ ] 8.6 `pnpm verify`, merge, smoke y aviso del video final en PARA_HUMANOS (aviso escrito a las 09:15).
 
 ## Deuda
 
