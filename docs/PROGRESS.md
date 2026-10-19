@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 23:29.
-- **Fase:** 7 Seguridad completa. VC9 primera ronda: 1 crítico y 6 bajos, todos corregidos con su regresión en `1bb4890`; segunda ronda en curso. La 8 Evaluación y documentos va adelantada: scripts de evaluación, documentos de entrega y una primera corrida de `eval:agent` con 28 de 28. Fases 4, 5 y 6 cerradas y en producción (`b3e351c`), con la puerta G2 cumplida.
-- **Subtarea en curso:** 7.4 segunda ronda de VC9; 7.5 `pnpm verify` sobre `4580baf`.
-- **Siguiente paso exacto:** con VC9 sin críticos ni altos y `verify` en verde: merge a `main`, despliegue y smoke (G3). Después, corridas oficiales de la Fase 8 sobre el commit desplegado (`eval:deterministic`, `eval:agent`, `tasks:run` contra producción) y `results:report`, y revisión VC10.
-- **Último `pnpm verify`:** 22:18 a 22:25, exit 0 (34 archivos y 509 pruebas, más `secrets-scan`).
-- **URL de producción:** https://arrivalguard.vercel.app (commit b3e351c, smoke con T1 CREDITED y T1 por chat CREDITED a las 22:34).
+- **Hora (Lima):** lunes 19 de octubre, 00:30.
+- **Fase:** 8 Evaluación y documentos (en curso desde las 00:30). Fase 7 cerrada a las 00:28 con la puerta G3 cumplida y en producción (`82e72e5`).
+- **Subtarea en curso:** 8.1 corridas oficiales sobre el commit desplegado `82e72e5`: `eval:deterministic`, `eval:agent` y `tasks:run` contra producción.
+- **Siguiente paso exacto:** `results:report`, `ui:check` completo con capturas, revisión VC10, `pnpm verify`, merge y smoke (G4); aviso del video final en PARA_HUMANOS. Después, Fase 9.
+- **Último `pnpm verify`:** lunes 00:17 a 00:25 sobre `82e72e5`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
+- **URL de producción:** https://arrivalguard.vercel.app (commit `82e72e5`, smoke con T1 CREDITED a las 00:27).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** cerca de USD 0.70 en total. Incluye `ai-turns`, el smoke del chat, `eval:agent` (USD 0.47, medido en `ai_usage`) y la auditoría VC9 (USD 0.09).
 
@@ -22,8 +22,8 @@
 | 4 Interfaz | cerrada | lun 03:00 | dom 21:49 (en `main` 22:33) | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
 | 5 Agente (G2) | cerrada, G2 cumplida | lun 05:00 | dom 22:34 | 22:25 exit 0 | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
 | 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
-| 7 Seguridad completa (G3) | en curso | lun 11:30 | | | VC9 |
-| 8 Evaluación y documentos (G4) | pendiente | lun 14:00 | | | VC10 |
+| 7 Seguridad completa (G3) | cerrada, G3 cumplida | lun 11:30 | lun 00:28 | lun 00:25 exit 0 | VC9 en dos rondas: 1 crítico y 11 bajos, todos corregidos con regresión (uno como DEC-018); segunda ronda sin críticos, altos ni medios (docs/reviews/VC9.md) |
+| 8 Evaluación y documentos (G4) | en curso | lun 14:00 | | | VC10 |
 | 9 Cierre (G5) | pendiente | lun 16:00 | | | VC11 |
 
 Puertas: G1 (Fase 2), G2 (Fase 5), G3 (Fase 7), G4 (Fase 8), G5 (Fase 9).
@@ -193,7 +193,21 @@ Subtareas:
 - [x] 7.2 Encabezados: CSP con nonce (DEC-017), `frame-ancestors 'none'`, nosniff, Referrer-Policy, X-Frame-Options y Permissions-Policy.
 - [x] 7.3 `secrets-scan` en `pnpm verify`.
 - [x] 7.4 Revisión VC9 (`auditor-seguridad`): las cuatro categorías contra la API y el agente en local; cada falla, primero prueba de regresión y después corrección. Primera ronda: 1 crítico (VC9-1) y 6 bajos, corregidos en `1bb4890`. Segunda ronda: las correcciones resisten, sin críticos, altos ni medios; 5 bajos más, también corregidos con su prueba (docs/reviews/VC9.md).
-- [ ] 7.5 `pnpm verify`, merge a `main` y smoke.
+- [x] 7.5 `pnpm verify`, merge a `main` y smoke.
+
+Cierre (lun 00:28): `pnpm verify` sobre `82e72e5` exit 0 (`OK typecheck`, `OK lint`, `OK test` con 39 archivos y 546 pruebas, `OK db:seed-check`, `OK build`, `OK secrets-scan`). Merge fast-forward de `dev` a `main` (`b3e351c..82e72e5`). `GET /api/health` en producción: `82e72e5 ok ok`. `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=82e72e5`, acceso 201, plan con ruta B, aprobación 201, pago 201 PENDING_UNIVERSITY, reloj +24 h, `reconcile -> 200 status=CREDITED`, saldo 214000, `smoke: OK (T1 CREDITED)`. **Puerta G3 cumplida:** S01 a S16 en verde con su categoría oficial (`tests/security`), CSP y encabezados, `secrets-scan` en `verify` y VC9 sin críticos ni altos abiertos. Un intento previo de `verify` (`6bffc17`) falló en 1 de 546 pruebas: la del tope por origen de Run T1 to T8 dependía del reloj por el intervalo entre corridas; se corrigió la prueba aislando ese intervalo (que tiene su propia prueba de 60 s), sin cambiar ninguna aserción (`82e72e5`).
+
+## Fase 8: Evaluación y documentos (puerta G4)
+
+Inicio: lunes 19, 00:30. Secciones: BUILD_PROMPT 16 y 18, AUTONOMIA 6 (VC10).
+
+Subtareas:
+- [ ] 8.1 Corridas oficiales sobre el commit desplegado: `eval:deterministic` y `eval:agent` contra la rama dev, `tasks:run` contra producción.
+- [ ] 8.2 `results:report`: RESULTS.md, EVALUATION y SECURITY_SELF_ASSESSMENT solo con esas corridas.
+- [x] 8.3 Documentos de la sección 18: README, TECHNICAL, SECURITY_SELF_ASSESSMENT, EVALUATION, EXECUTION_EVIDENCE, DEMO_GUIDE, VIDEO_SCRIPT, PITCH_OUTLINE, LICENSE y THIRD_PARTY_LICENSES (`4580baf`, al día con VC9).
+- [ ] 8.4 `ui:check` completo con capturas.
+- [ ] 8.5 Revisión VC10 (`revisor`): cada número de los documentos sale de un archivo de resultados o evidencia.
+- [ ] 8.6 `pnpm verify`, merge, smoke y aviso del video final en PARA_HUMANOS.
 
 ## Deuda
 

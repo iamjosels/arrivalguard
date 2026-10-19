@@ -102,7 +102,7 @@ describe("T1 de punta a punta por HTTP en modo estructurado", () => {
     expect(types.filter((t) => t === "DEBIT_CONFIRMED")).toHaveLength(1);
   });
 
-  it("T5 y T4 por HTTP: comparar sin efectos y proyectar la caja (N07)", async () => {
+  it("T5 y T4 por HTTP: comparar sin efectos y proyectar la caja (N07; N08: DEFICIT de USD 360.00 con la beca aparte)", async () => {
     const ws = await openWorkspace("base");
     const cmp = await ws.browser.call<{ routes: { selectedRouteId: string } }>(compare.GET, "GET", "/api/routes/compare?purpose=TUITION&targetArrivalHours=6", { role: "payer" });
     expect(cmp.status).toBe(200);

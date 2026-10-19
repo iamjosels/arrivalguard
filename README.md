@@ -121,7 +121,7 @@ Secrets live only in server environment variables. They are never printed by the
 | `pnpm verify` | Typecheck, lint, all tests, scenario check, build and secrets scan. Must be green before merging to `main`. |
 | `pnpm test` / `pnpm test:unit` | All tests / unit tests only (no database). |
 | `pnpm db:seed-check` | Validates the synthetic scenarios and their expected numbers. |
-| `pnpm ui:check --base-url http://localhost:3000` | Playwright: tuition payment end to end with clicks, an arrival transfer, screenshots in `docs/design/screens/`, axe checks and CSP console checks. Run `pnpm exec playwright install chromium` once, and start the app first (`pnpm build && pnpm start`). |
+| `pnpm ui:check --base-url http://localhost:3000` | Playwright: tuition payment end to end with clicks, the console's Run T1 to T8, an arrival transfer, screenshots in `docs/design/screens/`, axe checks and CSP console checks. Run `pnpm exec playwright install chromium` once, and start the app first (`pnpm build && pnpm start`). |
 | `pnpm smoke --base-url <url>` | Health, simulation banner and a tuition payment by HTTP until `CREDITED`. |
 | `pnpm smoke:chat --base-url <url>` | A tuition payment through the chat with the real model until `CREDITED`; saves the transcript in `docs/evidence/`. |
 | `pnpm ai:check` | One real call to Claude with the production model configuration and a strict tool. |

@@ -111,6 +111,8 @@ How `eval:agent` counts them:
 - **Complete requests:** the requests where the user already gave everything needed: D01, T1, T3, T4, T5, T6 and T7. A first reply that ends in a question and uses no tool counts as an unnecessary question.
 - **T8 (out of scope) is left out of that count.** Nothing can be prepared there, and offering an allowed action is the expected reply.
 - **Corrections:** D05, D06 and D08.
+- **Asking:** scenarios that require a grouped question (D02, D03, N06) accept a question or an explicit request in the imperative ("please tell me", "let me know"). The unnecessary-question metric counts only question marks.
+- **Judge correction.** The run on commit `82e72e5` (file `agent-2026-10-19T05-42-38-481Z.json`) counted only question marks. It therefore marked D02 as failing, although the reply asked for the amount and the timing together in one message ("Please tell me in one message: 1. How much… 2. By when…"). The judge was corrected and the scenarios were run again. Both runs are listed in section 7.2.
 - **Cost:** read from `ai_usage` for each scenario's workspace.
 - **Latency:** measured per turn.
 

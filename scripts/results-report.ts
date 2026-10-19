@@ -124,6 +124,17 @@ runMain(async () => {
     ].join("\n");
   };
 
+  // Todas las corridas del agente, no solo la última: el modelo no es determinista y se publica la dispersión.
+  const allAgentRuns = (): string[] => {
+    const names = fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.startsWith("agent-") && n.endsWith(".json")).sort() : [];
+    if (names.length < 2) return [];
+    const rows = names.map((name) => {
+      const r = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8")) as AgentFile;
+      return `| \`docs/results/${name}\` | \`${r.commit}\` | ${r.generatedAt} | ${r.totals.passed} of ${r.totals.scenarios} | ${r.totals.failed.length ? r.totals.failed.join(", ") : "none"} | ${usd(r.metrics.totalCostUsdMicros)} |`;
+    });
+    return ["", "Every agent run kept in `docs/results/`, oldest first (the table above is the latest):", "", "| File | Commit | Date | Passed | Failing | Cost |", "| --- | --- | --- | --- | --- | --- |", ...rows];
+  };
+
   const agentSection = (): string => {
     if (!agent) return "Not run yet for this version (no `docs/results/agent-*.json`).";
     const a = agent.data;
@@ -152,6 +163,7 @@ runMain(async () => {
       "| Scenario | Title | Result | Student turns | Cost | Notes |",
       "| --- | --- | --- | --- | --- | --- |",
       ...rows,
+      ...allAgentRuns(),
     ].join("\n");
   };
 
