@@ -15,7 +15,7 @@ export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
       connectionString: normalizeSslMode(getServerEnv().DATABASE_URL),
-      max: 5,
+      max: poolMax(),
       idleTimeoutMillis: 5_000,
       connectionTimeoutMillis: 15_000,
     });
@@ -23,6 +23,11 @@ export function getPool(): Pool {
     attachDatabasePool(pool);
   }
   return pool;
+}
+
+function poolMax(): number {
+  const raw = process.env.DB_POOL_MAX;
+  return raw && /^\d{1,3}$/.test(raw) ? Math.max(1, Math.min(50, Math.trunc(+raw))) : 5;
 }
 
 export function getDb(): Db {

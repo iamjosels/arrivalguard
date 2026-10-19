@@ -1,0 +1,249 @@
+import type { Account, AccountKind } from "../account/Account";
+import type { Approval } from "../consent/Approval";
+import type { StandingMandate } from "../consent/StandingMandate";
+import type { ConditionalIncome, ExpectedExpense } from "../cash/CashProjection";
+import type { ActorRole, DomainEventDraft } from "../events/DomainEvent";
+import type { Money } from "../money/Money";
+import type { PaymentAttempt } from "../payment/PaymentAttempt";
+import type { PaymentPlan } from "../payment/PaymentPlan";
+import type { ObligationStatus, TuitionRoutingResult } from "../policy/PolicyEngine";
+import type { RouteQuote } from "../policy/RouteQuote";
+import type { RefundClaim } from "../refund/RefundClaim";
+import type { RealInstant, VirtualInstant } from "../time/Instant";
+
+// Puertos de persistencia. El dominio y la aplicación dependen de estas interfaces; Drizzle las implementa.
+// Toda lectura y escritura lleva el id del espacio: un recurso de otro espacio simplemente no existe.
+
+export type FaultName =
+  | "LOSE_NEXT_PROVIDER_RESPONSE"
+  | "FAIL_NEXT_TRANSFER"
+  | "DELAY_INSTITUTION_CREDIT"
+  | "REQUOTE_ABOVE_MAX"
+  | "DUPLICATE_NEXT_EVENT"
+  | "PROVIDER_INJECTION_TEXT"
+  | "INSTITUTION_INJECTION_TEXT"
+  | "AI_UNAVAILABLE";
+
+export const FAULT_NAMES: readonly FaultName[] = [
+  "LOSE_NEXT_PROVIDER_RESPONSE",
+  "FAIL_NEXT_TRANSFER",
+  "DELAY_INSTITUTION_CREDIT",
+  "REQUOTE_ABOVE_MAX",
+  "DUPLICATE_NEXT_EVENT",
+  "PROVIDER_INJECTION_TEXT",
+  "INSTITUTION_INJECTION_TEXT",
+  "AI_UNAVAILABLE",
+];
+
+export interface LockOptions {
+  readonly forUpdate?: boolean;
+}
+
+export interface WorkspaceRecord {
+  readonly id: string;
+  readonly scenario: string;
+  readonly virtualNow: VirtualInstant;
+  readonly virtualStart: VirtualInstant;
+  readonly faults: Readonly<Partial<Record<FaultName, boolean>>>;
+  readonly createdAt: RealInstant;
+  readonly expiresAt: RealInstant;
+}
+
+export interface ActorRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly role: ActorRole;
+  readonly displayName: string;
+}
+
+export type RecipientKind = "INSTITUTION" | "STUDENT_LOCAL" | "EXTERNAL";
+
+export interface RecipientRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly kind: RecipientKind;
+  readonly displayName: string;
+  readonly maskedAccount: string;
+  readonly currency: Money["currency"];
+  readonly verified: boolean;
+  readonly accountStatus: "OPEN" | "PENDING_OPENING";
+  readonly addedByActorId: string | null;
+}
+
+export interface ObligationRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly recipientId: string;
+  readonly studentActorId: string;
+  readonly sourceAccountId: string;
+  readonly netDue: Money;
+  readonly reference: string;
+  readonly dueAt: VirtualInstant;
+  readonly status: ObligationStatus;
+  readonly version: number;
+}
+
+export interface PayerPolicyRecord {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly accountId: string;
+  readonly maxTuitionDebit: Money;
+  readonly reserve: Money;
+  readonly version: number;
+}
+
+export interface PlanVersionRecord {
+  readonly plan: PaymentPlan;
+  readonly quote: RouteQuote | null;
+  readonly evaluation: TuitionRoutingResult;
+}
+
+export interface AttemptRecord {
+  readonly attempt: PaymentAttempt;
+  readonly subjectVersion: number;
+  readonly quote: RouteQuote;
+  readonly statusChangedAt: VirtualInstant;
+}
+
+export interface StoredEvent {
+  readonly seq: number;
+  readonly type: string;
+  readonly actorRole: string;
+  readonly subjectType: string;
+  readonly subjectId: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly virtualAt: VirtualInstant;
+  readonly realAt: RealInstant;
+}
+
+export interface WorkspaceRepository {
+  get(id: string, options?: LockOptions): Promise<WorkspaceRecord | null>;
+  insert(record: WorkspaceRecord & { readonly createdByIpHash: string | null }): Promise<void>;
+  setVirtualNow(id: string, virtualNow: VirtualInstant): Promise<void>;
+  setFault(id: string, fault: FaultName, enabled: boolean): Promise<void>;
+  /** Apaga una falla de un solo uso y devuelve si estaba activa (atómico). */
+  consumeFault(id: string, fault: FaultName): Promise<boolean>;
+}
+
+export interface ActorRepository {
+  list(workspaceId: string): Promise<ActorRecord[]>;
+  insert(record: ActorRecord): Promise<void>;
+}
+
+export interface AccountRepository {
+  getByKind(workspaceId: string, kind: AccountKind, options?: LockOptions): Promise<Account | null>;
+  getById(workspaceId: string, id: string, options?: LockOptions): Promise<Account | null>;
+  insert(account: Account, options?: { readonly bankName?: string | null }): Promise<void>;
+  /** Guarda saldo, versión, reservas y retenciones. */
+  save(account: Account): Promise<void>;
+  /** Datos de presentación que no forman parte del agregado. */
+  bankName(workspaceId: string, id: string): Promise<string | null>;
+}
+
+export interface PolicyRepository {
+  getForAccount(workspaceId: string, accountId: string, options?: LockOptions): Promise<PayerPolicyRecord | null>;
+  insert(record: PayerPolicyRecord): Promise<void>;
+  save(record: PayerPolicyRecord): Promise<void>;
+}
+
+export interface RecipientRepository {
+  get(workspaceId: string, id: string): Promise<RecipientRecord | null>;
+  list(workspaceId: string): Promise<RecipientRecord[]>;
+  insert(record: RecipientRecord): Promise<void>;
+}
+
+export interface ObligationRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<ObligationRecord | null>;
+  list(workspaceId: string): Promise<ObligationRecord[]>;
+  insert(record: ObligationRecord): Promise<void>;
+  saveStatus(workspaceId: string, id: string, status: ObligationStatus): Promise<void>;
+}
+
+export interface PlanRepository {
+  /** Versión más alta del plan. */
+  getCurrent(workspaceId: string, planId: string, options?: LockOptions): Promise<PlanVersionRecord | null>;
+  getVersion(workspaceId: string, planId: string, version: number): Promise<PlanVersionRecord | null>;
+  latestForObligation(workspaceId: string, obligationId: string): Promise<PlanVersionRecord | null>;
+  listForObligation(workspaceId: string, obligationId: string): Promise<PlanVersionRecord[]>;
+  insertVersion(record: PlanVersionRecord): Promise<void>;
+  /** Actualiza estado y campos mutables de una versión existente. */
+  saveVersion(record: PlanVersionRecord): Promise<void>;
+}
+
+export interface ApprovalRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<Approval | null>;
+  /** La aprobación ACTIVE más reciente para el sujeto y versión, si existe. */
+  findActive(workspaceId: string, subjectId: string, subjectVersion: number, options?: LockOptions): Promise<Approval | null>;
+  listForSubject(workspaceId: string, subjectId: string): Promise<Approval[]>;
+  listActive(workspaceId: string): Promise<Approval[]>;
+  insert(approval: Approval): Promise<void>;
+  save(approval: Approval): Promise<void>;
+}
+
+export interface AttemptRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<AttemptRecord | null>;
+  findByKey(workspaceId: string, idempotencyKey: string): Promise<AttemptRecord | null>;
+  listForObligation(workspaceId: string, obligationId: string): Promise<AttemptRecord[]>;
+  listForSubject(workspaceId: string, subjectId: string): Promise<AttemptRecord[]>;
+  listActive(workspaceId: string): Promise<AttemptRecord[]>;
+  listAll(workspaceId: string): Promise<AttemptRecord[]>;
+  insert(record: AttemptRecord): Promise<void>;
+  save(record: AttemptRecord): Promise<void>;
+}
+
+export interface MandateRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<StandingMandate | null>;
+  list(workspaceId: string): Promise<StandingMandate[]>;
+  insert(mandate: StandingMandate): Promise<void>;
+  save(mandate: StandingMandate): Promise<void>;
+}
+
+export interface RefundRepository {
+  get(workspaceId: string, id: string, options?: LockOptions): Promise<RefundClaim | null>;
+  list(workspaceId: string): Promise<RefundClaim[]>;
+  insert(claim: RefundClaim, createdByActorId: string, idempotencyKey: string | null): Promise<void>;
+  save(claim: RefundClaim, idempotencyKey?: string | null): Promise<void>;
+  idempotencyKey(workspaceId: string, id: string): Promise<string | null>;
+}
+
+export interface FinanceFactsRepository {
+  conditionalIncomes(workspaceId: string): Promise<ConditionalIncome[]>;
+  expectedExpenses(workspaceId: string): Promise<ExpectedExpense[]>;
+  insertConditionalIncome(workspaceId: string, income: ConditionalIncome): Promise<void>;
+  insertExpectedExpense(workspaceId: string, expense: ExpectedExpense): Promise<void>;
+}
+
+export interface EventRepository {
+  /** Agrega eventos con número de secuencia por espacio. El payload se redacta antes de guardarse. */
+  append(workspaceId: string, drafts: readonly DomainEventDraft[]): Promise<void>;
+  list(workspaceId: string, options?: { readonly afterSeq?: number; readonly limit?: number }): Promise<StoredEvent[]>;
+}
+
+export interface ProviderEventReceiptRepository {
+  /** Registra un evento del proveedor como procesado. Devuelve false si ya estaba (duplicado). */
+  markProcessed(workspaceId: string, providerEventId: string): Promise<boolean>;
+}
+
+export interface Repositories {
+  readonly workspaces: WorkspaceRepository;
+  readonly actors: ActorRepository;
+  readonly accounts: AccountRepository;
+  readonly policies: PolicyRepository;
+  readonly recipients: RecipientRepository;
+  readonly obligations: ObligationRepository;
+  readonly plans: PlanRepository;
+  readonly approvals: ApprovalRepository;
+  readonly attempts: AttemptRepository;
+  readonly mandates: MandateRepository;
+  readonly refunds: RefundRepository;
+  readonly finance: FinanceFactsRepository;
+  readonly events: EventRepository;
+  readonly providerReceipts: ProviderEventReceiptRepository;
+}
+
+/** Unidad de trabajo: una transacción de base de datos con repositorios ligados a ella. */
+export interface UnitOfWork {
+  transaction<T>(work: (repos: Repositories) => Promise<T>): Promise<T>;
+  /** Repositorios fuera de transacción, para lecturas. */
+  readonly read: Repositories;
+}

@@ -98,3 +98,9 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
 - **Fecha:** domingo 18 de octubre, 18:52 (Lima). **Fuente:** revisión VC1 (hallazgo VC1-1) y BUILD_PROMPT 4.2 y 6.3.
 - **Decisión:** el reclamo se hace en la moneda de la obligación (CNY 500.00 de exceso verificado). La institución simulada informa el monto que liquida en la cuenta de origen: USD 70.00, tomado de la configuración del escenario (`refund.settlementUsd`). El sistema no convierte CNY a USD en ningún punto de esta operación: guarda el monto informado (`settlement`) junto al reclamo.
 - **Cómo se muestra:** la interfaz y la evidencia dicen "Refunded USD 70.00, settled by the university to the paying account" y nunca presentan la cifra como resultado de una conversión ni muestran una tasa implícita. Toda conversión real del sistema sigue pasando por `convertWithQuote` con una cotización explícita.
+
+## DEC-014. Latencia de red en pruebas de integración y región de las funciones
+
+- **Fecha:** domingo 18 de octubre, 19:20 (Lima). **Fuente:** medición local (`select 1` y cada caso de uso de T1 contra Neon `dev`).
+- **Medición:** desde Lima cada viaje de ida y vuelta a Neon (región `us-east-1`) tarda unos 100 ms. Un flujo T1 completo (crear espacio, planificar, pedir aprobación, ver, aprobar, ejecutar, consultar y avanzar el reloj) tarda unos 23 s; ejecutar un pago, unos 7 s (unos 70 viajes).
+- **Decisión:** el proyecto `integration` de Vitest usa 120 s por prueba. No tapa carreras: las pruebas de concurrencia (O04) corren de verdad en paralelo contra la base y verifican un solo efecto. Producción corre en `iad1` (fijado en `vercel.json`), la misma región que Neon, así que allí cada viaje tarda pocos milisegundos.
