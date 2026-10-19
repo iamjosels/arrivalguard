@@ -234,6 +234,18 @@ Subtareas:
 - [x] 9.3 `docs/INFORME_FINAL.md`. Sus tablas N, O, S, D y T se generaron desde `docs/results/`. PARA_HUMANOS tiene lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
 - [x] 9.4 Tag `v1.0.0-submission` sobre `ed1ed75`, enviado a origin: `git ls-remote --tags origin` da `refs/tags/v1.0.0-submission^{}` en `ed1ed75`. Ese mismo commit tiene `pnpm verify` en exit 0 (10:14 a 10:24) y es el de `main` y producción (`GET /api/health`: `ed1ed75 ok ok`). Allí el smoke dio CREDITED (10:25) y `tasks:run` 8 de 8 con la consola 8 de 8 (10:29, `docs/results/tasks-2026-10-19T15-29-04-637Z.json`). Árbol limpio. Después del tag, un commit de `dev` solo de documentos actualizó el informe final, los resultados y este registro con esa evidencia; `main` y producción se quedaron en `ed1ed75`.
 
+Reverificación en esta sesión (lun 10:33 a 10:59). `pnpm verify` se volvió a correr sobre el commit de cierre de las Fases 0 a 6: checkout temporal en el mismo directorio, `pnpm install --frozen-lockfile` de esa versión, `.next` borrado y vuelta a `dev`. Todos con exit 0 y `verify: TODO EN VERDE`:
+- Fase 0 `cf4e5a1`: 7 de 7.
+- Fase 1 `ae1fc7b`: 380 de 380.
+- Fase 2 `d7cc287`: 411 de 411.
+- Fase 3 `0eee748`: 442 de 442.
+- Fase 4 `a3304a1`: 487 de 487.
+- Fases 5 y 6 `b3e351c`: 509 de 509.
+
+Las Fases 7, 8 y 9 tienen su `verify` en esta sesión sobre `82e72e5`, `b7f997a` y `ed1ed75`.
+
+Hallazgo posterior al tag (lun 11:00 a 11:40). Al reinstalar desde cero con el entorno real (VC11), `pnpm test` dio 545 de 546. La falla fue "una sola corrida empieza por intervalo". El limitador usa ventanas fijas: dos inicios de Run T1 to T8 separados por milisegundos, pero a ambos lados de un cambio de minuto, empezaban los dos. Es un error real y de severidad baja, sin efecto en dinero ni seguridad. Se corrigió primero con una prueba que reproduce el borde, con un reloj propio del limitador porque las pruebas corren en paralelo. La corrección usa dos grillas de ventanas desplazadas. Va en `dc83650 y 59811ff` sobre `dev`: `pnpm verify` sobre `59811ff` (11:29 a 11:39) exit 0, con 547 de 547 pruebas y `secrets-scan` con los 5 valores reales. No se desplegó ni se movió el tag, porque no es una corrección crítica. Producción y `v1.0.0-submission` siguen en `ed1ed75`; la decisión de desplegarlo queda en PARA_HUMANOS.
+
 **Puerta G5 cumplida.** Las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Las revisiones VC1 a VC11 no dejan hallazgos críticos ni altos abiertos.
 
 ## Deuda

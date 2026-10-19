@@ -189,6 +189,16 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
   - mapeos dentro de `ChatTurnUseCase` a llevar a Mapper;
   - días restantes del período en el medidor del permiso.
 
+### Hallazgo posterior al tag
+
+Al reinstalar desde cero con el entorno real, `pnpm test` dio 545 de 546. Ver `docs/reviews/VC11.md`, VC11-4.
+
+- **Qué es:** un error real de severidad baja. Con el limitador de ventanas fijas, dos inicios de Run T1 to T8 separados por milisegundos, pero a ambos lados de un cambio de minuto, empezaban los dos.
+- **Efecto:** ninguno en dinero ni seguridad; solo permite dos corridas simultáneas de la consola.
+- **Corrección:** una prueba que reproduce el borde, y luego dos grillas de ventanas desplazadas, en `dc83650 y 59811ff` sobre `dev`: `pnpm verify` sobre `59811ff` (11:29 a 11:39) exit 0, con 547 de 547 pruebas y `secrets-scan` con los 5 valores reales.
+- **Qué no se hizo:** no se desplegó ni se movió el tag, porque no es una corrección crítica. Producción y `v1.0.0-submission` siguen en `ed1ed75`.
+- **Qué queda en `ed1ed75`:** el error, y una prueba que falla rara vez.
+
 ## 7. Riesgos conocidos
 
 - **Los tres roles comparten navegador:** el código de evaluación abre al estudiante, al pagador y a la consola juntos, así que la separación de personas no se demuestra. El servidor exige el rol en cada pedido.
@@ -207,4 +217,5 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
 4. **Decidir qué queda en la versión pública:** el PDF del plan (`docs/plan/ArrivalGuard_Plan_integral_del_equipo.pdf`) y los exportes de diseño (`docs/design/*.html` y `support.js`). Después, **hacer público el repositorio** si así lo deciden.
 5. **Poner en la entrega** la URL https://arrivalguard.vercel.app y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
 6. **Completar la inscripción** en el formulario del FinTechathon.
-7. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.
+7. **Decidir si despliegan la corrección posterior al tag** (`dc83650 y 59811ff` en `dev`, sección 6). Si sí: `git checkout main`, `git merge --ff-only dev`, `git push origin main`, después `pnpm smoke --base-url https://arrivalguard.vercel.app` hasta CREDITED, y si quieren un tag nuevo, `git tag -a v1.0.1-submission -m "..."` y `git push origin v1.0.1-submission`. Si no, la entrega queda en `v1.0.0-submission`.
+8. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.
