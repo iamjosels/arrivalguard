@@ -4,6 +4,14 @@ Lo que deben hacer o probar, lo más urgente arriba. Cada entrada lleva la hora 
 
 ## Ahora
 
+- **Lunes 19, 10:20. Todo cerrado: entrega congelada con el tag `v1.0.0-submission`.** El resumen completo está en `docs/INFORME_FINAL.md`. Antes del cierre oficial (**martes 20, 10:59 Lima**) les toca:
+  1. Grabar el video final con `docs/VIDEO_SCRIPT.md` y `docs/DEMO_GUIDE.md`.
+  2. Armar las slides a partir de `docs/PITCH_OUTLINE.md`.
+  3. Correr `pnpm secrets-scan` antes de publicar.
+  4. Decidir si el PDF del plan (`docs/plan/ArrivalGuard_Plan_integral_del_equipo.pdf`) y los exportes de diseño (`docs/design/*.html`, `support.js`) quedan en la versión pública. Después, hacer público el repositorio si así lo deciden.
+  5. Poner en la entrega la URL https://arrivalguard.vercel.app y el código de evaluación.
+  6. Completar la inscripción.
+- **Opcional, limpieza:** para la revisión VC11 se descargó la imagen de Docker `postgres:17-alpine` y se abrió y cerró Docker Desktop. El contenedor ya se borró. Si quieren liberar espacio: `docker image rm postgres:17-alpine`.
 - **Lunes 19, 09:15. Puerta G4: graben el video final.** La demo de producción (https://arrivalguard.vercel.app, commit `75614ed`) ya tiene todo lo que se va a entregar, y los documentos tienen sus resultados reales: 8 de 8 tareas en producción, 32 de 32 escenarios del agente y 114 de 114 pruebas deterministas.
   - **Guion:** `docs/VIDEO_SCRIPT.md` (4:30, por tomas).
   - **Pasos con clics y pedidos de ejemplo:** `docs/DEMO_GUIDE.md`.

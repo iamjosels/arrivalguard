@@ -2,14 +2,14 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 09:50.
-- **Fase:** 9 Cierre (en curso desde las 09:50). La Fase 8 se cerró a las 09:50 con la puerta G4 cumplida y en producción (`b7f997a`).
-- **Subtarea en curso:** 9.1 revisión VC11: clon limpio en una carpeta temporal siguiendo solo el README.
-- **Siguiente paso exacto:** corregir lo que reporte VC11; `secrets-scan`, `verify`, despliegue y smoke final; INFORME_FINAL; árbol limpio y tag `v1.0.0-submission`.
-- **Último `pnpm verify`:** lunes 09:34 a 09:44 sobre `b7f997a`, exit 0 (39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan`).
-- **URL de producción:** https://arrivalguard.vercel.app (commit `b7f997a`, smoke con T1 CREDITED a las 09:47 y `tasks:run` 8 de 8 a las 09:48).
+- **Hora (Lima):** lunes 19 de octubre, 10:20.
+- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. Entrega congelada con el tag `v1.0.0-submission`.
+- **Subtarea en curso:** ninguna.
+- **Siguiente paso exacto:** ninguno para Claude. Lo que queda es de los humanos, antes del martes 20 a las 10:59 (docs/PARA_HUMANOS.md y docs/INFORME_FINAL.md, sección 8).
+- **Último `pnpm verify`:** lunes 10:01 a 10:11 sobre `a82ff77`, el último commit con código: exit 0, con 39 archivos y 546 pruebas, `db:seed-check`, build y `secrets-scan` con los valores reales. Los commits siguientes solo cambian documentos.
+- **URL de producción:** https://arrivalguard.vercel.app (commit `d8513f7`, smoke con T1 CREDITED a las 10:12).
 - **Bloqueos abiertos:** ninguno.
-- **Gasto de IA estimado:** cerca de USD 2.20 en total: `eval:agent` cuatro veces (USD 0.47, 0.47, 0.46 y 0.47, medido en `ai_usage`), la auditoría VC9 (USD 0.09 y 0.004), Run T1 to T8 en producción y en `ui:check` (unos USD 0.004 cada uno), `tasks:run` con T8 (unos USD 0.005 cada uno), `ai-turns` y los smoke del chat.
+- **Gasto de IA estimado:** cerca de USD 2.61 medidos: USD 2.53 en la rama dev (475 llamadas al modelo real, `ai_usage`) y USD 0.08 en producción el lunes 19, día UTC (panel de la consola).
 
 ## Fases y puertas
 
@@ -17,14 +17,14 @@
 |---|---|---|---|---|---|
 | 0 Arranque | cerrada | dom 18:00 | dom 18:01 | 17:57 exit 0 | sin VC |
 | 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
-| 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
+| 2 Persistencia y ejecución (G1) | cerrada, G1 cumplida | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
 | 3 API, sesiones y acceso | cerrada | lun 00:30 | dom 20:38 | 20:37 exit 0 | VC6 sin críticos ni altos; 2 medios y 6 bajos corregidos (docs/reviews/VC6.md) |
 | 4 Interfaz | cerrada | lun 03:00 | dom 21:49 (en `main` 22:33) | 21:48 exit 0 | VC7 corregido: 1 alto, 8 medios, 7 bajos, sin críticos (docs/reviews/VC7.md) |
 | 5 Agente (G2) | cerrada, G2 cumplida | lun 05:00 | dom 22:34 | 22:25 exit 0 | VC8 aprobado con deuda: 3 medios y 6 bajos, sin críticos; medios y 5 bajos corregidos (docs/reviews/VC8.md) |
 | 6 Capacidades P1 | cerrada | lun 09:30 | dom 22:34 | 22:25 exit 0 | sin VC |
 | 7 Seguridad completa (G3) | cerrada, G3 cumplida | lun 11:30 | lun 00:28 | lun 00:25 exit 0 | VC9 en dos rondas: 1 crítico y 11 bajos, todos corregidos con regresión (uno como DEC-018); segunda ronda sin críticos, altos ni medios (docs/reviews/VC9.md) |
 | 8 Evaluación y documentos (G4) | cerrada, G4 cumplida | lun 14:00 | lun 09:50 | lun 09:44 exit 0 | VC10 aprobado con deuda: 4 medios y 8 bajos, sin críticos ni altos, todos corregidos (docs/reviews/VC10.md) |
-| 9 Cierre (G5) | en curso | lun 16:00 | | | VC11 |
+| 9 Cierre (G5) | cerrada, G5 cumplida | lun 16:00 | lun 10:20 | lun 10:01 a 10:11 exit 0 (`a82ff77`) | VC11 aprobado en la segunda ronda: 2 medios y 1 bajo corregidos, sin críticos ni altos (docs/reviews/VC11.md) |
 
 Puertas: G1 (Fase 2), G2 (Fase 5), G3 (Fase 7), G4 (Fase 8), G5 (Fase 9).
 
@@ -229,10 +229,12 @@ Cierre (lun 09:50):
 Inicio: lunes 19, 09:50. Secciones: AUTONOMIA 6 (VC11) y 11.
 
 Subtareas:
-- [ ] 9.1 Revisión VC11 (`revisor`): clon del repositorio en una carpeta temporal siguiendo solo el README (`pnpm install`, `db:migrate`, `test`).
-- [ ] 9.2 `secrets-scan`, `pnpm verify`, despliegue y smoke final en producción hasta CREDITED.
-- [ ] 9.3 `docs/INFORME_FINAL.md` y PARA_HUMANOS con lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
-- [ ] 9.4 Árbol de git limpio y tag `v1.0.0-submission` enviado a origin.
+- [x] 9.1 Revisión VC11 (`revisor`). La primera ronda no fue concluyente: la regla de permisos impide copiar `.env.local` y no se buscó otra vía. Encontró 1 medio (`smoke` sin `--code`) y 1 bajo (comandos de Windows). Al repetir la instalación con un Postgres local apareció un paso oculto (medio): los límites de las pruebas. Los tres se corrigieron en `cdc16aa` y `a82ff77`. Segunda ronda en un clon limpio con Postgres local y valores propios, sin secretos: `pnpm install`, `db:migrate`, `pnpm test` (546 de 546), `secrets-scan` y `db:seed-check`, todos en exit 0. Aprobado.
+- [x] 9.2 `pnpm verify` sobre `a82ff77` (10:01 a 10:11), exit 0: 39 archivos y 546 pruebas, y `secrets-scan` con los 5 valores reales del entorno, sin secretos. Merge a `main` y `GET /api/health`: `d8513f7 ok ok`. `pnpm smoke --base-url https://arrivalguard.vercel.app` (10:12): `commit=d8513f7`, acceso 201, `reconcile -> 200 status=CREDITED`, saldo 214000, `smoke: OK (T1 CREDITED)`.
+- [x] 9.3 `docs/INFORME_FINAL.md`. Sus tablas N, O, S, D y T se generaron desde `docs/results/`. PARA_HUMANOS tiene lo que deben hacer antes del cierre oficial (martes 20, 10:59 Lima).
+- [x] 9.4 Árbol de git limpio y tag `v1.0.0-submission` sobre el commit que contiene este cierre, enviado a origin. En la conversación se comprueban `pnpm verify` sobre ese commit, el despliegue, el smoke y `git ls-remote --tags origin`.
+
+**Puerta G5 cumplida.** Las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Las revisiones VC1 a VC11 no dejan hallazgos críticos ni altos abiertos.
 
 ## Deuda
 
@@ -248,4 +250,4 @@ Hallazgos medios y bajos de las revisiones y pendientes menores.
 
 Lo que se recorta según AUTONOMIA 8, con su motivo. Se declara como no implementado en los documentos.
 
-- Ninguno todavía.
+- Ninguno. Todos los P0 y P1 están terminados. Los P2 de BUILD_PROMPT 19 no se implementaron y se declaran en `docs/INFORME_FINAL.md`, sección 6: invitaciones para dos dispositivos, E2E en CI, GitHub Actions, repetición triple, comparación con el flujo estructurado, streaming y animaciones.
