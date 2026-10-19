@@ -47,10 +47,14 @@ export class DrizzleSessionStore implements SessionPort {
 
 /** Ventana fija en Postgres: INSERT ... ON CONFLICT DO UPDATE count = count + 1. */
 export class DbRateLimiter implements RateLimiterPort {
-  constructor(private readonly db: Db) {}
+  /** `now` permite probar el borde de una ventana sin tocar el reloj global (las pruebas corren en paralelo). */
+  constructor(
+    private readonly db: Db,
+    private readonly now: () => number = () => Date.now(),
+  ) {}
 
   async hit(key: string, windowSeconds: number, limit: number, offsetSeconds = 0) {
-    const nowMs = Date.now();
+    const nowMs = this.now();
     const windowMs = windowSeconds * 1000;
     const offsetMs = offsetSeconds * 1000;
     const windowStart = new Date(Math.floor((nowMs - offsetMs) / windowMs) * windowMs + offsetMs);

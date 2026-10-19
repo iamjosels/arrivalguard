@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import * as scriptedTasks from "@/app/api/evaluation/scripted-tasks/route";
 import { RoleNotAllowedError, RateLimitedError } from "@/application/errors/ApplicationError";
 import { RunScriptedTasksUseCase, type ScriptedTaskApp } from "@/application/usecases/RunScriptedTasksUseCase";
@@ -85,18 +85,15 @@ describe("Run T1 to T8 desde la consola", () => {
 
   it("dos corridas a ambos lados del cambio de ventana del limitador tampoco empiezan las dos (borde de la ventana fija)", async () => {
     const [a, b] = await Promise.all([newWorkspace("base"), newWorkspace("base")]);
-    const shared = fastRunner({ startIntervalSeconds: 60 });
-    // Solo se simula el reloj de Date: 20 ms antes y 20 ms después de un cambio de minuto.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    try {
-      const edge = Math.ceil(Date.now() / 60_000) * 60_000 + 60_000;
-      vi.setSystemTime(edge - 20);
-      await shared.execute(a.evaluator, { originHash: "edge-a" });
-      vi.setSystemTime(edge + 20);
-      await expect(shared.execute(b.evaluator, { originHash: "edge-b" })).rejects.toBeInstanceOf(RateLimitedError);
-    } finally {
-      vi.useRealTimers();
-    }
+    // Reloj propio del limitador (no el global: las pruebas corren en paralelo): 20 ms antes y después de un cambio de
+    // ventana de 120 s, que es la grilla sin desplazar para un intervalo de 60 s.
+    const edge = Math.ceil(Date.now() / 120_000) * 120_000 + 120_000;
+    let now = edge - 20;
+    const limiter = new DbRateLimiter(getDb(), () => now);
+    const shared = new RunScriptedTasksUseCase(app().deps, brokenApp, limiter, limits("scripted-edge", { startIntervalSeconds: 60 }));
+    await shared.execute(a.evaluator, { originHash: "edge-a" });
+    now = edge + 20;
+    await expect(shared.execute(b.evaluator, { originHash: "edge-b" })).rejects.toBeInstanceOf(RateLimitedError);
   });
 
   it("VC9b: un solo origen no agota las corridas del día; otro origen sigue corriendo", async () => {
