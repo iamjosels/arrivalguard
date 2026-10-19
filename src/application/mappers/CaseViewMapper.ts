@@ -24,6 +24,7 @@ import type { ApprovalView } from "../usecases/GetApprovalViewUseCase";
 import { MoneyMapper } from "./MoneyMapper";
 
 const MINUTES_PER_HOUR = 60;
+const MS_PER_HOUR = 3_600_000;
 
 /** "Arrival University, tuition account ending 0098" -> "Arrival University". */
 function institutionName(displayName: string): string {
@@ -109,11 +110,16 @@ export class PlanMapper {
     const p = record.plan.toProps();
     const routes = RouteMapper.routingToDTO(record.evaluation, recipients, registeredReceiverId);
     const selected = record.quote ? routes.viable.find((r) => r.quoteId === record.quote!.quoteId) ?? null : null;
+    // Hora de la comparación: la de las cotizaciones evaluadas (llegada menos duración). De ahí sale el plazo pedido.
+    const sample = record.evaluation.viable[0] ?? record.evaluation.discarded[0] ?? null;
+    const comparedAt = sample ? sample.arrivesAt.plusMinutes(-sample.arrivalMinutes) : null;
     return {
       planId: p.id,
       version: p.version,
       status: p.status,
       targetArrivalAt: p.targetArrivalAt.toISOString(),
+      targetArrivalHours: comparedAt ? Math.round((p.targetArrivalAt.epochMs - comparedAt.epochMs) / MS_PER_HOUR) : null,
+      comparedAt: comparedAt?.toISOString() ?? null,
       selectedRoute:
         selected ??
         (record.quote

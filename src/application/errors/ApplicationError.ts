@@ -51,6 +51,14 @@ export class ActiveAttemptExistsError extends ApplicationError {
   }
 }
 
+/** La pestaña opera sobre un espacio que ya no es el de la sesión de este navegador (x-ag-workspace). */
+export class WorkspaceMismatchError extends ApplicationError {
+  readonly code = "WORKSPACE_MISMATCH";
+  constructor(message = "This tab belongs to another workspace. Reload to continue in your current workspace.") {
+    super(message);
+  }
+}
+
 export class VersionConflictError extends ApplicationError {
   readonly code = "VERSION_CONFLICT";
   constructor(

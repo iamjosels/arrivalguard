@@ -40,6 +40,10 @@ export interface PlanDTO {
   readonly version: number;
   readonly status: string;
   readonly targetArrivalAt: string;
+  /** Plazo pedido en horas, contado desde la comparación de rutas. */
+  readonly targetArrivalHours: number | null;
+  /** Hora virtual de la comparación de rutas. */
+  readonly comparedAt: string | null;
   readonly selectedRoute: RouteEvaluationDTO | null;
   readonly routes: RoutingDTO;
   readonly approvalRequestedAt: string | null;
@@ -224,5 +228,7 @@ export interface SessionDTO {
   readonly role: string;
   readonly displayName: string;
   readonly virtualNow: string;
+  readonly virtualStart: string;
+  readonly people: { readonly student: string; readonly payer: string };
   readonly sessionExpiresAt: string;
 }

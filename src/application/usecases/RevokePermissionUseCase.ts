@@ -1,3 +1,4 @@
+import type { ApprovalStatus } from "@/domain/consent/Approval";
 import { ACTIVE_ATTEMPT_STATUSES, type AttemptStatus } from "@/domain/payment/PaymentAttempt";
 import type { AppDeps } from "../AppDeps";
 import { requireRole, type ActorContext } from "../ActorContext";
@@ -12,6 +13,11 @@ export interface RevokeResult {
   readonly revoked: boolean;
   /** Si el pago ya salió: revocar no garantiza detenerlo (BUILD_PROMPT 8.4). */
   readonly inFlightAttemptId: string | null;
+  /** Estado de la aprobación ANTES de este pedido (null para el mandato). El mensaje se arma con el estado real. */
+  readonly priorStatus: ApprovalStatus | null;
+  readonly invalidationReason: string | null;
+  /** Estado del intento que usó esta aprobación, si existe. */
+  readonly attemptStatus: AttemptStatus | null;
 }
 
 /**
@@ -41,7 +47,7 @@ export class RevokePermissionUseCase {
             event("MANDATE_REVOKED", actor.role, { type: "StandingMandate", id: mandate.id }, ctx.now, { mandateId: mandate.id, version: mandate.version }),
           ]);
         }
-        return { target: "MANDATE" as const, id: mandate.id, revoked: true, inFlightAttemptId: null };
+        return { target: "MANDATE" as const, id: mandate.id, revoked: true, inFlightAttemptId: null, priorStatus: null, invalidationReason: null, attemptStatus: null };
       }
 
       const approval = await r.approvals.get(actor.workspaceId, command.approvalId!, { forUpdate: true });
@@ -62,13 +68,20 @@ export class RevokePermissionUseCase {
             effective: true,
           }),
         ]);
-        return { target: "APPROVAL" as const, id: approval.id, revoked: true, inFlightAttemptId: null };
+        return { target: "APPROVAL" as const, id: approval.id, revoked: true, inFlightAttemptId: null, priorStatus: "ACTIVE" as const, invalidationReason: null, attemptStatus: null };
       }
       const attempts = await r.attempts.listForSubject(actor.workspaceId, approval.subjectId);
-      const inFlight = attempts.find(
-        (a) => a.attempt.toProps().approvalId === approval.id && (ACTIVE_ATTEMPT_STATUSES as readonly AttemptStatus[]).includes(a.attempt.status),
-      );
-      return { target: "APPROVAL" as const, id: approval.id, revoked: false, inFlightAttemptId: inFlight?.attempt.id ?? null };
+      const used = attempts.find((a) => a.attempt.toProps().approvalId === approval.id) ?? null;
+      const inFlight = used && (ACTIVE_ATTEMPT_STATUSES as readonly AttemptStatus[]).includes(used.attempt.status) ? used : null;
+      return {
+        target: "APPROVAL" as const,
+        id: approval.id,
+        revoked: false,
+        inFlightAttemptId: inFlight?.attempt.id ?? null,
+        priorStatus: approval.status,
+        invalidationReason: approval.invalidationReason,
+        attemptStatus: used?.attempt.status ?? null,
+      };
     });
   }
 }

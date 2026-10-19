@@ -17,7 +17,12 @@ export function readCookie(cookieHeader: string | null, name: string): string | 
   if (!cookieHeader) return null;
   for (const part of cookieHeader.split(";")) {
     const [key, ...rest] = part.trim().split("=");
-    if (key === name) return decodeURIComponent(rest.join("="));
+    if (key !== name) continue;
+    try {
+      return decodeURIComponent(rest.join("="));
+    } catch {
+      return null;
+    }
   }
   return null;
 }
@@ -38,7 +43,12 @@ export async function resolveActor(
   const session = await sessions.resolve(token);
   if (!session || session.role !== input.selectedRole) throw new UnauthenticatedError();
   if (!allowed.includes(session.role)) throw new RoleNotAllowedError(session.role === "student" ? "Only Carlos can do this." : "This role cannot do this.");
-  return { workspaceId: session.workspaceId, actorId: session.actorId, role: session.role };
+  return { workspaceId: session.workspaceId, actorId: session.actorId, role: session.role, sessionExpiresAt: session.expiresAt };
+}
+
+/** Tokens de sesión que trae la petición, para revocarlos al abrir otro espacio o al salir. */
+export function sessionTokens(cookieHeader: string | null): string[] {
+  return ACTOR_ROLES.map((role) => readCookie(cookieHeader, ROLE_COOKIES[role])).filter((t): t is string => Boolean(t));
 }
 
 export interface CookieSpec {

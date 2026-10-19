@@ -33,17 +33,45 @@ export class OpenEvaluationAccessUseCase {
     private readonly config: EvaluationAccessConfig,
   ) {}
 
-  async open(command: { readonly accessCode: string; readonly scenario: string; readonly ipHash: string }): Promise<EvaluationAccess> {
-    const perIp = await this.limiter.hit(`${this.config.keyPrefix}:ip:${command.ipHash}`, 3600, this.config.perIpPerHour);
-    if (!perIp.allowed) throw new RateLimitedError("Too many attempts from this network. Try again later.", perIp.retryAfterSeconds);
+  async open(command: { readonly accessCode: string; readonly scenario: string; readonly ipHash: string; readonly previousTokens?: readonly string[] }): Promise<EvaluationAccess> {
+    await this.limitPerIp(command.ipHash);
     if (!this.accessCode.verify(command.accessCode)) throw new UnauthenticatedError("That evaluation code is not valid.");
-    return this.createWithSessions(command.scenario, command.ipHash);
+    const access = await this.createWithSessions(command.scenario, command.ipHash);
+    await this.revokeTokens(command.previousTokens ?? []);
+    return access;
   }
 
-  /** Consola del evaluador: espacio nuevo con otro escenario. El anterior se conserva intacto. */
-  async reset(actor: ActorContext, command: { readonly scenario: string; readonly ipHash: string }): Promise<EvaluationAccess> {
+  /**
+   * Consola del evaluador: espacio nuevo con otro escenario. El anterior se conserva intacto, pero sus sesiones en
+   * este navegador se revocan. Usa el mismo límite por IP que el acceso, para que nadie agote el cupo diario en bucle.
+   */
+  async reset(actor: ActorContext, command: { readonly scenario: string; readonly ipHash: string; readonly previousTokens?: readonly string[] }): Promise<EvaluationAccess> {
     requireRole(actor, "evaluator");
-    return this.createWithSessions(command.scenario, command.ipHash);
+    await this.limitPerIp(command.ipHash);
+    const access = await this.createWithSessions(command.scenario, command.ipHash);
+    await this.revokeTokens(command.previousTokens ?? []);
+    return access;
+  }
+
+  /** Salir: revoca las sesiones de este navegador (BUILD_PROMPT 14.1). */
+  async logout(tokens: readonly string[]): Promise<number> {
+    return this.revokeTokens(tokens);
+  }
+
+  private async limitPerIp(ipHash: string): Promise<void> {
+    const perIp = await this.limiter.hit(`${this.config.keyPrefix}:ip:${ipHash}`, 3600, this.config.perIpPerHour);
+    if (!perIp.allowed) throw new RateLimitedError("Too many attempts from this network. Try again later.", perIp.retryAfterSeconds);
+  }
+
+  private async revokeTokens(tokens: readonly string[]): Promise<number> {
+    let revoked = 0;
+    for (const token of tokens) {
+      const session = await this.sessions.resolve(token);
+      if (!session) continue;
+      await this.sessions.revoke(session.id);
+      revoked++;
+    }
+    return revoked;
   }
 
   private async createWithSessions(scenario: string, ipHash: string): Promise<EvaluationAccess> {

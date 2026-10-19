@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import type { ActorContext } from "@/application/ActorContext";
-import { NotFoundError, ValidationError } from "@/application/errors/ApplicationError";
+import { NotFoundError, ValidationError, WorkspaceMismatchError } from "@/application/errors/ApplicationError";
 import type { ActorRole } from "@/domain/events/DomainEvent";
 import { getServerEnv } from "@/infrastructure/config/env";
 import { getContainer, type Container } from "@/infrastructure/container";
@@ -30,6 +30,8 @@ export interface RouteSpec<B, Q> {
   readonly mutating: boolean;
   readonly body?: z.ZodType<B>;
   readonly query?: z.ZodType<Q>;
+  /** false solo en GET /api/session: es como la pestaña averigua a qué espacio pertenece. */
+  readonly scoped?: boolean;
 }
 
 export class JsonResponse {
@@ -63,6 +65,9 @@ export function apiRoute<B = undefined, Q = undefined, P = Record<string, never>
         spec.roles === "public"
           ? null
           : await resolveActor({ selectedRole: request.headers.get("x-ag-actor"), cookieHeader: request.headers.get("cookie") }, spec.roles, app.sessions);
+      // La interfaz declara en qué espacio está la pestaña; si las cookies ya son de otro, no se opera en silencio.
+      const scope = request.headers.get("x-ag-workspace");
+      if (spec.scoped !== false && actor && scope && scope !== actor.workspaceId) throw new WorkspaceMismatchError();
       const body = spec.body ? await parseBody(request, spec.body) : (undefined as B);
       const query = spec.query ? parseQuery(request, spec.query) : (undefined as Q);
       const params = ((await context?.params) ?? {}) as P;
@@ -101,11 +106,11 @@ function assertSameOrigin(request: Request): void {
   } catch {
     originHost = null;
   }
+  // Solo hosts que fija el servidor (la URL de la petición y la configuración), nunca X-Forwarded-Host (VC6).
+  const env = getServerEnv();
   const allowed = new Set<string>([new URL(request.url).host]);
-  const forwarded = request.headers.get("x-forwarded-host");
-  if (forwarded) allowed.add(forwarded);
-  const configured = getServerEnv().APP_BASE_URL;
-  if (configured) allowed.add(new URL(configured).host);
+  if (env.APP_BASE_URL) allowed.add(new URL(env.APP_BASE_URL).host);
+  for (const host of [env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL]) if (host) allowed.add(host);
   if (!originHost || !allowed.has(originHost)) throw new ValidationError("Origin not allowed.");
 }
 

@@ -2,11 +2,11 @@
 
 ## Estado actual
 
-- **Hora (Lima):** domingo 18 de octubre, 19:50.
-- **Fase:** 3 API, sesiones y acceso (en curso desde las 19:08). Fase 2 cerrada a las 19:48 (`d7cc287` en producción). Fase 1 cerrada a las 18:38.
-- **Subtarea en curso:** 3.8 revisión VC6 (subagente `auditor-seguridad`, en curso desde las 19:56) y, en paralelo, inicio de la Fase 4 (componentes de marca e interfaz).
-- **Siguiente paso exacto:** corregir lo que encuentre VC6 con pruebas de regresión, `pnpm verify`, merge a `main` y `pnpm smoke` en producción hasta CREDITED.
-- **Último `pnpm verify`:** 19:51 a 19:54, exit 0 (21 archivos y 429 pruebas: unitarias, integración, API y seguridad contra Neon dev).
+- **Hora (Lima):** domingo 18 de octubre, 20:31.
+- **Fase:** 3 cerrándose (VC6 sin críticos ni altos; medios y bajos corregidos con pruebas). Fase 4 Interfaz en curso desde las 19:58: su código está fuera de este commit y se retoma enseguida. Fase 2 cerrada a las 19:48.
+- **Subtarea en curso:** 3.8 `pnpm verify`, merge a `main` y `pnpm smoke` en producción hasta CREDITED.
+- **Siguiente paso exacto:** retomar la Fase 4 (revisión visual de las capturas, `pnpm ui:check`, VC7 con el revisor).
+- **Último `pnpm verify`:** 20:32 a 20:37, exit 0 (22 archivos y 442 pruebas: unitarias, integración, API y seguridad contra Neon dev).
 - **URL de producción:** https://arrivalguard.vercel.app (commit d7cc287, smoke OK 19:47).
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** USD 0.006.
@@ -18,8 +18,8 @@
 | 0 Arranque | cerrada | dom 18:00 | dom 18:01 | 17:57 exit 0 | sin VC |
 | 1 Dominio | cerrada | dom 20:00 | dom 18:38 | 18:37 exit 0 | VC1 y VC2 aprobados con observaciones; VC3 corregido (docs/reviews) |
 | 2 Persistencia y ejecución (G1) | cerrada | dom 23:00 | dom 19:48 | 19:46 exit 0 | VC4 corregido (2 altos, 3 medios y 2 bajos, sin críticos); VC5 aprobado (docs/reviews) |
-| 3 API, sesiones y acceso | en curso | lun 00:30 | | | VC6 |
-| 4 Interfaz | pendiente | lun 03:00 | | | VC7 |
+| 3 API, sesiones y acceso | cerrada | lun 00:30 | dom 20:38 | 20:37 exit 0 | VC6 sin críticos ni altos; 2 medios y 6 bajos corregidos (docs/reviews/VC6.md) |
+| 4 Interfaz | en curso | lun 03:00 | | | VC7 |
 | 5 Agente (G2) | pendiente | lun 05:00 | | | VC8 |
 | 6 Capacidades P1 | pendiente | lun 09:30 | | | |
 | 7 Seguridad completa (G3) | pendiente | lun 11:30 | | | VC9 |
@@ -111,9 +111,29 @@ Subtareas:
 - [x] 3.5 T6: cambio de política del pagador, cambios preparados con confirmación fija, revocación (N11, N12 en los dos órdenes).
 - [x] 3.6 Rutas de la sección 11 para T1, T2, T5, T6 y la consola del evaluador (22 rutas en el build). `/api/chat` llega en la Fase 5; remesas, devoluciones y evidencia, en la Fase 6.
 - [x] 3.7 Pruebas de API: T1 completa por HTTP, S03, S06, S07, S08, S09, cookies, Origin y límites.
-- [ ] 3.8 `smoke` con T1 en modo estructurado y CREDITED; `pnpm verify`, revisión VC6, merge a `main` y smoke en producción.
+- [x] 3.8 `smoke` con T1 en modo estructurado y CREDITED; `pnpm verify`, revisión VC6, merge a `main` y smoke en producción.
+
+Revisión (19:56 a 20:15, subagente `auditor-seguridad`, docs/reviews/VC6.md): 39 ataques propios, 11 comprobaciones HTTP y 390 sesiones revisadas; sin críticos ni altos. Medios: el mensaje de revocación afirmaba un envío sin intento (VC6-1) y faltaban pruebas propias de los criterios de VC6 (VC6-2). Bajos: Origin confiaba en `X-Forwarded-Host`, cookie mal codificada daba 500, vencimiento de sesión mal informado, vista de aprobación abierta al estudiante, reinicio sin límite por IP y sin revocación de sesiones. Todo corregido con pruebas (`tests/security/sessionAuthority.test.ts`, 12 pruebas, y la de revocación en `t6Api`), más `x-ag-workspace` contra pestañas de otro espacio y `POST /api/session/logout`.
+
+Evidencia de cierre (20:37): `pnpm verify` exit 0: `OK typecheck`, `OK lint`, `OK test` (22 archivos y 442 pruebas), `OK db:seed-check` (5 escenarios válidos) y `OK build`, `verify: TODO EN VERDE`.
 
 Evidencia (19:50): pruebas de API y seguridad, 6 archivos y 23 pruebas en verde (acceso A4 con cookies y límites, CSRF, T1 por HTTP con O03, T4 y T5, N11, N12 en los dos órdenes, cambio preparado con confirmación fija, S03, S06, S07, S08, S09 y que ninguna ruta acepte "acreditado" o "aprobado" del navegador). `scripts/smoke.ts` ahora corre T1 por HTTP como el navegador (cookies, Origin, `x-ag-actor`, `Idempotency-Key`) y exige CREDITED. Contra `pnpm start` local: 9 pasos OK, `POST /api/payments/{id}/reconcile -> 200 status=CREDITED`, `GET /api/case -> 200 balance minor=214000`, `smoke: OK (T1 CREDITED)`.
+
+## Fase 4: Interfaz
+
+Inicio: domingo 18, 19:58 (en paralelo con la revisión VC6). Secciones: UI_UX_PROMPT completo (manda en lo visual), DESIGN_PLAN 2 a 6, BUILD_PROMPT 11 (contratos de la API).
+
+Subtareas:
+- [ ] 4.1 Marca: ThresholdMark, Logo, ConsentSeal determinista (vector de prueba de DESIGN_PLAN 4.2), MiniSeal, SimulationBand, octágono; SVG en `public/brand`.
+- [ ] 4.2 Primitivas reestilizadas con los tokens (Button, Input, Field, Select, Switch, Tabs, Sheet, Panel, Skeleton, Toaster).
+- [ ] 4.3 Finanzas: MoneyFigure, StatusPill, reasonCopy (UI_UX 9.5), RouteBoard, JourneyLine, FundsBar, CashProjection, ConditionalIncomeCard, PermissionMeter, BlockedNotice, ApprovalRequestCard.
+- [ ] 4.4 Capa de datos del cliente (`x-ag-actor`, errores tipados, sondeo) y layout: TopBar con color de rol, RoleSwitcher accesible, VirtualClock, selector de tema sin parpadeo.
+- [ ] 4.5 Pantallas: landing con acceso del jurado, espacio de Sofía (zona A con modo estructurado, zona B con el estado del servidor), vista de Carlos (solicitudes, actividad, permisos con edición y revocación), documento de aprobación con sello, confirmación de cambios y consola del evaluador (escenario, reloj, fallas y bitácora).
+- [ ] 4.6 `/system` (P1) con tokens, tipografía, componentes y sellos.
+- [ ] 4.7 VC7: `pnpm ui:check` (Playwright) recorre T1 solo con clics hasta CREDITED; capturas a 1440 × 900 y 390 × 844 en claro y oscuro en `docs/design/screens/`; axe por pantalla en `docs/evidence/ui-axe.json`.
+- [ ] 4.8 `pnpm verify`, revisión VC7 con las capturas, correcciones, merge a `main` y smoke.
+
+Cambios de API para la interfaz (aditivos): `SessionDTO` agrega `virtualStart` y `people` (nombres sintéticos para el selector de rol); `PlanDTO` agrega `targetArrivalHours` y `comparedAt` (sacados de las cotizaciones evaluadas).
 
 ## Deuda
 

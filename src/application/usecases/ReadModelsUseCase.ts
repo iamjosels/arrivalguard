@@ -7,11 +7,19 @@ import { NotFoundError } from "../errors/ApplicationError";
 export class ReadModelsUseCase {
   constructor(private readonly deps: Pick<AppDeps, "uow">) {}
 
-  async session(actor: ActorContext): Promise<{ workspace: WorkspaceRecord; displayName: string }> {
+  async session(actor: ActorContext): Promise<{ workspace: WorkspaceRecord; displayName: string; people: { student: string; payer: string } }> {
     const workspace = await this.deps.uow.read.workspaces.get(actor.workspaceId);
     if (!workspace) throw new NotFoundError();
     const actors = await this.deps.uow.read.actors.list(actor.workspaceId);
-    return { workspace, displayName: actors.find((a) => a.id === actor.actorId)?.displayName ?? actor.role };
+    return {
+      workspace,
+      displayName: actors.find((a) => a.id === actor.actorId)?.displayName ?? actor.role,
+      // Nombres sintéticos de los dos personajes, para el selector de rol (incluida la consola).
+      people: {
+        student: actors.find((a) => a.role === "student")?.displayName ?? "Student",
+        payer: actors.find((a) => a.role === "payer")?.displayName ?? "Payer",
+      },
+    };
   }
 
   /** Bitácora completa redactada (solo la consola del evaluador). */

@@ -1,4 +1,5 @@
 import type { ActorRole } from "@/domain/events/DomainEvent";
+import type { RealInstant } from "@/domain/time/Instant";
 import { RoleNotAllowedError } from "./errors/ApplicationError";
 
 /**
@@ -9,6 +10,8 @@ export interface ActorContext {
   readonly workspaceId: string;
   readonly actorId: string;
   readonly role: ActorRole;
+  /** Vencimiento real de la sesión que resolvió al actor (hora real, no virtual). */
+  readonly sessionExpiresAt?: RealInstant;
 }
 
 export function requireRole(actor: ActorContext, ...roles: readonly ActorRole[]): void {

@@ -71,6 +71,34 @@ describe("T6: cambiar o revocar permisos (solo el pagador)", () => {
     expect(revoked.json.message).toContain("cannot guarantee");
   });
 
+  it("revocar una aprobación invalidada o ya revocada no afirma que el pago salió (VC6, hallazgo medio)", async () => {
+    type RevokeBody = { revoked: boolean; inFlightAttemptId: string | null; approvalStatus: string | null; message: string };
+    // Invalidada por N11 (el pagador baja el máximo): no hay ningún intento.
+    const ws = await openWorkspace("base");
+    const { granted } = await approvePlanViaApi(ws, 48);
+    const before = await ws.browser.call<CaseBody>(caseRoute.GET, "GET", "/api/case", { role: "payer" });
+    await ws.browser.call(policy.POST, "POST", "/api/payer/policy", { role: "payer", body: { maxDebitMinor: "250000", fingerprint: before.json.payer.policyFingerprint } });
+    const invalidated = await ws.browser.call<RevokeBody>(revoke.POST, "POST", "/api/permissions/revoke", { role: "payer", body: { approvalId: granted.json.approval.approvalId } });
+    expect(invalidated.status).toBe(200);
+    expect(invalidated.json.revoked).toBe(false);
+    expect(invalidated.json.inFlightAttemptId).toBeNull();
+    expect(invalidated.json.approvalStatus).toBe("INVALIDATED");
+    expect(invalidated.json.message).not.toMatch(/already sent/);
+    expect(invalidated.json.message).toContain("Nothing will be sent");
+    expect(await getContainer().deps.uow.read.attempts.listAll(ws.workspaceId)).toHaveLength(0);
+
+    // Revocada dos veces: la segunda dice que ya estaba revocada.
+    const ws2 = await openWorkspace("base");
+    const second = await approvePlanViaApi(ws2, 48);
+    const first = await ws2.browser.call<RevokeBody>(revoke.POST, "POST", "/api/permissions/revoke", { role: "payer", body: { approvalId: second.granted.json.approval.approvalId } });
+    expect(first.json.revoked).toBe(true);
+    const again = await ws2.browser.call<RevokeBody>(revoke.POST, "POST", "/api/permissions/revoke", { role: "payer", body: { approvalId: second.granted.json.approval.approvalId } });
+    expect(again.json.revoked).toBe(false);
+    expect(again.json.inFlightAttemptId).toBeNull();
+    expect(again.json.message).toBe("Already revoked. Nothing will be sent with it.");
+    expect(await getContainer().deps.uow.read.attempts.listAll(ws2.workspaceId)).toHaveLength(0);
+  });
+
   it("un cambio preparado por chat solo se aplica al confirmarlo en pantalla fija con su huella", async () => {
     const ws = await openWorkspace("base");
     const payer = { workspaceId: ws.workspaceId, actorId: (await getContainer().deps.uow.read.actors.list(ws.workspaceId)).find((a) => a.role === "payer")!.id, role: "payer" as const };

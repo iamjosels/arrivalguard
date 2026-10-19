@@ -1,16 +1,11 @@
+import { RevokeMapper } from "@/application/mappers/RevokeMapper";
 import { apiRoute } from "@/interfaces/http/route";
 import { revokeBody } from "@/interfaces/http/schemas";
 
 export const dynamic = "force-dynamic";
 
-// T6, revocar. Si el pago ya salió, se informa que revocar no garantiza detenerlo (nunca se promete).
+// T6, revocar. El mensaje depende del estado real (RevokeMapper): si el pago ya salió, se informa que revocar no
+// garantiza detenerlo; si no hay pago, nunca se afirma que salió.
 export const POST = apiRoute({ roles: ["payer"], mutating: true, body: revokeBody }, async ({ actor, body, app }) => {
-  const result = await app.revoke.execute(actor, { approvalId: body.approvalId, mandateId: body.mandateId });
-  return {
-    synthetic: true,
-    ...result,
-    message: result.revoked
-      ? "Permission revoked. Nothing will be sent with it."
-      : "This payment was already sent. Revoking cannot guarantee stopping it. Check its status.",
-  };
+  return RevokeMapper.toDTO(await app.revoke.execute(actor, { approvalId: body.approvalId, mandateId: body.mandateId }));
 });

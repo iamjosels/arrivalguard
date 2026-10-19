@@ -13,6 +13,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Sin AGENTS.md generado por `next dev`: las instrucciones del proyecto viven en CLAUDE.md y docs/AUTONOMIA.md.
+  agentRules: false,
   reactStrictMode: true,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

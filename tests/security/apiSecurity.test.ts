@@ -12,7 +12,7 @@ import { PaymentAttempt } from "@/domain/payment/PaymentAttempt";
 import { Money } from "@/domain/money/Money";
 import { getContainer } from "@/infrastructure/container";
 import { closeDb, getDb } from "@/infrastructure/db/client";
-import { approvals as approvalsTable, payerPolicies, simProviderTransfers } from "@/infrastructure/db/schema";
+import { approvals as approvalsTable, holds, payerPolicies, simProviderTransfers } from "@/infrastructure/db/schema";
 import { approvePlanViaApi, openWorkspace, type PlannedDTO } from "../support/apiFlow";
 
 afterAll(async () => {
@@ -65,6 +65,10 @@ describe("Seguridad a nivel de API (BUILD_PROMPT 14.2): efectos en la base, no s
     expect(res.json.error.code).toBe("POLICY_VIOLATION");
     expect(res.json.error.reasons).toEqual(["EXCEEDS_PAYER_MAX"]);
     expect(await providerTransfers(ws.workspaceId)).toBe(0);
+    // Ningún intento ni retención nuevos: solo queda el pago histórico preparado arriba.
+    expect(await repos.attempts.listAll(ws.workspaceId)).toHaveLength(1);
+    const [held] = await getDb().select({ n: count() }).from(holds).where(eq(holds.workspaceId, ws.workspaceId));
+    expect(held?.n).toBe(0);
   });
 
   it("S06 Data extraction: un recurso de otro espacio da 404 y ningún dato", async () => {
@@ -91,7 +95,7 @@ describe("Seguridad a nivel de API (BUILD_PROMPT 14.2): efectos en la base, no s
     void _;
     const requests = await import("@/app/api/approvals/requests/route");
     await ws.browser.call(requests.POST, "POST", "/api/approvals/requests", { role: "student", body: { planId } });
-    const view = await ws.browser.call<{ planVersion: number; fingerprint: string }>(approvalView.GET, "GET", `/api/approvals/${planId}/view`, { role: "student", params: { planId } });
+    const view = await ws.browser.call<{ planVersion: number; fingerprint: string }>(approvalView.GET, "GET", `/api/approvals/${planId}/view`, { role: "payer", params: { planId } });
     const res = await ws.browser.call<ErrorBody>(approvals.POST, "POST", "/api/approvals", {
       role: "student",
       body: { planId, planVersion: view.json.planVersion, fingerprint: view.json.fingerprint },
