@@ -46,12 +46,12 @@ export function CashProjection({ row, verdict, className }: CashProjectionProps)
       {!isZero(expenses) ? (
         <div aria-hidden className="flex h-6 gap-[3px]">
           {coveredShare > 0 ? (
-            <span className="flex h-full items-center rounded-doc bg-route px-2 text-[12px] font-semibold text-on-route" style={{ flexGrow: coveredShare, flexBasis: 0 }}>
+            <span className="flex h-full items-center rounded-doc bg-route px-2 text-[12px] font-semibold text-on-route transition-[flex-grow] duration-base" style={{ flexGrow: coveredShare, flexBasis: 0 }}>
               <span className="truncate">Covered {formatMoney(covered)}</span>
             </span>
           ) : null}
           {deficit && coveredShare < 1000 ? (
-            <span className="flex h-full items-center rounded-doc border border-dashed border-wait bg-wait-tint px-2 text-[12px] font-semibold text-wait" style={{ flexGrow: 1000 - coveredShare, flexBasis: 0 }}>
+            <span className="flex h-full items-center rounded-doc border border-dashed border-wait bg-wait-tint px-2 text-[12px] font-semibold text-wait transition-[flex-grow] duration-base" style={{ flexGrow: 1000 - coveredShare, flexBasis: 0 }}>
               <span className="truncate">Missing</span>
             </span>
           ) : null}

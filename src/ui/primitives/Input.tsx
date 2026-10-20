@@ -5,7 +5,7 @@ import { cn } from "@/ui/lib/cn";
 
 const CONTROL =
   "h-10 w-full rounded-control border bg-surface px-3 text-[15px] text-ink placeholder:text-muted pointer-coarse:h-11 " +
-  "transition-colors duration-[var(--ag-dur-fast)] hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-muted " +
+  "transition-colors duration-fast hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-muted " +
   "read-only:border-line read-only:bg-paper read-only:hover:border-line";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -74,7 +74,7 @@ export function Field({ label, htmlFor, hint, error, children, className }: Fiel
       </label>
       {wired}
       {error ? (
-        <p id={`${htmlFor}-error`} className="flex items-center gap-1.5 text-[12px] font-medium leading-4 text-stop">
+        <p id={`${htmlFor}-error`} className="flex animate-ag-fade-in items-center gap-1.5 text-[12px] font-medium leading-4 text-stop">
           <StopOctagon size={12} variant="outline" />
           {error}
         </p>

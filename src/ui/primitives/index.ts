@@ -1,4 +1,5 @@
 export { Button, type ButtonProps } from "./Button";
+export { Collapse, type CollapseProps } from "./Collapse";
 export { Accordion, FilterChip, RadioCardGroup, type AccordionItem, type FilterChipProps, type RadioCardGroupProps, type RadioCardOption } from "./Choice";
 export { Field, Input, Select, type FieldProps, type InputProps, type SelectProps } from "./Input";
 export { Panel, Skeleton, type PanelProps } from "./Panel";

@@ -65,7 +65,7 @@ export function AccessForm() {
               <label
                 key={s.id}
                 className={cn(
-                  "flex cursor-pointer gap-3 rounded-control border p-3 transition-colors duration-[120ms]",
+                  "flex cursor-pointer gap-3 rounded-control border p-3 transition-colors duration-fast",
                   checked ? "border-route bg-route-tint ring-1 ring-route" : "border-line-strong bg-surface hover:border-ink-2",
                 )}
               >

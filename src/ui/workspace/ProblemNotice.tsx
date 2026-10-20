@@ -6,7 +6,7 @@ export function ProblemNotice({ problem, ctx }: { problem: Problem | null; ctx?:
   if (!problem) return null;
   if (problem.kind === "reasons") {
     return (
-      <div className="space-y-2" role="alert">
+      <div className="animate-ag-fade-in-base space-y-2" role="alert">
         {problem.reasons.map((code) => (
           <BlockedNotice key={code} code={code} ctx={ctx} tone={code === "ACTIVE_ATTEMPT_EXISTS" || code === "QUOTE_EXPIRED" ? "wait" : "stop"} />
         ))}
@@ -14,7 +14,7 @@ export function ProblemNotice({ problem, ctx }: { problem: Problem | null; ctx?:
     );
   }
   return (
-    <div role="alert">
+    <div className="animate-ag-fade-in-base" role="alert">
       <BlockedNotice code="MESSAGE" title={problem.title} detail={problem.detail} tone={problem.tone} />
     </div>
   );

@@ -49,7 +49,7 @@ export function ChatComposer({ onSend, busy = false, disabled = false, className
         type="submit"
         aria-label="Send message"
         disabled={blocked}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-control bg-route text-on-route transition-colors duration-[120ms] hover:bg-route-hover disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-control bg-route text-on-route transition-colors duration-fast hover:bg-route-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         <SendHorizontal aria-hidden className="size-5" strokeWidth={1.75} />
       </button>

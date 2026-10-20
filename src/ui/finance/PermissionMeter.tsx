@@ -23,7 +23,7 @@ export function PermissionMeter({ used, max, held, daysLeft, className }: Permis
       <div role="meter" aria-valuemin={0} aria-valuemax={TICKS} aria-valuenow={usedTicks} aria-valuetext={text} aria-label="Standing permission used this period">
         <svg viewBox={`0 0 ${TICKS * 6} 24`} preserveAspectRatio="none" className="block h-6 w-full" aria-hidden>
           {Array.from({ length: TICKS }, (_, i) => (
-            <rect key={i} x={i * 6} y={0} width={3.5} height={24} rx={1} className={i < usedTicks ? "fill-route" : i < usedTicks + heldTicks ? "fill-wait" : "fill-line"} />
+            <rect key={i} x={i * 6} y={0} width={3.5} height={24} rx={1} className={cn("transition-colors duration-base", i < usedTicks ? "fill-route" : i < usedTicks + heldTicks ? "fill-wait" : "fill-line")} />
           ))}
         </svg>
       </div>

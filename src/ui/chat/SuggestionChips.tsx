@@ -11,7 +11,7 @@ export function SuggestionChips({ role, onPick, disabled = false, className }: {
           type="button"
           disabled={disabled}
           onClick={() => onPick(text)}
-          className="min-h-11 rounded-control border border-line-strong bg-surface px-3 py-2 text-left text-[14px] leading-5 text-ink transition-colors duration-[120ms] hover:border-route hover:bg-route-tint disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 rounded-control border border-line-strong bg-surface px-3 py-2 text-left text-[14px] leading-5 text-ink transition-colors duration-fast hover:border-route hover:bg-route-tint disabled:cursor-not-allowed disabled:opacity-60"
         >
           {text}
         </button>

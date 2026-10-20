@@ -67,11 +67,11 @@ export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string;
 
   const approve = async () => {
     if (!d.fingerprint) return;
+    // La intención de estampar va antes de la acción: el primer render con el sello ya trae la animación (UI_UX 11.4).
+    setStampedNow(true);
     const result = await actions.run("approve", () => api("/api/approvals", { role: "payer", body: { planId: d.planId, planVersion: d.planVersion, fingerprint: d.fingerprint } }));
-    if (result) {
-      setStampedNow(true);
-      notify("Payment approved");
-    }
+    if (result) notify("Payment approved");
+    else setStampedNow(false);
   };
   // El plan cambió mientras el documento estaba abierto: por un 409 del servidor o porque el refresco trajo otra
   // versión u otra huella (UI_UX 11.4). Hasta que Carlos revise la versión nueva, no puede aprobar.
@@ -131,7 +131,7 @@ export function ApprovalDocument({ workspaceId, planId }: { workspaceId: string;
             fingerprint={approval?.fingerprint ?? d.fingerprint}
             size={96}
             state={approved ? "stamped" : invalidated || revoked || expired ? "invalidated" : "placeholder"}
-            animate={stampedNow}
+            animate={stampedNow ? "once" : false}
           />
           <div className="space-y-3" aria-live="polite">
             {approved && approval ? (

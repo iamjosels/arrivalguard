@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/ui/lib/cn";
+import { usePresence } from "@/ui/lib/motion";
 
 export interface SheetProps {
   readonly open: boolean;
@@ -17,7 +18,10 @@ export interface SheetProps {
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Hoja lateral con velo, foco atrapado, `Esc` para cerrar y foco devuelto al disparador (DESIGN_PLAN 5.8). */
+/**
+ * Hoja lateral con velo, foco atrapado, `Esc` para cerrar y foco devuelto al disparador (DESIGN_PLAN 5.8). Entra desde
+ * la derecha en `base` y sale en `fast` con la curva de salida (UI_UX 8); mientras sale queda inerte.
+ */
 export function Sheet({ open, onClose, title, subtitle, children, footer, widthClass }: SheetProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -64,12 +68,19 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, widthC
     };
   }, [open]);
 
-  if (!open) return null;
+  const { mounted, phase, exiting, onAnimationEnd } = usePresence(open, 120);
+  if (!mounted) return null;
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div aria-hidden className="absolute inset-0 bg-[var(--ag-scrim)]" onClick={onClose} />
+    // `overflow-hidden`: el desplazamiento de entrada no crea scroll horizontal.
+    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden" inert={exiting || undefined} aria-hidden={exiting || undefined}>
+      <div
+        aria-hidden
+        className={cn("absolute inset-0 bg-[var(--ag-scrim)]", phase === "enter" && "animate-ag-fade-in-base", exiting && "animate-ag-fade-out")}
+        onClick={onClose}
+      />
       <div
         ref={panel}
+        onAnimationEnd={onAnimationEnd}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -77,6 +88,8 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, widthC
         className={cn(
           "relative flex h-full w-full flex-col bg-surface shadow-float outline-none sm:rounded-l-panel",
           widthClass ?? "sm:w-[min(560px,90vw)]",
+          phase === "enter" && "animate-ag-sheet-in",
+          exiting && "animate-ag-sheet-out",
         )}
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">

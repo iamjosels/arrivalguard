@@ -31,7 +31,7 @@ export function Switch({ checked, onCheckedChange, label, description, disabled 
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          "relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-[var(--ag-dur-fast)]",
+          "relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast",
           "before:absolute before:-inset-3 before:content-[''] disabled:cursor-not-allowed",
           disabled ? "bg-line" : checked ? "bg-route" : "bg-line-strong",
         )}
@@ -39,7 +39,7 @@ export function Switch({ checked, onCheckedChange, label, description, disabled 
         <span
           aria-hidden
           className={cn(
-            "inline-block size-4 rounded-full bg-surface transition-transform duration-[var(--ag-dur-fast)] ease-[var(--ag-ease-standard)]",
+            "inline-block size-4 rounded-full bg-surface transition-transform duration-fast ease-standard",
             checked ? "translate-x-[18px]" : "translate-x-0.5",
           )}
         />

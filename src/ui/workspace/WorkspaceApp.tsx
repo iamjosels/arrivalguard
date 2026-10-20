@@ -8,6 +8,7 @@ import { TopBar } from "@/ui/layout/TopBar";
 import type { RoleOption } from "@/ui/layout/RoleSwitcher";
 import { Panel, Skeleton } from "@/ui/primitives";
 import { api, setWorkspaceScope, type ActorRole } from "@/ui/lib/api";
+import { cn } from "@/ui/lib/cn";
 import { useResource } from "@/ui/lib/useResource";
 import { minutesBetween } from "@/ui/format/time";
 import { firstName, scenarioLabel } from "./copy";
@@ -28,11 +29,16 @@ const initials = (name: string) =>
 
 export function WorkspaceApp({ workspaceId, role }: { workspaceId: string; role: ActorRole }) {
   setWorkspaceScope(workspaceId);
-  const session = useResource((signal) => api<SessionDTO>("/api/session", { role, signal }), [role], 20000);
+  // Al cambiar de rol, la vista se monta con lo último que se leyó para ese rol (resourceCache.ts), inerte hasta que
+  // llega lo nuevo: así la línea del pago anima lo que cambió mientras tanto (UI_UX 8, DEC-022).
+  const session = useResource((signal) => api<SessionDTO>("/api/session", { role, signal }), [role], 20000, { cacheKey: `${workspaceId}:${role}:session` });
   const usesCase = role !== "evaluator";
-  const caseView = useResource((signal) => (usesCase ? api<CaseViewDTO>("/api/case", { role, signal }) : Promise.resolve(null)), [role], usesCase ? 8000 : 0);
+  const caseView = useResource((signal) => (usesCase ? api<CaseViewDTO>("/api/case", { role, signal }) : Promise.resolve(null)), [role], usesCase ? 8000 : 0, {
+    cacheKey: usesCase ? `${workspaceId}:${role}:case` : undefined,
+  });
 
-  if (session.error && !session.data) return <SessionProblem status={session.error.status} message={session.error.message} />;
+  // Un error sin respuesta nueva en este montaje se muestra aunque haya algo guardado: lo guardado no es el estado actual.
+  if (session.error && !session.fresh) return <SessionProblem status={session.error.status} message={session.error.message} />;
   const s = session.data;
   if (s && s.workspaceId !== workspaceId) {
     return (
@@ -62,6 +68,9 @@ export function WorkspaceApp({ workspaceId, role }: { workspaceId: string; role:
     await Promise.all([caseView.refresh(), session.refresh()]);
   };
 
+  const ready = role === "evaluator" ? Boolean(s) : Boolean(data) && !(caseView.error && !caseView.fresh);
+  const stale = ready && !(role === "evaluator" ? session.fresh : caseView.fresh);
+
   return (
     <div className="flex min-h-dvh flex-col">
       <div className="sticky top-0 z-20">
@@ -76,22 +85,26 @@ export function WorkspaceApp({ workspaceId, role }: { workspaceId: string; role:
         />
         <SimulationBand />
       </div>
-      <main id="main" className="flex-1">
-        {role === "evaluator" ? (
-          s ? (
-            <EvaluatorConsole workspaceId={workspaceId} scenario={s.scenario} virtualStart={virtualStart} people={people} onClockChange={session.refresh} />
-          ) : (
+      {/* Mientras muestra lo guardado, la vista queda inerte y algo atenuada; al llegar lo nuevo vuelve en `base`. */}
+      <main id="main" className={cn("flex-1 transition-opacity duration-base", stale && "opacity-70")}>
+        {/* La vista entra con un fundido al pasar de cargando a lista. */}
+        <div key={ready ? "ready" : "loading"} inert={stale || undefined} aria-busy={stale || undefined} className={cn(ready && "animate-ag-fade-in-base")}>
+          {role === "evaluator" ? (
+            s ? (
+              <EvaluatorConsole workspaceId={workspaceId} scenario={s.scenario} virtualStart={virtualStart} people={people} onClockChange={session.refresh} />
+            ) : (
+              <LoadingPanels />
+            )
+          ) : caseView.error && !caseView.fresh ? (
+            <SessionProblem status={caseView.error.status} message={caseView.error.message} />
+          ) : !data ? (
             <LoadingPanels />
-          )
-        ) : caseView.error && !data ? (
-          <SessionProblem status={caseView.error.status} message={caseView.error.message} />
-        ) : !data ? (
-          <LoadingPanels />
-        ) : role === "student" ? (
-          <StudentView data={data} refresh={refreshAll} />
-        ) : (
-          <PayerView data={data} refresh={refreshAll} workspaceId={workspaceId} />
-        )}
+          ) : role === "student" ? (
+            <StudentView data={data} refresh={refreshAll} />
+          ) : (
+            <PayerView data={data} refresh={refreshAll} workspaceId={workspaceId} />
+          )}
+        </div>
       </main>
     </div>
   );

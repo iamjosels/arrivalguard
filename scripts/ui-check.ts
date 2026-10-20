@@ -7,7 +7,9 @@ import { getArg, hasFlag, runMain } from "./lib/args";
 
 // VC7 (AUTONOMIA 6): T1 completa solo con clics contra un servidor en marcha, con capturas a 1440 × 900 y 390 × 844
 // en claro y oscuro (docs/design/screens/) y una pasada de axe por pantalla (docs/evidence/ui-axe.json).
-// No es la suite E2E de P2: es un recorrido mínimo que falla si algún paso no aparece.
+// No es la suite E2E de P2: es un recorrido mínimo que falla si algún paso no aparece. Desde DEC-022 también revisa el
+// movimiento de marca (UI_UX 8): el sello se estampa una vez, la llegada a Credited se anima solo en vivo, el aviso usa
+// los tiempos de marca y el tablero de la landing llega a Credited una sola vez (y de inmediato con movimiento reducido).
 // Uso: pnpm ui:check --base-url http://localhost:3000 [--no-shots]
 
 const SCREENS_DIR = path.join(process.cwd(), "docs", "design", "screens");
@@ -52,6 +54,7 @@ runMain(async () => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL: baseUrl });
     const page = await context.newPage();
     watchConsole(page, "recorrido");
+    await recordAnimations(page);
     const step = async (label: string, action: () => Promise<void>) => {
       const started = Date.now();
       try {
@@ -68,6 +71,33 @@ runMain(async () => {
     await step("landing", async () => {
       await page.goto("/");
       await page.getByRole("heading", { name: /Tuition that arrives/ }).waitFor();
+    });
+
+    // UI_UX 11.1: el servidor manda el primer paso y el guion llega a Credited una sola vez, sin repetirse.
+    await step("tablero de llegadas: de Waiting for Carlos a Credited, una sola vez", async () => {
+      const html = await (await page.request.get("/")).text();
+      if (!html.includes('data-step="0"')) throw new Error("el servidor no manda el tablero en el primer paso");
+      const board = page.locator('figure[data-step="3"]');
+      await board.waitFor({ timeout: 8_000 });
+      // Con el giro, cada letra va en su celda: el texto completo queda para lectores de pantalla.
+      if (!(await board.textContent())?.includes("Status: Credited by the university")) throw new Error("el tablero no dice Credited by the university");
+      const seen = await animationsSeen(page);
+      if (!seen.includes("ag-seal-stamp") || !seen.includes("ag-flap")) throw new Error(`el guion no estampó el sello o no giró el tablero: ${seen.join(", ")}`);
+      await page.waitForTimeout(2_000);
+      const stepNow = await page.locator("figure[data-step]").first().getAttribute("data-step");
+      if (stepNow !== "3") throw new Error(`el tablero volvió a empezar (paso ${stepNow})`);
+    });
+
+    await step("tablero de llegadas con movimiento reducido: estado final de inmediato", async () => {
+      const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, baseURL: baseUrl, reducedMotion: "reduce" });
+      try {
+        const still = await reduced.newPage();
+        watchConsole(still, "landing-reduced");
+        await still.goto("/");
+        await still.locator('figure[data-step="3"]').waitFor({ timeout: 3_000 });
+      } finally {
+        await reduced.close();
+      }
     });
     await capture(browser, baseUrl, context, "landing", "/", shots, axe);
     await capture(browser, baseUrl, context, "system", "/system", shots, axe);
@@ -123,9 +153,21 @@ runMain(async () => {
     await capture(browser, baseUrl, context, "approval-pending", approvalPath, shots, axe, THEMES, true);
 
     await step("Approve this payment: aparece el sello", async () => {
+      await clearAnimations(page);
       await page.getByRole("button", { name: "Approve this payment" }).click();
       await page.getByText(/Approved by Carlos Ramos/).waitFor();
       await page.getByRole("img", { name: /Consent seal, fingerprint/ }).first().waitFor();
+      await waitForAnimation(page, "ag-seal-stamp");
+    });
+
+    // Firma 2 (UI_UX 8): el sello se estampa una vez por aprobación y nunca al volver a montar la vista.
+    await step("el sello no se vuelve a estampar al recargar", async () => {
+      await page.reload();
+      await page.getByRole("img", { name: /Consent seal, fingerprint/ }).first().waitFor();
+      await settle(page);
+      await page.waitForTimeout(800);
+      const seen = await animationsSeen(page);
+      if (seen.includes("ag-seal-stamp")) throw new Error("el sello se estampó otra vez al recargar");
     });
     await capture(browser, baseUrl, context, "approval-approved", approvalPath, shots, axe, THEMES, true);
     await capture(browser, baseUrl, context, "payer", `${workspacePath}?as=payer`, shots, axe);
@@ -142,7 +184,15 @@ runMain(async () => {
     await step("Check this payment: el mismo pago, todavía en la universidad", async () => {
       await journey(page).getByRole("button", { name: "Check this payment" }).click();
       // El aviso (toast) que devuelve la consulta, no el texto fijo del panel.
-      await page.locator("[data-sonner-toast]", { hasText: "Still waiting for the university" }).first().waitFor();
+      const toast = page.locator("[data-sonner-toast]", { hasText: "Still waiting for the university" }).first();
+      await toast.waitFor();
+      // El aviso entra con los tiempos de marca (motion.css): 180 ms con la curva estándar.
+      const timing = await toast.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { duration: style.transitionDuration, easing: style.transitionTimingFunction };
+      });
+      if (!timing.duration.split(",").every((d) => d.trim() === "0.18s")) throw new Error(`el aviso no dura 180 ms: ${timing.duration}`);
+      if (!timing.easing.includes("cubic-bezier(0.2, 0, 0, 1)")) throw new Error(`el aviso no usa la curva estándar: ${timing.easing}`);
     });
 
     await step("El evaluador avanza 24 horas", async () => {
@@ -157,6 +207,7 @@ runMain(async () => {
     await step("El evaluador corre T1 a T8 desde la consola: 8 de 8", async () => {
       await page.getByRole("button", { name: "Run T1 to T8" }).click();
       await page.locator("[data-sonner-toast]", { hasText: "Scripted tasks: 8 of 8 passed" }).first().waitFor({ timeout: 90_000 });
+      await settle(page);
       if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, "console-scripted-tasks-desktop-dark.png"), fullPage: true });
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
       const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
@@ -165,10 +216,23 @@ runMain(async () => {
     });
 
     await step("Sofía ve CREDITED con el recibo de la universidad", async () => {
+      await clearAnimations(page);
       await page.getByRole("tab", { name: /Sofía, student/ }).click();
       await page.waitForURL(/as=student/);
       await journey(page).getByText(/Receipt AU-RC-/).first().waitFor();
       await page.getByText("Credited by the university").first().waitFor();
+      // Firma 1: al volver a Sofía la vista guardada pasa a la nueva y la llegada se anima en vivo.
+      await waitForAnimation(page, "ag-journey-credit");
+    });
+
+    await step("la llegada a Credited no se vuelve a animar al recargar", async () => {
+      await page.reload();
+      await journey(page).getByText(/Receipt AU-RC-/).first().waitFor();
+      await settle(page);
+      await page.waitForTimeout(800);
+      const seen = await animationsSeen(page);
+      const replayed = seen.filter((name) => name === "ag-journey-credit" || name === "ag-station-in" || name === "ag-seal-stamp");
+      if (replayed.length > 0) throw new Error(`la línea del pago se volvió a animar al recargar: ${replayed.join(", ")}`);
     });
     await capture(browser, baseUrl, context, "student-credited", `${workspacePath}?as=student`, shots, axe);
 
@@ -205,6 +269,52 @@ runMain(async () => {
   }
 });
 
+/**
+ * Anota el nombre de cada animación CSS que empieza en la página, desde antes de que corra su código (también tras
+ * recargar). Va por el protocolo de depuración del navegador, no como script de la página, así que no toca la CSP.
+ */
+async function recordAnimations(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __agAnimations: string[] };
+    w.__agAnimations = [];
+    document.addEventListener("animationstart", (event) => w.__agAnimations.push(event.animationName), true);
+  });
+}
+
+async function clearAnimations(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (window as unknown as { __agAnimations: string[] }).__agAnimations.length = 0;
+  });
+}
+
+function animationsSeen(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...((window as unknown as { __agAnimations?: string[] }).__agAnimations ?? [])]);
+}
+
+async function waitForAnimation(page: Page, name: string, timeoutMs = 4_000): Promise<void> {
+  const until = Date.now() + timeoutMs;
+  while (Date.now() < until) {
+    if ((await animationsSeen(page)).includes(name)) return;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`no empezó la animación ${name}: ${(await animationsSeen(page)).join(", ") || "ninguna"}`);
+}
+
+/** Espera a que terminen las animaciones y transiciones finitas antes de capturar o pasar axe (como mucho 3 s). */
+async function settle(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+      new Promise((resolve) => setTimeout(resolve, 3_000)),
+    ]),
+  );
+}
+
 /** El panel "Payment journey" de la zona B: ahí vive el siguiente paso (el acordeón de la zona A repite los nombres). */
 function journey(page: Page) {
   return page.locator("section", { has: page.getByRole("heading", { name: "Payment journey" }) });
@@ -230,6 +340,7 @@ async function capture(
       watchConsole(page, `${name}-${size.name}-${theme}`);
       await page.goto(url);
       await page.waitForLoadState("networkidle");
+      await settle(page);
       if (shots) await page.screenshot({ path: path.join(SCREENS_DIR, `${name}-${size.name}-${theme}.png`), fullPage });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();

@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { cn } from "@/ui/lib/cn";
+import { Collapse } from "./Collapse";
 
 export interface RadioCardOption {
   readonly value: string;
@@ -32,7 +33,7 @@ export function RadioCardGroup({ name, options, value, onChange, ariaLabel, clas
             key={option.value}
             htmlFor={id}
             className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-control border px-4 py-3 transition-colors duration-[var(--ag-dur-fast)]",
+              "flex cursor-pointer items-start gap-3 rounded-control border px-4 py-3 transition-colors duration-fast",
               checked ? "border-route bg-route-tint ring-1 ring-route" : "border-line-strong bg-surface hover:border-ink",
             )}
           >
@@ -70,7 +71,7 @@ export function FilterChip({ pressed, onClick, children }: FilterChipProps) {
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center rounded-control border px-3 text-[14px] font-semibold transition-colors duration-[var(--ag-dur-fast)] pointer-coarse:h-11",
+        "inline-flex h-10 items-center rounded-control border px-3 text-[14px] font-semibold transition-colors duration-fast pointer-coarse:h-11",
         pressed ? "border-route bg-route-tint text-route ring-1 ring-route" : "border-line-strong bg-surface text-ink-2 hover:border-ink hover:text-ink",
       )}
     >
@@ -105,14 +106,12 @@ export function Accordion({ items, defaultOpen, className }: { readonly items: r
                 className="flex h-12 w-full items-center justify-between gap-3 px-4 text-left text-[15px] font-semibold text-ink hover:bg-paper"
               >
                 {item.title}
-                <ChevronDown aria-hidden strokeWidth={1.75} className={cn("size-5 text-ink-2 transition-transform duration-[var(--ag-dur-fast)]", expanded && "rotate-180")} />
+                <ChevronDown aria-hidden strokeWidth={1.75} className={cn("size-5 text-ink-2 transition-transform duration-fast", expanded && "rotate-180")} />
               </button>
             </h4>
-            {expanded ? (
-              <div id={panelId} className="px-4 pb-4 pt-1">
-                {item.content}
-              </div>
-            ) : null}
+            <Collapse open={expanded} id={panelId} className="px-4 pb-4 pt-1">
+              {item.content}
+            </Collapse>
           </div>
         );
       })}

@@ -23,7 +23,10 @@ interface Segment {
   readonly style?: CSSProperties;
 }
 
-/** Barra apilada de los fondos de la familia con rótulos directos y el marcador del límite de matrícula. */
+/**
+ * Barra apilada de los fondos de la familia con rótulos directos y el marcador del límite de matrícula. Cuando cambian
+ * los montos, los tramos y el marcador se mueven en `base` (UI_UX 8) a partir de proporciones enteras.
+ */
 export function FundsBar({ funds, heldLabel = "Held for this payment", className }: FundsBarProps) {
   const total = funds.balance;
   const segments: Segment[] = [
@@ -46,15 +49,15 @@ export function FundsBar({ funds, heldLabel = "Held for this payment", className
       </div>
       <div role="img" aria-label={description} className="relative pt-5">
         {limitAt > 0 ? (
-          <span aria-hidden className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${limitAt / 10}%` }}>
+          <span aria-hidden className="absolute top-0 flex -translate-x-1/2 flex-col items-center transition-[left] duration-base" style={{ left: `${limitAt / 10}%` }}>
             <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-ink-2">Tuition limit {formatMoney(funds.tuitionLimit)}</span>
           </span>
         ) : null}
         <div className="relative flex h-7 gap-[3px]">
           {segments.map((s) => (
-            <span key={s.key} className={cn("h-full rounded-doc", s.className)} style={{ flexGrow: s.share, flexBasis: 0, ...s.style }} />
+            <span key={s.key} className={cn("h-full rounded-doc transition-[flex-grow] duration-base", s.className)} style={{ flexGrow: s.share, flexBasis: 0, ...s.style }} />
           ))}
-          {limitAt > 0 ? <span aria-hidden className="absolute -bottom-1 -top-1 w-0.5 bg-ink" style={{ left: `${limitAt / 10}%` }} /> : null}
+          {limitAt > 0 ? <span aria-hidden className="absolute -bottom-1 -top-1 w-0.5 bg-ink transition-[left] duration-base" style={{ left: `${limitAt / 10}%` }} /> : null}
         </div>
       </div>
       <dl aria-hidden className="flex flex-wrap gap-x-6 gap-y-2">

@@ -21,7 +21,7 @@ import {
   type ReasonContext,
 } from "@/ui/finance";
 import { formatClock, formatDuration, formatVirtual, minutesBetween, formatWhen } from "@/ui/format/time";
-import { Button, Field, Input, Panel, Switch, Tabs, notify, notifyWaiting } from "@/ui/primitives";
+import { Button, Collapse, Field, Input, Panel, Skeleton, Switch, Tabs, notify, notifyWaiting } from "@/ui/primitives";
 import { api } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
 import { ConversationPanel } from "@/ui/chat";
@@ -100,7 +100,9 @@ export function StudentView({ data, refresh }: { data: CaseViewDTO; refresh: () 
     if (result) notify(`Approval requested from ${firstName(data.people.payer)}`);
   };
 
-  const section = (id: MobileTab) => (tab === id ? "block" : "hidden lg:block");
+  // En móvil la sección elegida entra con un fundido (UI_UX 8), solo después de que la persona toca las pestañas.
+  const [switched, setSwitched] = useState(false);
+  const section = (id: MobileTab) => (tab === id ? cn("block", switched && "max-lg:animate-ag-fade-in-base") : "hidden lg:block");
 
   return (
     <div className="mx-auto w-full max-w-[1344px] px-4 pt-4 pb-24 md:px-8 md:pt-6 lg:pb-8">
@@ -108,7 +110,10 @@ export function StudentView({ data, refresh }: { data: CaseViewDTO; refresh: () 
         className="mb-4 lg:hidden"
         ariaLabel="Workspace sections"
         value={tab}
-        onChange={(id) => setTab(id as MobileTab)}
+        onChange={(id) => {
+          setSwitched(true);
+          setTab(id as MobileTab);
+        }}
         tabs={[
           { id: "chat", label: "Chat", icon: <MessageSquare aria-hidden className="size-4" strokeWidth={1.75} /> },
           { id: "payment", label: "Payment", icon: <RouteIcon aria-hidden className="size-4" strokeWidth={1.75} /> },
@@ -390,7 +395,8 @@ function RefundPanel({ data }: { data: CaseViewDTO }) {
 
 /** Se vuelve a pedir cuando cambia el caso (saldo, retenciones, plan o ruta), y el veredicto es el del servidor (VC7). */
 function CashPanel({ refreshKey }: { refreshKey: string }) {
-  const [projection, setProjection] = useState<CashProjectionDTO | null>(null);
+  // `undefined` mientras carga la primera vez (barras de carga, sin salto de diseño); `null` si falló (no se muestra).
+  const [projection, setProjection] = useState<CashProjectionDTO | null | undefined>(undefined);
   useEffect(() => {
     let alive = true;
     api<CashProjectionDTO>("/api/cash-projection", { role: "student" })
@@ -400,7 +406,22 @@ function CashPanel({ refreshKey }: { refreshKey: string }) {
       alive = false;
     };
   }, [refreshKey]);
-  if (!projection) return null;
+  if (projection === null) return null;
+  if (projection === undefined) {
+    return (
+      <Panel title="Cash for the first weeks">
+        <div aria-busy="true" className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 py-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className={i % 2 === 0 ? "w-full" : "w-4/5"} />
+            ))}
+          </div>
+          <Skeleton className="h-6" />
+          <Skeleton className="h-5 w-1/2" />
+        </div>
+      </Panel>
+    );
+  }
   return (
     <Panel title="Cash for the first weeks">
       <ProjectionRows projection={projection} />
@@ -448,7 +469,7 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
       className="flex h-12 w-full items-center justify-between px-4 text-left font-semibold text-ink"
     >
       {label}
-      <ChevronDown aria-hidden strokeWidth={1.75} className={cn("size-5 text-ink-2 transition-transform duration-[120ms]", open === id ? "rotate-180" : "")} />
+      <ChevronDown aria-hidden strokeWidth={1.75} className={cn("size-5 text-ink-2 transition-transform duration-fast", open === id ? "rotate-180" : "")} />
     </button>
   );
 
@@ -457,7 +478,7 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
       <div className="divide-y divide-line overflow-hidden rounded-control border border-line-strong">
         <section>
           {sectionHeader("plan", "Plan my payment")}
-          {open === "plan" ? (
+          <Collapse open={open === "plan"}>
             <form
               className="space-y-4 px-4 pb-4"
               onSubmit={async (e) => {
@@ -484,11 +505,11 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
                 Plan my payment
               </Button>
             </form>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("compare", "Compare routes")}
-          {open === "compare" ? (
+          <Collapse open={open === "compare"}>
             <form
               className="space-y-4 px-4 pb-4"
               onSubmit={async (e) => {
@@ -508,44 +529,44 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
               </Button>
               {compared && compareValue ? <RouteBoard routing={compared} targetHours={compareValue} invoiceNet={data.tuition.netDue} comparedAt={data.workspace.virtualNow} /> : null}
             </form>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("request", "Request approval")}
-          {open === "request" ? (
+          <Collapse open={open === "request"}>
             <div className="space-y-3 px-4 pb-4 text-[14px] leading-[22px] text-ink-2">
               {plan?.selectedRoute ? <p>{routeLine(plan.selectedRoute)}</p> : <p>Plan the payment first.</p>}
               <Button onClick={onRequest} loading={actions.busy === "request"} loadingText="Requesting" disabled={plan?.status !== "READY_FOR_APPROVAL"}>
                 Request approval
               </Button>
             </div>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("send", "Send payment")}
-          {open === "send" ? (
+          <Collapse open={open === "send"}>
             <div className="space-y-3 px-4 pb-4 text-[14px] leading-[22px] text-ink-2">
               <p>{plan?.status === "APPROVED" ? `Approved by ${firstName(data.people.payer)}. Nothing moves until you send it.` : `Sending needs ${firstName(data.people.payer)}'s approval of the current plan.`}</p>
               <Button onClick={onSend} loading={actions.busy === "send"} loadingText="Sending" disabled={plan?.status !== "APPROVED"}>
                 Send payment
               </Button>
             </div>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("check", "Check this payment")}
-          {open === "check" ? (
+          <Collapse open={open === "check"}>
             <div className="space-y-3 px-4 pb-4 text-[14px] leading-[22px] text-ink-2">
               <p>{attempt ? "Checks the same payment with the provider and the university. It never sends a new one." : "No payment has been sent yet."}</p>
               <Button variant="secondary" onClick={onCheck} loading={actions.busy === "check"} loadingText="Checking" disabled={!attempt}>
                 Check this payment
               </Button>
             </div>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("project", "Project my funds")}
-          {open === "project" ? (
+          <Collapse open={open === "project"}>
             <form
               className="space-y-4 px-4 pb-4"
               onSubmit={async (e) => {
@@ -565,15 +586,15 @@ function StructuredControls({ data, actions, ctx, onSend, onCheck, onRequest }: 
               </Button>
               {projection ? <ProjectionRows projection={projection} /> : null}
             </form>
-          ) : null}
+          </Collapse>
         </section>
         <section>
           {sectionHeader("transfer", "Send transfer")}
-          {open === "transfer" ? <TransferControls data={data} actions={actions} ctx={ctx} /> : null}
+          <Collapse open={open === "transfer"}><TransferControls data={data} actions={actions} ctx={ctx} /></Collapse>
         </section>
         <section>
           {sectionHeader("refund", "Submit refund request")}
-          {open === "refund" ? <RefundControls data={data} actions={actions} /> : null}
+          <Collapse open={open === "refund"}><RefundControls data={data} actions={actions} /></Collapse>
         </section>
       </div>
       <ProblemNotice problem={["plan", "compare", "project", "transfer", "refund"].includes(open) ? actions.problem : null} ctx={ctx} />

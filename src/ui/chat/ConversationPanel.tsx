@@ -7,6 +7,9 @@ import type { ChatFallbackReason, ChatHistoryDTO, ChatTurnDTO } from "@/applicat
 import { BlockedNotice, type ReasonContext } from "@/ui/finance";
 import { Skeleton } from "@/ui/primitives";
 import { ApiError, api } from "@/ui/lib/api";
+import { cn } from "@/ui/lib/cn";
+import { readCached, writeCached } from "@/ui/lib/resourceCache";
+import { useChangedSinceMount } from "@/ui/lib/motion";
 import { ChatComposer } from "./ChatComposer";
 import { ChatThread } from "./ChatThread";
 import { fallbackDetail, fallbackFromStatus, isFallbackStatus, WELCOME, type ChatRole } from "./labels";
@@ -29,7 +32,9 @@ export interface ConversationPanelProps {
 }
 
 export function ConversationPanel({ role, workspaceId, data, refresh, structured, ctx }: ConversationPanelProps) {
-  const [turns, setTurns] = useState<ChatTurnDTO[]>([]);
+  // El hilo guardado para este rol se ve al instante al volver a él; el historial del servidor lo reemplaza al llegar.
+  const cacheKey = `${workspaceId}:${role}:chat`;
+  const [turns, setTurns] = useState<ChatTurnDTO[]>(() => readCached<ChatTurnDTO[]>(cacheKey) ?? []);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<Mode>("chat");
   const [reason, setReason] = useState<ChatFallbackReason | null>(null);
@@ -43,6 +48,7 @@ export function ConversationPanel({ role, workspaceId, data, refresh, structured
       .then((history) => {
         if (!alive) return;
         setTurns([...history.turns]);
+        writeCached(cacheKey, [...history.turns]);
         setLoaded(true);
         if (history.assistantAvailable) {
           setMode((m) => (m === "fault" ? "chat" : m));
@@ -61,14 +67,18 @@ export function ConversationPanel({ role, workspaceId, data, refresh, structured
     return () => {
       alive = false;
     };
-  }, [role, reload]);
+  }, [role, reload, cacheKey]);
 
   const send = async (text: string) => {
     setPending(text);
     setNotice(null);
     try {
       const turn = await api<ChatTurnDTO>("/api/chat", { role, body: { message: text } });
-      setTurns((current) => [...current, turn]);
+      setTurns((current) => {
+        const next = [...current, turn];
+        writeCached(cacheKey, next);
+        return next;
+      });
       if (turn.fallback) {
         setMode("fault");
         setReason(turn.fallback.reason);
@@ -88,11 +98,13 @@ export function ConversationPanel({ role, workspaceId, data, refresh, structured
 
   const quiet = "min-h-11 text-left text-[14px] font-semibold text-route hover:underline md:min-h-0";
   const detail = fallbackDetail(reason);
+  // El cambio entre el compositor y los controles se funde (solo opacidad); el modo con el que se montó no anima.
+  const modeFade = useChangedSinceMount(mode) && "animate-ag-fade-in-base";
 
   return (
     <div className="flex flex-col gap-4">
       {mode === "fault" ? (
-        <div className="space-y-2">
+        <div className={cn("space-y-2", modeFade)}>
           <div role="status" className="flex items-start gap-2 rounded-control bg-wait-tint px-3 py-2 text-[14px] leading-[22px] text-wait">
             <CirclePause aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
             <p>Assistant unavailable. Structured controls are active.</p>
@@ -111,17 +123,17 @@ export function ConversationPanel({ role, workspaceId, data, refresh, structured
       )}
 
       {mode === "chat" ? (
-        <>
+        <div key="chat" className={cn("flex flex-col gap-4", modeFade)}>
           {!loaded ? <Skeleton className="h-11" /> : null}
           {loaded && turns.length === 0 && !pending ? <SuggestionChips role={role} onPick={(text) => void send(text)} /> : null}
-          {notice ? <BlockedNotice code="MESSAGE" title="Message not sent" detail={notice} tone="wait" /> : null}
+          {notice ? <BlockedNotice code="MESSAGE" title="Message not sent" detail={notice} tone="wait" className="animate-ag-fade-in-base" /> : null}
           <ChatComposer onSend={(text) => void send(text)} busy={pending !== null} disabled={!loaded} />
           <button type="button" className={quiet} onClick={() => setMode("manual")}>
             Use structured controls
           </button>
-        </>
+        </div>
       ) : (
-        <>
+        <div key="controls" className={cn("flex flex-col gap-4", modeFade)}>
           {mode === "manual" ? <h4 className="text-[15px] leading-[22px] font-semibold text-ink">Structured controls</h4> : null}
           {structured}
           {mode === "fault" ? (
@@ -133,7 +145,7 @@ export function ConversationPanel({ role, workspaceId, data, refresh, structured
               Back to the assistant
             </button>
           )}
-        </>
+        </div>
       )}
     </div>
   );

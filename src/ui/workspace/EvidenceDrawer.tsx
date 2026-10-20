@@ -4,7 +4,7 @@ import { FileText } from "lucide-react";
 import { useState } from "react";
 import { StopOctagon } from "@/ui/brand";
 import { formatVirtual } from "@/ui/format/time";
-import { Button, Sheet } from "@/ui/primitives";
+import { Button, Collapse, Sheet } from "@/ui/primitives";
 import { ApiError, api, type ActorRole } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
 import { eventDetail, eventGroup, eventTitle, securityCategory, type EventGroup } from "./copy";
@@ -130,7 +130,9 @@ export function EvidenceButton({ role }: { role: ActorRole }) {
                 <button type="button" aria-expanded={expanded === e.seq} onClick={() => setExpanded(expanded === e.seq ? null : e.seq)} className="mt-1 min-h-11 text-[13px] font-semibold text-route md:min-h-0">
                   {expanded === e.seq ? "Hide redacted detail" : "Show redacted detail"}
                 </button>
-                {expanded === e.seq ? <pre className="mt-2 max-h-60 overflow-auto rounded-doc bg-paper p-2 font-mono text-[12px] leading-4 text-ink-2">{JSON.stringify(e.payload, null, 2)}</pre> : null}
+                <Collapse open={expanded === e.seq}>
+                  <pre className="mt-2 max-h-60 overflow-auto rounded-doc bg-paper p-2 font-mono text-[12px] leading-4 text-ink-2">{JSON.stringify(e.payload, null, 2)}</pre>
+                </Collapse>
               </div>
             </li>
           ))}

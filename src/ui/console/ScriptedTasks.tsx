@@ -66,8 +66,16 @@ export function ScriptedTasks({ actions }: { actions: ActionState }) {
               <div className="flex items-center gap-3">
                 <span className="tabular w-7 font-mono text-[12px] font-semibold text-ink">{task.id}</span>
                 <span className="min-w-0 flex-1 text-[14px] leading-5 text-ink">{task.title}</span>
-                <span className={cn("inline-flex items-center gap-1 text-[13px] font-semibold whitespace-nowrap", state === "passed" ? "text-arrive" : state === "failed" ? "text-stop" : "text-muted")}>
-                  {state === "running" ? <LoaderCircle aria-hidden className="size-4 animate-spin" /> : state === "passed" ? <BadgeCheck aria-hidden className="size-4" /> : state === "failed" ? <CircleX aria-hidden className="size-4" /> : <CircleDashed aria-hidden className="size-4" />}
+                {/* El estado nuevo de cada tarea se funde (UI_UX 8); "Not run yet" del montaje no anima. */}
+                <span
+                  key={state}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[13px] font-semibold whitespace-nowrap",
+                    state === "passed" ? "text-arrive" : state === "failed" ? "text-stop" : "text-muted",
+                    state !== "idle" && "animate-ag-fade-in",
+                  )}
+                >
+                  {state === "running" ? <LoaderCircle aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "passed" ? <BadgeCheck aria-hidden className="size-4" /> : state === "failed" ? <CircleX aria-hidden className="size-4" /> : <CircleDashed aria-hidden className="size-4" />}
                   {state === "running" ? "Running" : state === "passed" ? "Passed" : state === "failed" ? "Failed" : "Not run yet"}
                 </span>
               </div>

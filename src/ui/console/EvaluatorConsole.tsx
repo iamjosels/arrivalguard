@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import type { EventDTO } from "@/application/dto/CaseDTO";
 import type { AiUsageDTO } from "@/application/mappers/AiUsageMapper";
 import { formatMoney } from "@/interfaces/format/money";
@@ -56,7 +56,9 @@ export function EvaluatorConsole({
   onClockChange: () => Promise<void>;
 }) {
   const router = useRouter();
-  const events = useResource((signal) => api<EventsResponse>("/api/evaluation/events", { role: "evaluator", signal }), [workspaceId], 4000);
+  const events = useResource((signal) => api<EventsResponse>("/api/evaluation/events", { role: "evaluator", signal }), [workspaceId], 4000, {
+    cacheKey: `${workspaceId}:evaluator:events`,
+  });
   const refresh = async () => {
     await events.refresh();
     await onClockChange();
@@ -66,8 +68,9 @@ export function EvaluatorConsole({
   const [custom, setCustom] = useState("");
   const [filter, setFilter] = useState<"all" | EventGroup>("all");
 
-  // El tema oscuro distingue la consola de las vistas de usuarios; se restaura al salir.
-  useEffect(() => {
+  // El tema oscuro distingue la consola de las vistas de usuarios; se restaura al salir. Antes de pintar, para que no
+  // haya un cuadro en claro al entrar.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const previous = root.dataset.theme;
     root.dataset.theme = "dark";
@@ -81,6 +84,12 @@ export function EvaluatorConsole({
   const faults = events.data?.faults ?? {};
   const activeFaults = FAULT_OPTIONS.filter((f) => faults[f.id] === true);
   const list = useMemo(() => (events.data?.events ?? []).filter((e) => filter === "all" || eventGroup(e.type) === filter).slice().reverse(), [events.data, filter]);
+  // Solo entran con un fundido los eventos que llegan mientras se mira la bitácora; lo que ya estaba al cargar o al
+  // cambiar de filtro aparece sin animar (comparación con el render anterior, sin efectos).
+  const newestSeq = list.reduce((max, e) => Math.max(max, e.seq), 0);
+  const [baseline, setBaseline] = useState<{ filter: string; seq: number } | null>(null);
+  if (events.data && (baseline === null || baseline.filter !== filter)) setBaseline({ filter, seq: newestSeq });
+  const arrived = (seq: number) => baseline !== null && baseline.filter === filter && seq > baseline.seq;
   const current = SCENARIO_OPTIONS.find((s) => s.id === scenario);
   const customMinutes = /^\d{1,5}$/.test(custom) ? Number.parseInt(custom, 10) : null;
 
@@ -232,7 +241,14 @@ export function EvaluatorConsole({
                     {list.map((e) => {
                       const security = e.type === "SECURITY_BLOCK";
                       return (
-                        <tr key={e.seq} className={cn("border-t border-line align-top", security ? "text-stop" : e.type === "INSTITUTION_CREDITED" ? "text-arrive" : e.type === "PROVIDER_RESPONSE_LOST" || e.type === "ATTEMPT_UNKNOWN" ? "text-wait" : "text-ink")}>
+                        <tr
+                          key={e.seq}
+                          className={cn(
+                            "border-t border-line align-top",
+                            security ? "text-stop" : e.type === "INSTITUTION_CREDITED" ? "text-arrive" : e.type === "PROVIDER_RESPONSE_LOST" || e.type === "ATTEMPT_UNKNOWN" ? "text-wait" : "text-ink",
+                            arrived(e.seq) && "animate-ag-fade-in-base",
+                          )}
+                        >
                           <td className="tabular py-2 pr-3 whitespace-nowrap">{formatWhen(e.virtualAt, virtualStart)}</td>
                           <td className="py-2 pr-3 whitespace-nowrap">{actorName(e.actorRole, people)}</td>
                           <td className="py-2 pr-3">

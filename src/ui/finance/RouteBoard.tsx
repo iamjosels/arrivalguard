@@ -52,6 +52,8 @@ export function RouteBoard({ routing, targetHours, invoiceNet, comparedAt, compa
   const fastest = [...routing.viable, ...routing.discarded].reduce<RouteEvaluationDTO | null>((best, r) => (best === null || r.arrivalHours < best.arrivalHours ? r : best), null);
   const headline = noRouteHeadline(routing, targetHours, fastest, invoiceNet, payerName);
   const note = `Within ${targetHours} h${comparedAt ? `, compared at ${formatClock(comparedAt)} virtual time` : ""}`;
+  // Al pulsar "Show all routes", las filas que se suman entran con un fundido (UI_UX 8); nada anima al montar.
+  const revealed = (row: Row) => onToggleCompact !== undefined && !compact && row.kind !== "selected" && "animate-ag-fade-in-base";
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -95,7 +97,7 @@ export function RouteBoard({ routing, targetHours, invoiceNet, comparedAt, compa
         </thead>
         <tbody>
           {visible.map((row) => (
-            <tr key={row.route.routeId} className="border-b border-line align-top last:border-b-0">
+            <tr key={row.route.routeId} className={cn("border-b border-line align-top last:border-b-0", revealed(row))}>
               <td className={cn("border-l-[3px] py-3 pl-[13px] pr-3", row.kind === "selected" ? "border-l-route" : "border-l-transparent")}>
                 <RouteName row={row} />
               </td>
@@ -117,7 +119,7 @@ export function RouteBoard({ routing, targetHours, invoiceNet, comparedAt, compa
       {/* Móvil: filas apiladas, con las mismas razones visibles. */}
       <ul className="flex flex-col md:hidden" aria-label="Routes for this tuition payment">
         {visible.map((row) => (
-          <li key={row.route.routeId} className={cn("border-b border-l-[3px] border-b-line py-3 pl-3 pr-1 last:border-b-0", row.kind === "selected" ? "border-l-route" : "border-l-transparent")}>
+          <li key={row.route.routeId} className={cn("border-b border-l-[3px] border-b-line py-3 pl-3 pr-1 last:border-b-0", row.kind === "selected" ? "border-l-route" : "border-l-transparent", revealed(row))}>
             <div className="flex items-start justify-between gap-3">
               <RouteName row={row} />
               <MoneyFigure money={row.route.debit} size="s" className={row.kind === "discarded" ? "text-ink-2" : undefined} />

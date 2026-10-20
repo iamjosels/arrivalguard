@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BadgeCheck,
   Check,
@@ -16,7 +18,9 @@ import {
 import type { VisibleStatus } from "@/domain/payment/VisibleStatus";
 import { MiniSeal } from "@/ui/brand/MiniSeal";
 import { StopOctagon } from "@/ui/brand/StopOctagon";
+import type { CSSProperties } from "react";
 import { cn } from "@/ui/lib/cn";
+import { useChangedSinceMount } from "@/ui/lib/motion";
 
 export type PillStatus =
   | VisibleStatus
@@ -80,21 +84,47 @@ export interface StatusPillProps {
   readonly payerName?: string;
   /** Texto alternativo cuando el contexto lo pide; el ícono y el tono siguen al estado. */
   readonly label?: string;
+  /** Tablero de la landing (UI_UX 11.1, P2): al cambiar de estado, cada letra gira con 30 ms de desfase. */
+  readonly flap?: boolean;
   readonly className?: string;
 }
 
-export function StatusPill({ status, payerName = "Carlos", label, className }: StatusPillProps) {
+export function StatusPill({ status, payerName = "Carlos", label, flap = false, className }: StatusPillProps) {
   const spec = SPECS[status];
   const text = label ?? spec.text(payerName);
   const Icon = spec.icon;
+  // Cambio de estado en su sitio (UI_UX 8): el tono transiciona y el contenido nuevo se funde; el estado con el que se
+  // montó no anima y nunca quedan dos copias del texto.
+  const changed = useChangedSinceMount(status);
+  const flapping = changed && flap;
+  const icon = Icon === "seal" ? <MiniSeal /> : Icon === "octagon" ? <StopOctagon size={14} variant="outline" /> : <Icon aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />;
   return (
     <span
-      className={cn("inline-flex h-[26px] items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold leading-[18px]", TONES[spec.tone], className)}
+      className={cn(
+        "inline-flex h-[26px] items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold leading-[18px] transition-colors duration-base",
+        TONES[spec.tone],
+        className,
+      )}
     >
-      {Icon === "seal" ? <MiniSeal /> : Icon === "octagon" ? <StopOctagon size={14} variant="outline" /> : <Icon aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />}
-      <span>
-        <span className="sr-only">Status: </span>
-        {text}
+      <span key={status} className={cn("inline-flex items-center gap-1.5", changed && !flap && "animate-ag-fade-in-base")}>
+        {flapping ? <span className="ag-flap inline-flex">{icon}</span> : icon}
+        {flapping ? (
+          <span>
+            <span className="sr-only">Status: {text}</span>
+            <span aria-hidden>
+              {[...text].map((char, i) => (
+                <span key={i} className="ag-flap inline-block" style={{ "--ag-flap-i": i + 1 } as CSSProperties}>
+                  {char === " " ? "\u00a0" : char}
+                </span>
+              ))}
+            </span>
+          </span>
+        ) : (
+          <span>
+            <span className="sr-only">Status: </span>
+            {text}
+          </span>
+        )}
       </span>
     </span>
   );

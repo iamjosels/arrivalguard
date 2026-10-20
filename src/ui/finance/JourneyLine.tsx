@@ -27,29 +27,8 @@ const LABELS: Record<JourneyStationDTO["key"], string> = {
   CREDITED: "Credited",
 };
 
-// Firma 1 de UI_UX 8: el tramo se rellena desde la estación anterior (400 ms) y el incierto se desplaza lento (2 s).
-const JOURNEY_CSS = `
-@keyframes ag-journey-fill-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes ag-journey-fill-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-@keyframes ag-journey-drift-x { from { background-position: 0 0; } to { background-position: 12px 0; } }
-@keyframes ag-journey-drift-y { from { background-position: 0 0; } to { background-position: 0 12px; } }
-@keyframes ag-journey-arrive { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
-.ag-journey-fill-x { transform-origin: 0 50%; animation: ag-journey-fill-x 400ms var(--ag-ease-standard) both; }
-.ag-journey-fill-y { transform-origin: 50% 0; animation: ag-journey-fill-y 400ms var(--ag-ease-standard) both; }
-.ag-journey-drift-x { background-image: repeating-linear-gradient(90deg, var(--ag-wait) 0 6px, transparent 6px 12px); animation: ag-journey-drift-x 2s linear infinite; }
-.ag-journey-drift-y { background-image: repeating-linear-gradient(180deg, var(--ag-wait) 0 6px, transparent 6px 12px); animation: ag-journey-drift-y 2s linear infinite; }
-.ag-journey-fill-r { transform-origin: 50% 0; animation: ag-journey-fill-y 400ms var(--ag-ease-standard) both; }
-.ag-journey-drift-r { background-image: repeating-linear-gradient(180deg, var(--ag-wait) 0 6px, transparent 6px 12px); animation: ag-journey-drift-y 2s linear infinite; }
-@media (min-width: 48rem) {
-  .ag-journey-fill-r { transform-origin: 0 50%; animation-name: ag-journey-fill-x; }
-  .ag-journey-drift-r { background-image: repeating-linear-gradient(90deg, var(--ag-wait) 0 6px, transparent 6px 12px); animation-name: ag-journey-drift-x; }
-}
-.ag-journey-arrive { animation: ag-journey-arrive var(--ag-dur-slow) var(--ag-ease-standard) both; }
-@media (prefers-reduced-motion: reduce) {
-  .ag-journey-fill-x, .ag-journey-fill-y, .ag-journey-fill-r, .ag-journey-arrive { animation: none; }
-  .ag-journey-drift-x, .ag-journey-drift-y, .ag-journey-drift-r { animation: none; }
-}
-`;
+// Firma 1 de UI_UX 8 (keyframes en src/ui/theme/motion.css): el tramo se rellena desde la estación anterior en 400 ms,
+// la estación nueva aparece después y el tramo incierto se desplaza lento (2 s).
 
 // Clases literales por orientación (Tailwind necesita verlas escritas).
 const LAYOUT = {
@@ -81,6 +60,13 @@ const LAYOUT = {
 
 const filled = (s: JourneyStationDTO | undefined) => s?.state === "done" || s?.state === "current";
 
+interface Changes {
+  readonly segments: ReadonlySet<number>;
+  readonly appeared: ReadonlySet<number>;
+  readonly settled: ReadonlySet<number>;
+}
+const NO_CHANGES: Changes = { segments: new Set(), appeared: new Set(), settled: new Set() };
+
 /**
  * Línea del pago estilo mapa de metro (UI_UX 12): hecho, actual, incierto (tramo punteado en `wait`), bloqueado
  * (octágono) y acreditado (relleno `arrive` con check). Bajo cada estación, hora virtual y procedencia.
@@ -89,18 +75,27 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
   const layout = LAYOUT[orientation];
   const signature = stations.map((s) => s.state).join(",");
   const [previous, setPrevious] = useState(signature);
-  const [fresh, setFresh] = useState<ReadonlySet<number>>(() => new Set());
+  const [changes, setChanges] = useState<Changes>(NO_CHANGES);
 
-  // Patrón de React para comparar con el render anterior: los tramos que recién quedaron llenos se animan una vez.
+  // Patrón de React para comparar con el render anterior: solo se anima lo que cambió en vivo, nunca lo que ya estaba
+  // al montar (por ejemplo, al cambiar de rol). Tramos recién llenos, estaciones que aparecen y estaciones que llegan.
   if (signature !== previous) {
     const before = previous.split(",");
-    const next = new Set<number>();
+    const segments = new Set<number>();
+    const appeared = new Set<number>();
+    const settled = new Set<number>();
     stations.forEach((s, i) => {
       const was = before[i];
-      if (i > 0 && (s.state === "done" || s.state === "current") && was !== "done" && was !== "current") next.add(i - 1);
+      const reached = s.state === "done" || s.state === "current";
+      const wasReached = was === "done" || was === "current";
+      if (reached && !wasReached) {
+        appeared.add(i);
+        if (i > 0) segments.add(i - 1);
+      }
+      if (s.state === "done" && was !== "done") settled.add(i);
     });
     setPrevious(signature);
-    setFresh(next);
+    setChanges({ segments, appeared, settled });
   }
 
   const current = stations.find((s) => s.state === "uncertain" || s.state === "blocked" || s.state === "current") ?? [...stations].reverse().find((s) => s.state === "done");
@@ -108,9 +103,6 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
 
   return (
     <div className={className}>
-      <style href="ag-journey-line" precedence="default">
-        {JOURNEY_CSS}
-      </style>
       <p className="sr-only" aria-live="polite">
         Payment journey. {announcement}
       </p>
@@ -129,22 +121,28 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
                     layout.rail,
                     "rounded-full",
                     segment === "filled" && "bg-route",
-                    segment === "filled" && fresh.has(i) && layout.fill,
+                    segment === "filled" && changes.segments.has(i) && layout.fill,
                     segment === "uncertain" && layout.drift,
                     segment === "empty" && "bg-line",
                   )}
                 />
               ) : null}
-              <Dot station={station} />
+              <Dot station={station} appeared={changes.appeared.has(i)} />
               <span className={layout.text}>
                 <span className={cn("text-[14px] font-semibold leading-5", station.state === "pending" ? "text-ink-2" : "text-ink")}>{stationLabel(station)}</span>
                 {sub ? (
-                  <span className={cn("text-[12px] font-medium leading-4 tracking-[0.01em]", station.state === "uncertain" ? "text-wait" : station.state === "blocked" ? "text-stop" : "text-muted")}>
+                  <span
+                    className={cn(
+                      "text-[12px] font-medium leading-4 tracking-[0.01em]",
+                      station.state === "uncertain" ? "text-wait" : station.state === "blocked" ? "text-stop" : "text-muted",
+                      changes.appeared.has(i) && "ag-station-text-in",
+                    )}
+                  >
                     {sub}
                   </span>
                 ) : null}
                 {station.key === "APPROVED" && station.state === "done" && approvalFingerprint ? (
-                  <ConsentSeal fingerprint={approvalFingerprint} size={28} caption={false} className="mt-1.5" />
+                  <ConsentSeal fingerprint={approvalFingerprint} size={28} caption={false} className="mt-1.5" animate={changes.settled.has(i) ? "once" : false} />
                 ) : null}
               </span>
             </li>
@@ -155,7 +153,7 @@ export function JourneyLine({ stations, payerName = "Carlos", approvalFingerprin
   );
 }
 
-function Dot({ station }: { station: JourneyStationDTO }) {
+function Dot({ station, appeared }: { station: JourneyStationDTO; appeared: boolean }) {
   const box = "relative z-[1] flex size-6 shrink-0 items-center justify-center";
   if (station.state === "blocked") {
     return (
@@ -165,10 +163,11 @@ function Dot({ station }: { station: JourneyStationDTO }) {
     );
   }
   if (station.key === "CREDITED" && station.state === "done") {
+    // Llegada en vivo: la estación se llena de `arrive` y después aparece el check. Si ya estaba acreditado al montar, nada.
     return (
       <span className={box}>
-        <span className="ag-journey-arrive flex size-7 items-center justify-center rounded-full bg-arrive text-surface">
-          <Check aria-hidden className="size-4" strokeWidth={2.5} />
+        <span className={cn("flex size-7 items-center justify-center rounded-full bg-arrive text-surface", appeared && "ag-journey-credit")}>
+          <Check aria-hidden className={cn("size-4", appeared && "ag-journey-check")} strokeWidth={2.5} />
         </span>
       </span>
     );

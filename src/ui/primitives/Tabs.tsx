@@ -54,7 +54,7 @@ export function Tabs({ tabs, value, onChange, ariaLabel, className }: TabsProps)
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "relative -mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-[15px] font-semibold transition-colors duration-[var(--ag-dur-fast)]",
+              "relative -mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-[15px] font-semibold transition-colors duration-fast",
               selected ? "border-route text-ink" : "border-transparent text-ink-2 hover:text-ink",
             )}
           >

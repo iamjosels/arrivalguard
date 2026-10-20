@@ -25,14 +25,19 @@ type MobileTab = "requests" | "permissions" | "activity";
 
 export function PayerView({ data, refresh, workspaceId }: { data: CaseViewDTO; refresh: () => Promise<void>; workspaceId: string }) {
   const [tab, setTab] = useState<MobileTab>("requests");
-  const section = (id: MobileTab) => (tab === id ? "block" : "hidden lg:block");
+  // En móvil la sección elegida entra con un fundido (UI_UX 8), solo después de que la persona toca las pestañas.
+  const [switched, setSwitched] = useState(false);
+  const section = (id: MobileTab) => (tab === id ? cn("block", switched && "max-lg:animate-ag-fade-in-base") : "hidden lg:block");
   return (
     <div className="mx-auto w-full max-w-[1344px] px-4 pt-4 pb-24 md:px-8 md:pt-6 lg:pb-8">
       <Tabs
         className="mb-4 lg:hidden"
         ariaLabel="Payer sections"
         value={tab}
-        onChange={(id) => setTab(id as MobileTab)}
+        onChange={(id) => {
+          setSwitched(true);
+          setTab(id as MobileTab);
+        }}
         tabs={[
           {
             id: "requests",
@@ -107,7 +112,7 @@ function RequestsPanel({ data, workspaceId }: { data: CaseViewDTO; workspaceId: 
             action={
               <Link
                 href={`/w/${workspaceId}/approve/${r.planId}`}
-                className="inline-flex h-11 items-center rounded-control bg-route px-4 md:h-10 text-[15px] font-semibold text-on-route transition-colors duration-[120ms] hover:bg-route-hover"
+                className="inline-flex h-11 items-center rounded-control bg-route px-4 md:h-10 text-[15px] font-semibold text-on-route transition-colors duration-fast hover:bg-route-hover"
               >
                 Review and approve
               </Link>

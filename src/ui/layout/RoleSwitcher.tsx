@@ -2,9 +2,10 @@
 
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ActorRole } from "@/ui/lib/api";
 import { cn } from "@/ui/lib/cn";
+import { usePresence } from "@/ui/lib/motion";
 
 // Control segmentado de rol (UI_UX 10 y DESIGN_PLAN 5.0): cambiar de rol conserva el espacio. Cada rol usa su
 // propia cookie de sesión; el servidor decide qué puede hacer cada uno.
@@ -38,6 +39,29 @@ export function RoleSwitcher({ workspaceId, current, options }: { workspaceId: s
   const router = useRouter();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Menú móvil: aparece desde su esquina en `fast` y sale con la curva de salida (UI_UX 8); mientras sale queda inerte.
+  const menu = usePresence(menuOpen, 120);
+  const mobile = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+
+  // El menú móvil se cierra con Escape (el foco vuelve al botón) o al tocar fuera de él.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      toggle.current?.focus();
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (mobile.current && !mobile.current.contains(event.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [menuOpen]);
   const go = (role: ActorRole) => {
     setMenuOpen(false);
     if (role !== current) router.push(`/w/${workspaceId}?as=${role}`);
@@ -69,7 +93,7 @@ export function RoleSwitcher({ workspaceId, current, options }: { workspaceId: s
               onClick={() => go(option.role)}
               aria-label={`${option.name}${option.suffix}${option.pending ? ", needs attention" : ""}`}
               className={cn(
-                "flex h-10 items-center gap-2 rounded-[6px] px-3 text-[14px] transition-colors duration-[120ms]",
+                "flex h-10 items-center gap-2 rounded-[6px] px-3 text-[14px] transition-colors duration-fast",
                 selected ? "border border-line-strong bg-surface font-semibold text-ink" : "border border-transparent text-ink-2 hover:text-ink",
               )}
             >
@@ -82,8 +106,9 @@ export function RoleSwitcher({ workspaceId, current, options }: { workspaceId: s
           );
         })}
       </div>
-      <div className="relative md:hidden">
+      <div ref={mobile} className="relative md:hidden">
         <button
+          ref={toggle}
           type="button"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
@@ -92,10 +117,20 @@ export function RoleSwitcher({ workspaceId, current, options }: { workspaceId: s
         >
           <Avatar option={active} />
           <span>{active.name}</span>
-          <ChevronDown aria-hidden className="size-4 text-ink-2" strokeWidth={1.75} />
+          <ChevronDown aria-hidden className={cn("size-4 text-ink-2 transition-transform duration-fast", menuOpen && "rotate-180")} strokeWidth={1.75} />
         </button>
-        {menuOpen ? (
-          <div role="menu" className="absolute top-12 right-0 z-30 w-52 rounded-control border border-line bg-surface p-1 shadow-float">
+        {menu.mounted ? (
+          <div
+            role="menu"
+            onAnimationEnd={menu.onAnimationEnd}
+            inert={menu.exiting || undefined}
+            aria-hidden={menu.exiting || undefined}
+            className={cn(
+              "absolute top-12 right-0 z-30 w-52 origin-top-right rounded-control border border-line bg-surface p-1 shadow-float",
+              menu.phase === "enter" && "animate-ag-scale-in",
+              menu.exiting && "animate-ag-scale-out",
+            )}
+          >
             {options.map((option) => (
               <button
                 key={option.role}

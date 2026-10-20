@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       className={cn(
         "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-semibold leading-none",
-        "transition-colors duration-[var(--ag-dur-fast)] ease-[var(--ag-ease-standard)] disabled:cursor-not-allowed",
+        "transition-colors duration-fast ease-standard disabled:cursor-not-allowed",
         size === "md" ? "h-10 px-4 text-[15px] pointer-coarse:h-11" : "h-9 px-3 text-[14px] pointer-coarse:h-11",
         variant === "quiet" && size === "md" && "px-3",
         VARIANTS[variant],
@@ -41,7 +41,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       )}
       {...rest}
     >
-      {loading ? <Loader2 aria-hidden className="size-4 animate-spin" strokeWidth={1.75} /> : null}
+      {loading ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" strokeWidth={1.75} /> : null}
       {loading && loadingText ? loadingText : children}
     </button>
   );

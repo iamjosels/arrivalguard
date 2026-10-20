@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { cn } from "@/ui/lib/cn";
+import { markStamped, useStamped } from "@/ui/lib/stamps";
 import { cellOrigin, fingerprintGroups, sealCells, type SealCell } from "./sealGeometry";
 
 export interface ConsentSealProps {
@@ -9,25 +10,26 @@ export interface ConsentSealProps {
   readonly fingerprint: string | null;
   readonly size?: number;
   readonly state?: "placeholder" | "stamped" | "invalidated";
-  /** Firma de movimiento 2 (UI_UX 8): solo al aprobar, una vez. */
-  readonly animate?: boolean;
+  /**
+   * Firma de movimiento 2 (UI_UX 8). `"once"`: se estampa una sola vez por aprobación (registro en stamps.ts), nunca al
+   * volver a montar la vista. `true` fuerza el estampado (vitrina).
+   */
+  readonly animate?: boolean | "once";
+  /** Clave de la aprobación para "una sola vez"; por defecto, la huella. */
+  readonly stampKey?: string;
   /** Texto "Consent fingerprint 3F9A 21C7" debajo. Por defecto, desde 56 px. */
   readonly caption?: boolean;
   readonly className?: string;
 }
 
-// Estampado y textura fuera de la impresión. React 19 sube el <style> al head y lo deduplica por href.
-const SEAL_CSS = `
-@keyframes ag-seal-stamp { from { transform: scale(1.06) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
-.ag-seal-stamp { animation: ag-seal-stamp var(--ag-dur-slow) var(--ag-ease-standard) both; transform-origin: 50% 50%; }
-@media print { .ag-seal-ink { filter: none; } .ag-seal-stamp { animation: none; } }
-`;
-
 /**
  * Sello de consentimiento (UI_UX 4.2): cuadrado de radio 6 y 16 glifos derivados de la huella. Es una
  * representación visual de la huella; la seguridad la da la verificación en el servidor, no el dibujo.
  */
-export function ConsentSeal({ fingerprint, size = 96, state = "stamped", animate = false, caption, className }: ConsentSealProps) {
+export function ConsentSeal({ fingerprint, size = 96, state = "stamped", animate = false, stampKey, caption, className }: ConsentSealProps) {
+  const key = stampKey ?? fingerprint ?? null;
+  const alreadyStamped = useStamped(animate === "once" ? key : null);
+  const play = state === "stamped" && Boolean(fingerprint) && (animate === true || (animate === "once" && !alreadyStamped));
   const filterId = `ag-seal-ink-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const showCaption = (caption ?? size >= 56) && Boolean(fingerprint);
   const groups = fingerprint ? fingerprintGroups(fingerprint) : "";
@@ -55,9 +57,6 @@ export function ConsentSeal({ fingerprint, size = 96, state = "stamped", animate
 
   return (
     <span className={cn("inline-flex flex-col items-start gap-2", className)}>
-      <style href="ag-consent-seal" precedence="default">
-        {SEAL_CSS}
-      </style>
       <svg
         width={size}
         height={size}
@@ -65,7 +64,10 @@ export function ConsentSeal({ fingerprint, size = 96, state = "stamped", animate
         fill="none"
         role="img"
         aria-label={`Consent seal, fingerprint ${groups.replace(" ", "")}`}
-        className={cn("shrink-0", animate && state === "stamped" && "ag-seal-stamp")}
+        className={cn("shrink-0", play && "ag-seal-stamp")}
+        onAnimationEnd={(event) => {
+          if (event.animationName === "ag-seal-stamp" && key) markStamped(key);
+        }}
       >
         {textured ? (
           <defs>

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../ui/theme/tokens.css";
+@import "../ui/theme/motion.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -34,6 +35,24 @@
   --shadow-float: var(--ag-shadow-float);
   --ease-standard: var(--ag-ease-standard);
   --ease-exit: var(--ag-ease-exit);
+
+  /* Movimiento de marca (motion.css): utilidades duration-fast|base|slow y animate-ag-*; todo transition-* sin
+     valores explícitos usa la duración y la curva de la marca. */
+  --transition-duration-fast: var(--ag-dur-fast);
+  --transition-duration-base: var(--ag-dur-base);
+  --transition-duration-slow: var(--ag-dur-slow);
+  --default-transition-duration: var(--ag-dur-fast);
+  --default-transition-timing-function: var(--ag-ease-standard);
+  --animate-ag-fade-in: ag-fade-in var(--ag-dur-fast) var(--ag-ease-standard) both;
+  --animate-ag-fade-in-base: ag-fade-in var(--ag-dur-base) var(--ag-ease-standard) both;
+  --animate-ag-rise-in: ag-rise-in var(--ag-dur-base) var(--ag-ease-standard) both;
+  --animate-ag-scale-in: ag-scale-in var(--ag-dur-fast) var(--ag-ease-standard) both;
+  --animate-ag-sheet-in: ag-sheet-in var(--ag-dur-base) var(--ag-ease-standard) both;
+  --animate-ag-collapse-open: ag-collapse-open var(--ag-dur-base) var(--ag-ease-standard) both;
+  --animate-ag-fade-out: ag-fade-out var(--ag-dur-fast) var(--ag-ease-exit) both;
+  --animate-ag-scale-out: ag-scale-out var(--ag-dur-fast) var(--ag-ease-exit) both;
+  --animate-ag-sheet-out: ag-sheet-out var(--ag-dur-fast) var(--ag-ease-exit) both;
+  --animate-ag-collapse-close: ag-collapse-close var(--ag-dur-fast) var(--ag-ease-exit) both;
 }
 
 html {
@@ -57,12 +76,4 @@ body {
   outline-offset: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
+/* Movimiento reducido e impresión: ver ../ui/theme/motion.css. */

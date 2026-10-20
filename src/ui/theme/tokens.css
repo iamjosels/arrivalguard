@@ -28,6 +28,10 @@
   --ag-dur-slow: 320ms;
   --ag-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ag-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* Tiempos que la guía fija para las firmas (UI_UX 8): tramo del pago, tramo incierto y desfase del tablero. */
+  --ag-dur-journey: 400ms;
+  --ag-dur-drift: 2s;
+  --ag-stagger-flap: 30ms;
 }
 
 :root[data-theme="dark"] {
