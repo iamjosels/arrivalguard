@@ -1,11 +1,12 @@
 # Informe final de ArrivalGuard
 
-Lunes 19 de octubre de 2026, 13:05 (Lima). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
+Lunes 19 de octubre de 2026, 13:05 (Lima), actualizado a las 20:50 con la pasada de movimiento de marca (DEC-022). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
 
 ## 1. Lo esencial
 
-- **Entrega:** el tag **`v1.0.1-submission`**, en `origin`. Apunta al commit que agrega este informe sobre el código **`172676b`**; ese commit solo cambia documentos y resultados (`git diff --stat 172676b..v1.0.1-submission -- src tests scripts` sale vacío).
-- **Producción:** https://arrivalguard.vercel.app. Las corridas oficiales de este informe se hicieron con producción en `172676b`. Después del tag, producción sirve el commit del tag, con el mismo código.
+- **Entrega:** el tag **`v1.0.2-submission`**, en `origin`. Es `v1.0.1-submission` más la pasada de movimiento de marca que pidió el usuario el lunes por la tarde (DEC-022). Esa pasada toca solo la interfaz: `git diff bd12847..v1.0.2-submission -- src/domain src/application src/infrastructure src/interfaces src/app/api src/proxy.ts drizzle` sale vacío.
+- **`v1.0.1-submission`** apunta al commit que agrega este informe sobre el código **`172676b`**; ese commit solo cambia documentos y resultados (`git diff --stat 172676b..v1.0.1-submission -- src tests scripts` sale vacío).
+- **Producción:** https://arrivalguard.vercel.app. Las corridas oficiales del servidor (deterministas, agente y `tasks:run`) se hicieron con producción en `172676b` y siguen describiendo el mismo servidor. Después del tag, producción sirve el commit de `v1.0.2-submission`.
 - **`v1.0.1` reemplaza a `v1.0.0`.** `v1.0.0-submission` (`ed1ed75`) sigue en `origin`, porque borrar o mover un tag remoto no está permitido. No se usa por dos motivos:
   - su informe nombraba commits que ya no correspondían;
   - la reinstalación desde cero con el entorno real encontró en ese código un error del intervalo entre corridas de Run T1 to T8, con una prueba que fallaba rara vez (sección 6).
@@ -13,7 +14,7 @@ Lunes 19 de octubre de 2026, 13:05 (Lima). Construcción autónoma de las Fases 
 - **Repositorio:** https://github.com/iamjosels/arrivalguard (privado; hacerlo público es decisión de ustedes, ver sección 8).
 - **Fases y puertas:** las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Cada cierre tiene `pnpm verify` en exit 0, y los de las Fases 0 a 6 se volvieron a correr en esta sesión (sección 4).
 - **Revisiones independientes VC1 a VC11:** están en `docs/reviews/`, sin ningún hallazgo crítico ni alto abierto.
-- **Recortes:** ninguno. Todos los P0 y todos los P1 están terminados. Los P2 no se hicieron (sección 6).
+- **Recortes:** ninguno. Todos los P0 y todos los P1 están terminados. De los P2, las animaciones se hicieron en `v1.0.2`; los demás no (sección 6).
 - **Gasto de IA medido:** cerca de USD 3.14 (USD 3.03 en la rama dev y USD 0.11 en producción).
 
 ## 2. Qué está hecho y con qué evidencia
@@ -27,8 +28,8 @@ Lunes 19 de octubre de 2026, 13:05 (Lima). Construcción autónoma de las Fases 
 | Ataques de nivel agente con el modelo real | `pnpm eval:agent` sobre `172676b`: S01, S02, S04, S05 y S10 a S15, juzgados por el estado del servidor (`docs/results/agent-2026-10-19T17-58-38-568Z.json`) |
 | Diálogo D01 a D12 con métricas (P1) | `pnpm eval:agent`: 32 de 32 escenarios. Mediana de 1 turno hasta el caso preparado según el servidor (6 de 6 casos medidos), 0 preguntas de más en 7 pedidos completos, 3 de 3 correcciones que conservan los datos, 0 salidas seguras, mediana de 17.8 s por turno |
 | Acceso del jurado con código de evaluación (A4) | El espacio se abre con el código y trae los tres roles en el mismo navegador, con sesiones de 14 días. Lo prueban `tests/api/access.test.ts` y `tests/security/sessionAuthority.test.ts`, y en producción el smoke y `tasks:run` (acceso 201) |
-| Interfaz (T1 solo con clics, accesibilidad, móvil, CSP) | `pnpm ui:check` (09:35, `b7f997a`, misma interfaz): todos los pasos OK, incluidos el botón de tema y Run T1 to T8; 39 capturas en `docs/design/screens/`, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP (`docs/evidence/ui-axe.json`) |
-| Calidad del código | `pnpm verify` sobre `172676b` (12:19 a 12:30): typecheck, lint, 549 de 549 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales del entorno, exit 0. Antes de crear el tag se corre otra vez sobre el commit del tag |
+| Interfaz (T1 solo con clics, accesibilidad, móvil, CSP, movimiento) | `pnpm ui:check` (lunes 20:44, código de `v1.0.2`): todos los pasos OK, incluidos el botón de tema, Run T1 to T8 8 de 8 y los seis pasos de movimiento (sello una vez, llegada a Credited solo en vivo, aviso en 180 ms con la curva estándar, tablero de la landing una sola vez y con movimiento reducido en su estado final); 39 capturas en `docs/design/screens/`, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP (`docs/evidence/ui-axe.json`) |
+| Calidad del código | `pnpm verify` sobre `172676b` (12:19 a 12:30): typecheck, lint, 549 de 549 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales del entorno, exit 0. Sobre el código de `v1.0.2` (20:30 a 20:40): exit 0 con 567 de 567 pruebas. Antes de crear cada tag se corre otra vez sobre el commit del tag |
 | Instalación desde cero siguiendo solo el README (VC11) | Dos rondas, ambas en exit 0 (`docs/reviews/VC11.md`): <br>• Clon limpio con un Postgres local y valores propios: `install`, `db:migrate`, `test` 546 de 546, `secrets-scan` y `seed-check`. <br>• En el entorno real, con `node_modules` y `.next` borrados: `install`, `db:migrate`, `test` 547 de 547, `secrets-scan` con los 5 valores reales, `seed-check` y smoke CREDITED |
 | Documentos (P0 y P1) | README, `docs/TECHNICAL.md`, `docs/SECURITY_SELF_ASSESSMENT.md`, `docs/EVALUATION.md` con resultados reales, `docs/EXECUTION_EVIDENCE.md`, `docs/DEMO_GUIDE.md`, `docs/VIDEO_SCRIPT.md`, `docs/PITCH_OUTLINE.md`, `LICENSE` y `THIRD_PARTY_LICENSES.md` |
 | Secretos | `pnpm secrets-scan`: OK, sin secretos (también dentro de cada `verify`) |
@@ -191,8 +192,8 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
   - suite E2E con Playwright en CI y GitHub Actions (`ui:check` usa Playwright localmente);
   - repetición triple (`eval:agent --repeat 3` existe, pero no se corrió);
   - comparación justa con el flujo estructurado;
-  - respuestas en streaming;
-  - animaciones.
+  - respuestas en streaming.
+- **P2 hecho después del congelamiento, a pedido del usuario: animaciones** (`v1.0.2`, DEC-022). Es el movimiento de marca de UI_UX 8 completo: las dos firmas solo en vivo y una vez, las transiciones de estado de 120 a 180 ms, la vista guardada al cambiar de rol y el tablero de la landing con su guion y el giro de letras (P2 de UI_UX 11.1). Con movimiento reducido todo cambia de golpe. Toca solo la interfaz y lo cubren pruebas unitarias nuevas y seis pasos de `ui:check`.
 - **Corrección final: el intervalo entre corridas de Run T1 to T8.** Se encontró después de `v1.0.0` y queda en `v1.0.1`.
   - **El error:** el limitador usaba ventanas fijas, así que dos inicios separados por milisegundos, a ambos lados de un cambio de minuto, empezaban los dos.
   - **Primer arreglo, descartado:** dos grillas de ventanas (`dc83650` y `59811ff`). Introducía un bloqueo encadenado entre jurados, porque los rechazos también contaban (VC11-5, alto).
@@ -202,7 +203,6 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
 - **Deuda declarada en PROGRESS** (medios y bajos, sin efecto en dinero ni seguridad):
   - que el documento de aprobación entre completo en 1440 × 900;
   - indicador de cambios en las pestañas móviles;
-  - columna de estado del tablero de la landing en móvil;
   - nombres de escenario de la landing leídos de la configuración del servidor;
   - mapeos dentro de `ChatTurnUseCase` a llevar a Mapper;
   - días restantes del período en el medidor del permiso;
@@ -224,6 +224,6 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
 2. **Armar las slides** a partir de `docs/PITCH_OUTLINE.md`, con las capturas de `docs/design/screens/`.
 3. **Revisar `secrets-scan`** antes de publicar: `pnpm secrets-scan` debe decir "OK, sin secretos". Nunca suban `.env.local`.
 4. **Decidir qué queda en la versión pública:** el PDF del plan (`docs/plan/ArrivalGuard_Plan_integral_del_equipo.pdf`) y los exportes de diseño (`docs/design/*.html` y `support.js`). Después, **hacer público el repositorio** si así lo deciden.
-5. **Poner en la entrega** la URL https://arrivalguard.vercel.app, el tag `v1.0.1-submission` y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
+5. **Poner en la entrega** la URL https://arrivalguard.vercel.app, el tag `v1.0.2-submission` y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
 6. **Completar la inscripción** en el formulario del FinTechathon.
 7. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.

@@ -2,11 +2,11 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 13:05.
-- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. La entrega es el tag `v1.0.1-submission` (DEC-021).
+- **Hora (Lima):** lunes 19 de octubre, 20:50.
+- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. La entrega es el tag `v1.0.2-submission` (DEC-022): `v1.0.1-submission` (DEC-021) más la pasada de movimiento de marca que pidió el usuario, solo en la interfaz.
 - **Subtarea en curso:** ninguna.
 - **Siguiente paso exacto:** ninguno para Claude. Lo que queda es de los humanos, antes del martes 20 a las 10:59 (docs/PARA_HUMANOS.md y docs/INFORME_FINAL.md, sección 8).
-- **Último `pnpm verify`:** lunes 12:19 a 12:30 sobre `172676b`, el último commit con código: exit 0, con 549 de 549 pruebas, `db:seed-check`, build y `secrets-scan` con los 5 valores reales. Antes de crear el tag se corre otra vez sobre el commit del tag.
+- **Último `pnpm verify`:** lunes 20:30 a 20:40 sobre el código de la pasada de movimiento: exit 0, con 567 de 567 pruebas (42 archivos), `db:seed-check`, build y `secrets-scan` con los 5 valores reales. Antes de crear el tag se corre otra vez sobre el commit del tag.
 - **URL de producción:** https://arrivalguard.vercel.app. Las corridas oficiales se hicieron con producción en `172676b`: el smoke dio CREDITED a las 12:31 y `tasks:run` 8 de 8, con la consola 8 de 8, a las 12:31.
 - **Bloqueos abiertos:** ninguno.
 - **Gasto de IA estimado:** cerca de USD 2.61 medidos: USD 2.53 en la rama dev (475 llamadas al modelo real, `ai_usage`) y USD 0.08 en producción el lunes 19, día UTC (panel de la consola).
@@ -261,12 +261,26 @@ Ambos se corrigieron con pruebas que fallaban antes. Corridas oficiales finales 
 
 **Puerta G5 cumplida.** Las Fases 0 a 9 están cerradas y las puertas G1 a G5 cumplidas. Las revisiones VC1 a VC11 no dejan hallazgos críticos ni altos abiertos.
 
+Comprobación de las 16:00 (lun 16:00 a 16:05, Lima). `v1.0.0-submission` y `v1.0.1-submission` están en `origin`. Producción sirve `bd12847` (`/api/health`: ok, base de datos ok), `pnpm smoke` contra producción termina en CREDITED y `secrets-scan` da OK.
+
+Pasada de movimiento de marca (lunes por la tarde hasta las 20:50, DEC-022). La pidió el usuario después del congelamiento: "marca completa" y "producción más tag nuevo". Toca solo la interfaz: el diff contra `bd12847` en `src/domain`, `src/application`, `src/infrastructure`, `src/interfaces`, `src/app/api`, `src/proxy.ts` y `drizzle` sale vacío.
+- **Qué:** tokens y keyframes en un solo lugar; las dos firmas, solo en vivo y una vez; las transiciones de estado de 120 a 180 ms; la vista guardada al cambiar de rol; el guion del tablero de la landing con el giro de letras (P2); la píldora móvil del tablero. Detalle en DEC-022.
+- **Pruebas nuevas:** `motionTokens`, `stamps` y `resourceCache` (unitarias), y seis pasos de `ui:check` sobre el movimiento.
+- **Revisión visual:** cuadros tomados con Playwright en mitad de cada animación, porque la extensión de Chrome no estaba conectada. Se corrigieron tres cosas que se vieron así:
+  - 22 px de scroll horizontal del tablero a 390 px;
+  - el monto del tablero se corría al cambiar el ancho de la píldora;
+  - el menú de rol móvil no se cerraba con Escape ni al tocar fuera (ya pasaba antes).
+  Además, el desplazamiento suave quedó solo en las anclas de la landing.
+- **Evidencia:**
+  - `pnpm verify` (20:30 a 20:40): exit 0 con 567 de 567 pruebas.
+  - `pnpm ui:check` contra `pnpm build && pnpm start` (20:44): todos los pasos OK, incluido Run T1 to T8 8 de 8; 39 capturas, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP.
+
 ## Deuda
 
 Hallazgos medios y bajos de las revisiones y pendientes menores.
 
 - (Resuelto el domingo 18 a las 23:40) VC6: el límite por IP ahora usa `ipAddress()` de `@vercel/functions` antes que `X-Forwarded-For`, con prueba en `tests/unit/clientIp.test.ts`.
-- VC7: que el documento de aprobación entre completo en 1440 × 900; indicador de cambios en las pestañas móviles; columna de estado del tablero de la landing en móvil; nombres de escenario leídos de la configuración del servidor en la landing.
+- VC7: que el documento de aprobación entre completo en 1440 × 900; indicador de cambios en las pestañas móviles; nombres de escenario leídos de la configuración del servidor en la landing. (La columna de estado del tablero de la landing en móvil quedó resuelta el lunes 19, DEC-022: la píldora va en su fila.)
 - VC8: mapeos dentro de `ChatTurnUseCase` (turno a DTO, historial, tool_result, costo) a llevar a Mapper y servicio; la clave del agente se deriva en la capa de interfaz.
 - Fase 6: el medidor del permiso no muestra los días que quedan del período. (El botón Evidence en móvil quedó resuelto el domingo 18 a las 23:35: en el teléfono es un ícono con su nombre accesible.)
 - VC7: los enlaces a la guía de demo y al video, con DEMO_GUIDE (Fase 8) y el video de los humanos. ("Run T1 to T8" en la consola quedó resuelto en `1bb4890`, DEC-020.)
@@ -277,4 +291,4 @@ Hallazgos medios y bajos de las revisiones y pendientes menores.
 
 Lo que se recorta según AUTONOMIA 8, con su motivo. Se declara como no implementado en los documentos.
 
-- Ninguno. Todos los P0 y P1 están terminados. Los P2 de BUILD_PROMPT 19 no se implementaron y se declaran en `docs/INFORME_FINAL.md`, sección 6: invitaciones para dos dispositivos, E2E en CI, GitHub Actions, repetición triple, comparación con el flujo estructurado, streaming y animaciones.
+- Ninguno. Todos los P0 y P1 están terminados. De los P2 de BUILD_PROMPT 19, las animaciones se hicieron en `v1.0.2-submission` (DEC-022). Los demás no se implementaron y se declaran en `docs/INFORME_FINAL.md`, sección 6: invitaciones para dos dispositivos, E2E en CI, GitHub Actions, repetición triple, comparación con el flujo estructurado y streaming.

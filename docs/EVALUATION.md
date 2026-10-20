@@ -143,7 +143,7 @@ How `eval:agent` counts them:
 
 Only real results, with commit and date, go below. They are written by `pnpm results:report`.
 
-The deterministic, agent and task runs are all on commit `172676b`, the code of the `v1.0.1-submission` tag; the task run was made with production serving `172676b`.
+The deterministic, agent and task runs are all on commit `172676b`, the code of the `v1.0.1-submission` tag; the task run was made with production serving `172676b`. The submission tag `v1.0.2-submission` adds only interface motion on top of it (brand transitions and the landing arrivals board, DEC-022). No server file changed (`src/domain`, `src/application`, `src/infrastructure`, `src/interfaces`, `src/app/api`, `src/proxy.ts` and `drizzle` are identical), so these runs describe the same server.
 
 ### 7.1 Deterministic (N, O and S, no AI)
 

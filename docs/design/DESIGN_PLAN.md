@@ -149,8 +149,13 @@ Anillo de 2 px en `route` con 2 px de separación, solo con `:focus-visible`. En
 | Firma 1, avance del pago | Relleno del tramo 400 ms `standard`; al llegar a *Credited* la estación se llena de `arrive` y aparece el check |
 | Firma 2, sello | Escala 1.06 a 1 y rotación −2° a 0° en 320 ms, opacidad 0 a 100%, una vez por aprobación |
 | Tramo incierto | Punteado en `wait`, desplazamiento de 2 s por ciclo, lineal e infinito; quieto con movimiento reducido |
+| `--ag-dur-journey` | 400 ms (tramo de la línea del pago) |
+| `--ag-dur-drift` | 2 s (ciclo del tramo incierto) |
+| `--ag-stagger-flap` | 30 ms (desfase de cada letra del tablero de la landing, P2) |
 
 Diferencias en los exportes (gana UI_UX): el tramo de la línea usa `200ms cubic-bezier(.2,.7,.2,1)` con 200 ms de retardo y el brand board lo describe como "400 ms, ease out"; el sello usa `cubic-bezier(.2,.7,.2,1)` en lugar de `standard`; el toast entra en `160ms ease-out` (se usa `base` + `standard`); los interruptores de fallas animan en 150 ms (se usa `fast`). Los exportes ya respetan `prefers-reduced-motion` con `animation:none; transition:none`.
+
+Implementación (DEC-022): los tiempos y las curvas viven en `src/ui/theme/tokens.css` y los keyframes solo en `src/ui/theme/motion.css`. Los componentes usan `duration-fast|base|slow`, `ease-standard` y `animate-ag-*`, sin valores sueltos; `tests/unit/ui/motionTokens.test.ts` lo vigila. Solo se anima lo que cambia en vivo: lo que ya estaba al montar o al recargar aparece quieto. Con movimiento reducido y al imprimir se ve el estado final.
 
 ### 2.11 Tamaños de controles, íconos y marcas
 
