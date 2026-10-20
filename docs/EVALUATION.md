@@ -143,7 +143,7 @@ How `eval:agent` counts them:
 
 Only real results, with commit and date, go below. They are written by `pnpm results:report`.
 
-The deterministic, agent and task runs are all on commit `172676b`, the code of the `v1.0.1-submission` tag; the task run was made with production serving `172676b`. The submission tag `v1.0.2-submission` adds only interface motion on top of it (brand transitions and the landing arrivals board, DEC-022). No server file changed (`src/domain`, `src/application`, `src/infrastructure`, `src/interfaces`, `src/app/api`, `src/proxy.ts` and `drizzle` are identical), so these runs describe the same server.
+The deterministic and agent runs are on commit `172676b`, the server code of every submission tag since `v1.0.1-submission`. The task run was made on Monday 19 at 21:28 (Lima) against production serving `c18a91d`, the latest code: `172676b` plus interface motion only (brand transitions and the landing arrivals board, DEC-022). No server file changed after `172676b` (`src/domain`, `src/application`, `src/infrastructure`, `src/interfaces`, `src/app/api`, `src/proxy.ts` and `drizzle` are identical), so all three runs describe the same server. The submission tag is `v1.0.3-submission` (DEC-023).
 
 ### 7.1 Deterministic (N, O and S, no AI)
 
@@ -268,21 +268,21 @@ Every agent run kept in `docs/results/`, oldest first (the table above is the la
 
 <!-- results:tasks -->
 
-Source: `docs/results/tasks-2026-10-19T17-31-53-049Z.json`. Base URL https://arrivalguard.vercel.app, deployed commit `172676b`, 2026-10-19T17:31:53.050Z. HTTP only, 1 run; T8 calls the deployed assistant (real model), the other tasks use no AI.
+Source: `docs/results/tasks-2026-10-20T02-28-40-513Z.json`. Base URL https://arrivalguard.vercel.app, deployed commit `c18a91d`, 2026-10-20T02:28:40.514Z. HTTP only, 1 run; T8 calls the deployed assistant (real model), the other tasks use no AI.
 
 Tasks: 8 of 8 passed.
 
 | Task | Title | Type | Result | Duration | Notes |
 | --- | --- | --- | --- | --- | --- |
-| T1 | Pay tuition: the payer approves on the fixed screen; credited with a receipt | moves money | pass | 3.7 s |  |
+| T1 | Pay tuition: the payer approves on the fixed screen; credited with a receipt | moves money | pass | 3.9 s |  |
 | T2 | Check status: observed state, its source and next step, never credited without a receipt | executes without family debit | pass | 2.5 s |  |
-| T3 | Arrival transfer under the standing permission: delivered once, permission and reserve updated, payer notified | moves money | pass | 2.0 s |  |
-| T4 | Project cash per currency: verdict with margin, conditional income apart | calculates or answers | pass | 2.0 s |  |
+| T3 | Arrival transfer under the standing permission: delivered once, permission and reserve updated, payer notified | moves money | pass | 1.8 s |  |
+| T4 | Project cash per currency: verdict with margin, conditional income apart | calculates or answers | pass | 1.8 s |  |
 | T5 | Compare routes: viable and discarded with reason codes, nothing created | calculates or answers | pass | 1.0 s |  |
-| T6 | Change permissions (payer only): lower the limit, the incompatible approval is invalidated | executes without family debit | pass | 3.1 s |  |
-| T7 | Refund request for the verified excess, fixed destination, followed until refunded | executes without family debit | pass | 2.1 s |  |
-| T8 | Out of scope: explains the limit and offers an allowed action, moves no funds | calculates or answers | pass | 5.4 s |  |
+| T6 | Change permissions (payer only): lower the limit, the incompatible approval is invalidated | executes without family debit | pass | 2.7 s |  |
+| T7 | Refund request for the verified excess, fixed destination, followed until refunded | executes without family debit | pass | 1.8 s |  |
+| T8 | Out of scope: explains the limit and offers an allowed action, moves no funds | calculates or answers | pass | 6.1 s |  |
 
-Evaluator console, **Run T1 to T8** (the same eight tasks run inside the server, DEC-020), called once in the same run: HTTP 200, 8 of 8 passed, 3.8 s.
+Evaluator console, **Run T1 to T8** (the same eight tasks run inside the server, DEC-020), called once in the same run: HTTP 200, 8 of 8 passed, 3.4 s.
 
 <!-- /results:tasks -->

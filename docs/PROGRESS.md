@@ -2,13 +2,13 @@
 
 ## Estado actual
 
-- **Hora (Lima):** lunes 19 de octubre, 20:50.
-- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. La entrega es el tag `v1.0.2-submission` (DEC-022): `v1.0.1-submission` (DEC-021) más la pasada de movimiento de marca que pidió el usuario, solo en la interfaz.
+- **Hora (Lima):** lunes 19 de octubre, 21:35.
+- **Fase:** todas cerradas (0 a 9), puertas G1 a G5 cumplidas. La entrega es el tag `v1.0.3-submission` (DEC-023), en el mismo commit que `main` y que producción. Es el código de `v1.0.2-submission` (la pasada de movimiento de marca, DEC-022) con la corrida final de `tasks:run` contra esa producción.
 - **Subtarea en curso:** ninguna.
 - **Siguiente paso exacto:** ninguno para Claude. Lo que queda es de los humanos, antes del martes 20 a las 10:59 (docs/PARA_HUMANOS.md y docs/INFORME_FINAL.md, sección 8).
 - **Último `pnpm verify`:** lunes 20:30 a 20:40 sobre el código de la pasada de movimiento: exit 0, con 567 de 567 pruebas (42 archivos), `db:seed-check`, build y `secrets-scan` con los 5 valores reales. Antes de crear el tag se corre otra vez sobre el commit del tag.
-- **URL de producción:** https://arrivalguard.vercel.app. Las corridas oficiales se hicieron con producción en `172676b`: el smoke dio CREDITED a las 12:31 y `tasks:run` 8 de 8, con la consola 8 de 8, a las 12:31.
-- **Bloqueos abiertos:** ninguno.
+- **URL de producción:** https://arrivalguard.vercel.app, con lo más actualizado (DEC-023). Producción en `c18a91d`: el smoke dio CREDITED a las 21:00 y `tasks:run` 8 de 8, con la consola 8 de 8, a las 21:28. Antes, con producción en `172676b`, el smoke dio CREDITED y `tasks:run` 8 de 8 a las 12:31.
+- **Bloqueos abiertos:** B3 (docs/BLOQUEOS.md). El objetivo original pedía `v1.0.0-submission` y nada nuevo después de las 12:00; los humanos eligieron otra cosa y solo ellos pueden ajustar esa condición.
 - **Gasto de IA estimado:** cerca de USD 2.61 medidos: USD 2.53 en la rama dev (475 llamadas al modelo real, `ai_usage`) y USD 0.08 en producción el lunes 19, día UTC (panel de la consola).
 
 ## Fases y puertas
@@ -271,6 +271,12 @@ Pasada de movimiento de marca (lunes por la tarde hasta las 20:50, DEC-022). La 
   - el monto del tablero se corría al cambiar el ancho de la píldora;
   - el menú de rol móvil no se cerraba con Escape ni al tocar fuera (ya pasaba antes).
   Además, el desplazamiento suave quedó solo en las anclas de la landing.
+- **Entrega en producción (20:55 a 21:35):**
+  - `pnpm verify` sobre `c18a91d`: exit 0 con 567 de 567 pruebas.
+  - Fast-forward de `main`; `/api/health` da `c18a91d`.
+  - Smoke en producción: CREDITED.
+  - Tag `v1.0.2-submission`.
+  - Luego, a pedido del usuario ("en producción debe estar lo más actualizado", DEC-023): `pnpm tasks:run` contra producción en `c18a91d` (21:28), 8 de 8 y la consola 8 de 8; `pnpm results:report`; y la entrega pasa a `v1.0.3-submission`, sobre el commit que agrega esa corrida.
 - **Evidencia:**
   - `pnpm verify` (20:30 a 20:40): exit 0 con 567 de 567 pruebas.
   - `pnpm ui:check` contra `pnpm build && pnpm start` (20:44): todos los pasos OK, incluido Run T1 to T8 8 de 8; 39 capturas, 0 violaciones serias o críticas de axe, sin scroll horizontal y sin errores de CSP.

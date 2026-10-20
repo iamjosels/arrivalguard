@@ -169,3 +169,10 @@ Registro de decisiones que no están en `docs/BUILD_PROMPT.md` ni en `docs/UI_UX
   - `tests/unit/ui/stamps.test.ts` y `tests/unit/ui/resourceCache.test.ts`.
   - `scripts/ui-check.ts` suma seis pasos: el sello se estampa una vez y no al recargar; la llegada a Credited se anima en vivo y no al recargar; el aviso usa 180 ms y la curva estándar; el tablero llega a Credited en menos de 8 s sin repetirse; con movimiento reducido muestra el estado final de inmediato. Espera a que terminen las animaciones antes de cada captura y de axe.
 - **Entrega:** `v1.0.2-submission` sobre el commit verificado. `v1.0.0-submission` y `v1.0.1-submission` quedan en `origin` como historia.
+
+## DEC-023. Producción y la entrega quedan en lo más actualizado: `v1.0.3-submission`
+
+- **Fecha:** lunes 19 de octubre, 21:35 (Lima). **Fuente:** pedido del usuario en la conversación: "arreglalo, en produccion debe estar lo mas actualizado".
+- **Decisión:** producción sirve lo último de `dev`, con la pasada de movimiento (DEC-022). La entrega es `v1.0.3-submission`, sobre el commit que agrega la corrida de `tasks:run` contra esa producción, así que el tag, `main` y producción coinciden. Ese commit solo cambia documentos y resultados.
+- **Evidencia:** `pnpm tasks:run --base-url https://arrivalguard.vercel.app` con producción en `c18a91d` (21:28): 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-20T02-28-40-513Z.json`). Después, `pnpm results:report` reescribió las secciones de resultados.
+- **Lo que no cambia:** `v1.0.0-submission` (`ed1ed75`), `v1.0.1-submission` (`bd12847`) y `v1.0.2-submission` (`c18a91d`) quedan en `origin` como historia, porque mover o borrar tags remotos está prohibido. El objetivo original pedía `v1.0.0-submission` como entrega y ninguna capacidad nueva después de las 12:00; los humanos decidieron otra cosa y eso queda anotado en BLOQUEOS (B3).

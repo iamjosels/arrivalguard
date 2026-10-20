@@ -2,7 +2,7 @@
 
 Lo que falta para avanzar y solo pueden resolver los humanos. Lo más urgente va arriba. Cuando un bloqueo se resuelva, se marca como resuelto con la hora de Lima.
 
-Última revisión: domingo 18 de octubre, 17:43 (Lima).
+Última revisión: lunes 19 de octubre, 21:35 (Lima).
 
 ## Regla de orden de las fases (indicada por los humanos)
 
@@ -13,7 +13,15 @@ Lo que falta para avanzar y solo pueden resolver los humanos. Lo más urgente va
 
 ## Abiertos
 
-Ninguno.
+- **B3. El objetivo de la sesión pide un estado que ya no es el elegido** (abierto el lunes 19 a las 21:35). El objetivo con el que se lanzó la construcción exige dos cosas:
+  - que la entrega sea `v1.0.0-submission`;
+  - ninguna capacidad nueva después del lunes 19 a las 12:00.
+
+  Los humanos decidieron otra cosa en la conversación:
+  - pidieron la pasada de movimiento de marca después de las 12:00 y eligieron "producción y tag nuevo" (DEC-022);
+  - luego pidieron que producción tenga lo más actualizado (DEC-023).
+
+  Cumplir el objetivo al pie de la letra exigiría mover `v1.0.0-submission`, que está prohibido, o deshacer lo que pidieron. **Solo los humanos pueden resolverlo:** ajustar o quitar esa condición del objetivo. La entrega es `v1.0.3-submission`, con producción, `main` y el tag en el mismo commit.
 
 ---
 

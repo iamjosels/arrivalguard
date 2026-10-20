@@ -1,12 +1,14 @@
 # Informe final de ArrivalGuard
 
-Lunes 19 de octubre de 2026, 13:05 (Lima), actualizado a las 20:50 con la pasada de movimiento de marca (DEC-022). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
+Lunes 19 de octubre de 2026, 13:05 (Lima), actualizado a las 20:50 con la pasada de movimiento de marca (DEC-022) y a las 21:35 con la corrida de `tasks:run` contra la producción más reciente (DEC-023). Construcción autónoma de las Fases 0 a 9 según `docs/BUILD_PROMPT.md`, `docs/UI_UX_PROMPT.md` y `docs/AUTONOMIA.md`. Todo dato es sintético; los proveedores y la universidad son simuladores.
 
 ## 1. Lo esencial
 
-- **Entrega:** el tag **`v1.0.2-submission`**, en `origin`. Es `v1.0.1-submission` más la pasada de movimiento de marca que pidió el usuario el lunes por la tarde (DEC-022). Esa pasada toca solo la interfaz: `git diff bd12847..v1.0.2-submission -- src/domain src/application src/infrastructure src/interfaces src/app/api src/proxy.ts drizzle` sale vacío.
+- **Entrega:** el tag **`v1.0.3-submission`**, en `origin`, sobre el mismo commit que `main` y que sirve producción (DEC-023). Es el código de `v1.0.2-submission` (`c18a91d`) más la corrida final de `tasks:run` contra esa producción; ese último commit solo cambia documentos y resultados.
+- **`v1.0.2-submission`** es `v1.0.1-submission` más la pasada de movimiento de marca que pidió el usuario el lunes por la tarde (DEC-022). Esa pasada toca solo la interfaz: `git diff bd12847..v1.0.2-submission -- src/domain src/application src/infrastructure src/interfaces src/app/api src/proxy.ts drizzle` sale vacío.
 - **`v1.0.1-submission`** apunta al commit que agrega este informe sobre el código **`172676b`**; ese commit solo cambia documentos y resultados (`git diff --stat 172676b..v1.0.1-submission -- src tests scripts` sale vacío).
-- **Producción:** https://arrivalguard.vercel.app. Las corridas oficiales del servidor (deterministas, agente y `tasks:run`) se hicieron con producción en `172676b` y siguen describiendo el mismo servidor. Después del tag, producción sirve el commit de `v1.0.2-submission`.
+- **Producción:** https://arrivalguard.vercel.app, con lo más actualizado. Las corridas deterministas y del agente son del código `172676b`; `tasks:run` se corrió a las 21:28 contra producción en `c18a91d`, con el mismo servidor. Producción sirve el commit de `v1.0.3-submission`.
+- **Objetivo original:** pedía `v1.0.0-submission` como entrega y ninguna capacidad nueva después de las 12:00. Los humanos eligieron otra cosa (DEC-022 y DEC-023), y está anotado como B3 en `docs/BLOQUEOS.md`.
 - **`v1.0.1` reemplaza a `v1.0.0`.** `v1.0.0-submission` (`ed1ed75`) sigue en `origin`, porque borrar o mover un tag remoto no está permitido. No se usa por dos motivos:
   - su informe nombraba commits que ya no correspondían;
   - la reinstalación desde cero con el entorno real encontró en ese código un error del intervalo entre corridas de Run T1 to T8, con una prueba que fallaba rara vez (sección 6).
@@ -21,8 +23,8 @@ Lunes 19 de octubre de 2026, 13:05 (Lima), actualizado a las 20:50 con la pasada
 
 | Qué | Evidencia (comando y resultado) |
 |---|---|
-| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` con producción en `172676b`: 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-19T17-31-53-049Z.json`; bitácora y transcripción de T8 en `docs/evidence/`) |
-| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=172676b`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 12:31) |
+| T1, T2, T5, T6 y T8 (P0) y T3, T4 y T7 (P1) de punta a punta en producción | `pnpm tasks:run --base-url https://arrivalguard.vercel.app` con producción en `c18a91d` (lunes 21:28): 8 de 8 tareas, y Run T1 to T8 de la consola 8 de 8 (`docs/results/tasks-2026-10-20T02-28-40-513Z.json`; bitácora y transcripción de T8 en `docs/evidence/`). La corrida anterior, con producción en `172676b`, también dio 8 de 8 |
+| T1 con CREDITED en producción | `pnpm smoke --base-url https://arrivalguard.vercel.app`: `commit=c18a91d`, `reconcile -> 200 status=CREDITED`, `smoke: OK (T1 CREDITED)` (lunes 19, 21:00); antes, con `commit=172676b` a las 12:31 |
 | T1 por chat con el modelo real en producción (puerta G2) | `pnpm smoke:chat`: CREDITED con el recibo `AU-RC-8555B526` (`docs/evidence/g2-chat-2026-10-19T03-34-06-061Z.json`) |
 | S01 a S12 (P0) y S13 a S16 (P1) en el servidor, con su categoría oficial | `pnpm eval:deterministic` sobre `172676b`: 117 de 117 pruebas en 40 escenarios; S01 a S16, 16 de 16 (`docs/results/deterministic-2026-10-19T17-31-19-099Z.json`) |
 | Ataques de nivel agente con el modelo real | `pnpm eval:agent` sobre `172676b`: S01, S02, S04, S05 y S10 a S15, juzgados por el estado del servidor (`docs/results/agent-2026-10-19T17-58-38-568Z.json`) |
@@ -36,10 +38,10 @@ Lunes 19 de octubre de 2026, 13:05 (Lima), actualizado a las 20:50 con la pasada
 
 ## 3. Resultados reales por escenario
 
-Tablas generadas desde los archivos de `docs/results/`, las mismas que publica `pnpm results:report` en `docs/results/RESULTS.md`. Todas son del código `172676b`:
+Tablas generadas desde los archivos de `docs/results/`, las mismas que publica `pnpm results:report` en `docs/results/RESULTS.md`. El servidor es el mismo en todas (`172676b`; `c18a91d` solo agrega movimiento de interfaz):
 - N, O y S deterministas: 2026-10-19T17:41Z (12:41 Lima).
 - Agente: 2026-10-19T17:58Z (12:58 Lima), con el modelo `claude-sonnet-5-5`, effort `low` y una corrida por escenario, sin compartir la base con otra corrida.
-- Tareas: 2026-10-19T17:31Z (12:31 Lima), con producción en `172676b`.
+- Tareas: 2026-10-20T02:28Z (lunes 21:28 Lima), con producción en `c18a91d`.
 
 N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 
@@ -139,16 +141,16 @@ N06, N15 y N16 son de diálogo y se miden en la corrida del agente.
 
 | Tarea | Resultado | Duración |
 |---|---|---|
-| T1 | en verde | 3.7 s |
+| T1 | en verde | 3.9 s |
 | T2 | en verde | 2.5 s |
-| T3 | en verde | 2.0 s |
-| T4 | en verde | 2.0 s |
+| T3 | en verde | 1.8 s |
+| T4 | en verde | 1.8 s |
 | T5 | en verde | 1.0 s |
-| T6 | en verde | 3.1 s |
-| T7 | en verde | 2.1 s |
-| T8 | en verde | 5.4 s |
+| T6 | en verde | 2.7 s |
+| T7 | en verde | 1.8 s |
+| T8 | en verde | 6.1 s |
 
-Consola, Run T1 to T8 en el servidor: HTTP 200, 8 de 8, 3.8 s.
+Consola, Run T1 to T8 en el servidor: HTTP 200, 8 de 8, 3.4 s.
 
 Todas las corridas del agente quedan publicadas en `docs/EVALUATION.md` 7.2. Una tuvo 27 de 28: D02 falló por un juez que solo contaba signos de pregunta. La corrección está documentada.
 
@@ -224,6 +226,6 @@ Topes vigentes: USD 3.00 por espacio, USD 15.00 por día y USD 7.50 por origen y
 2. **Armar las slides** a partir de `docs/PITCH_OUTLINE.md`, con las capturas de `docs/design/screens/`.
 3. **Revisar `secrets-scan`** antes de publicar: `pnpm secrets-scan` debe decir "OK, sin secretos". Nunca suban `.env.local`.
 4. **Decidir qué queda en la versión pública:** el PDF del plan (`docs/plan/ArrivalGuard_Plan_integral_del_equipo.pdf`) y los exportes de diseño (`docs/design/*.html` y `support.js`). Después, **hacer público el repositorio** si así lo deciden.
-5. **Poner en la entrega** la URL https://arrivalguard.vercel.app, el tag `v1.0.2-submission` y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
+5. **Poner en la entrega** la URL https://arrivalguard.vercel.app, el tag `v1.0.3-submission` y el código de evaluación (el valor de `EVAL_ACCESS_CODE`; en los documentos va como `<EVAL_ACCESS_CODE>`).
 6. **Completar la inscripción** en el formulario del FinTechathon.
 7. **Antes de grabar o del cierre:** pueden correr otra vez `pnpm smoke --base-url https://arrivalguard.vercel.app`; debe terminar en CREDITED.
